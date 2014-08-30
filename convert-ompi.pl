@@ -61,11 +61,16 @@ my ($msg, $new_msg);
     local $/; # slurp mode, activate!
     $msg = <STDIN>;
 }
-# we transform the commit message in three ways:
-# - add a note to the start of the commit containing the SVN revision number
-#   and the first 40-odd characters of the commit message
-# - search for any rXYZ values in the original message and add cross-ref notes
-#   to the bottom of the commit message ("rXYZ is 01234..cdef")
+
+# Transform the commit message in several ways:
+# - add a note to the commit indicating what SVN R number it used to be
+# - search for any rXYZ values in the original message and add
+#   cross-ref notes to the bottom of the commit message ("rXYZ is
+#   01234..cdef")
+# - search for any #XYZ values in the original message and add
+#   cross-ref notes to the bottom of the commit message ("trac ticket
+#   is https://...");
+# - replace "#XYZ" values in the original message with "trac:XYZ"
 # - strip out the git-svn bread crumbs ("git-svn-id: https://...")
 
 # strip out the git-svn breadcrumb first so that we don't accidentally
@@ -86,6 +91,14 @@ print $LOG_FH "XXX xref_hash=".Dumper($xref_hash)."\n";
 print $LOG_FH "XXX ranges=".Dumper($ranges)."\n";
 print $LOG_FH "XXX tickets=".Dumper($trac_tickets);
 
+# Change all the "fixes #" (and friends) to "fixes trac:" so that
+# Github doesn't cross-link those to Github issues.
+$new_msg =~ s/(\bfixes )#(\d+\b)/$1trac:$2/igm;
+$new_msg =~ s/(\brefs )#(\d+\b)/$1trac:$2/igm;
+$new_msg =~ s/(\bcloses )#(\d+\b)/$1trac:$2/igm;
+$new_msg =~ s/^(cmr=.+:ticket=)#(\d+)/$1trac:$2/igm;
+
+# Add footnotes to the commit
 $new_msg .= "\n";
 $new_msg .= "This commit was SVN r$REV.\n";
 if (%$xref_hash) {
