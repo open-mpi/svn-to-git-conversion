@@ -9,13 +9,13 @@ rname=ompi-svn-to-git
 rdir=$base/$rname
 svn_url=https://svn.open-mpi.org/svn/ompi
 
-do_svn_init=1
+do_svn_init=0
 
 cd $base
 
 # Sanity check
 if test $do_svn_init -eq 0 && \
-    test ! -r ompi-svn-to-git-1-after-clone.tar.bz2; then
+    test ! -r ompi-svn-to-git-1-after-fetch.tar.bz2; then
     echo "***  WARNING: Selected NOT to re-init SVN, but there's no tarball!"
     echo "*** Cannot continue"
     exit 1
@@ -23,17 +23,17 @@ fi
 
 ##########################################################################
 
-# Make sure we have the latest / greatest
+# This only works with 1.8.2.1 for some reason :-(
 module unload cisco/git
-module load cisco/git/2.1.0
+module load cisco/git/1.8.2.1
 
 rm -rf $rname
 
-if test "$do_svn_init" -eq 1; then
-    # Do the git svn clone
-    start=`date`
-    echo "===== STARTING: $start"
+# Pull from SVN
+start=`date`
+echo "===== STARTING: $start"
 
+if test "$do_svn_init" -eq 1; then
     git svn init -s $svn_url $rname
     cd $rname
 
@@ -73,15 +73,15 @@ while test $done -eq 0; do
     git svn fetch --all
     st=$?
     if test $st -eq 0; then
-        echo '======== git svn completed successfully!!'
+        echo '======== git svn fetch completed successfully!'
         done=1
     else
-        echo '======== git svn failed.  looping...'
+        echo '======== git svn fetch failed.  looping...'
         num_fails=`expr $num_fails + 1`
         if test $num_fails -gt 20; then
             stop=`date`
             echo "====== hmmm... lotsa failures... exiting..."
-            echo "===== GIT SVN CONVERT FAILED"
+            echo "===== GIT SVN FETCH FAILED"
             echo "===== START: $start"
             echo "===== STOP:  $stop"
             pushover SVN git clone failed
@@ -91,21 +91,15 @@ while test $done -eq 0; do
     fi
 done
 stop=`date`
-echo "===== GIT SVN CONVERT DONE"
+echo "===== GIT SVN FETCH DONE"
 echo "===== START: $start"
 echo "===== STOP:  $stop"
 
 # Save step 1
 cd ..
-echo '=========== SAVING GIT SVN CLONE'
-tar jcf $rname-1-after-clone.tar.bz2 $rname
+echo '=========== SAVING AFTER GIT SVN FETCH'
+tar jcf $rname-1-after-fetch.tar.bz2 $rname
 cd $rname
-
-# Delete the "tim" and "orte" branches; we don't need those in the
-# final OMPI git repos.
-echo ----------- Deleting stale branches
-git branch -D tim
-git branch -D orte
 
 # Run the preprocess step
 echo ----------- Running preprocess
@@ -115,9 +109,44 @@ $scripts_dir/preprocess-repo.sh
 cd ..
 echo '============ SAVING AFTER PREPROCESS'
 tar jcf $rname-2-after-preprocess.tar.bz2 $rname
-
-echo ----------- Running git filter-branch
 cd $rname
+
+# Delete some stale branches that were never actually released (git
+# svn saw their creation and therefore created corresponding git
+# branches).
+echo ----------- Deleting stale branches
+git branch -D tim
+git branch -D orte
+git branch -D v1.2ofed
+git branch -D v1.2ofed@13796
+git branch -D v1.7-wrappers
+git gc
+
+# Delete any tags that git svn created with "@" -- these are saved
+# versions of tags when tags were replaced in SVN (we don't care about
+# history of tags; we just want the final value).  There were a few
+# incorrectly-created tags, too -- tags that were "vX.Y", instead of
+# "vX.Y.Z" (git svn saw them created, but ignored when they were
+# deleted).  Delete those incorrect tags, too.
+for tag in `git tag`; do
+    echo tags are: $tag
+    if test "`echo $tag | grep @`" != ""; then
+        git tag -d $tag
+    elif test "`echo $tag | grep '^v[0-9].[0-9]$'`" != ""; then
+        git tag -d $tag
+    fi
+done
+
+# We have one case where we have a branch and a tag of the same name.
+# To avoid developer annoyance with git warnings about this, rename
+# the tag to be "<foo>-tag".
+hash=`git rev-parse refs/tags/v1.8.1`
+git tag -d v1.8.1
+git tag v1.8.1-tag $hash
+
+# Rewrite SVN commit messages to translate SVN r numbers and Trac
+# ticket numbers.
+echo ----------- Running git filter-branch
 rm -f /tmp/gfb-$USER.log
 
 # This version of git works with our git filter-branch command
@@ -131,13 +160,6 @@ git for-each-ref --format="%(refname)" refs/original/ | xargs -n 1 git update-re
 cd ..
 echo '============ SAVING FILTERED TREE'
 tar jcf $rname-3-after-filter.tar.bz2 $rname
-
-# Manually patch up tags.  OMPI stores them in a slightly non-standard
-# way in SVN, so do this semi-manually.
-
-# First, delete the existing tags.
-foreach tag `git tag`
-    git tag -d $tag
-done
+cd $rname
 
 $DOTFILES/pushover git svn conversion script FINISHED
