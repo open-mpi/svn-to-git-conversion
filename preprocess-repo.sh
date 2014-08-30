@@ -16,11 +16,11 @@ git config --local --remove-section svn-remote.svn
 
 # replace all remote tracking branches with regular "local" branches (the trunk
 # needs special handling to become "master" instead)
-if [[ "$(git rev-parse refs/remotes/trunk)" != "$(git rev-parse master)" ]] ; then
+if [[ "$(git rev-parse refs/remotes/origin/trunk)" != "$(git rev-parse master)" ]] ; then
     echo "ERROR: trunk != master for some reason (forgot to 'git svn rebase'?)"
     exit 1
 fi
-git update-ref -d refs/remotes/trunk
+git update-ref -d refs/remotes/origin/trunk
 for ref in $( git for-each-ref --format="%(refname)" refs/remotes/ ) ; do
     local_ref=${ref#refs/remotes/}
     case $local_ref in
@@ -41,6 +41,12 @@ for ref in $( git for-each-ref --format="%(refname)" refs/remotes/ ) ; do
             GIT_AUTHOR_NAME="$(git log -1 --pretty="%aN" $ref)" \
             GIT_AUTHOR_EMAIL="$(git log -1 --pretty="%aE" $ref)" \
             git tag -a -m "tag $local_tag" $local_tag $ref
+            ;;
+        origin/*)
+            # just make a local branch by the same (base) name pointing to the
+            # same commit, but remove "origin/" from the prefix
+            local_branch=${local_ref#origin/}
+            git branch $local_branch $ref
             ;;
         *)
             # just make a local branch by the same (base) name pointing to the
