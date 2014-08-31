@@ -118,7 +118,7 @@ cd $rname
 
 # Run the preprocess step
 echo ----------- Running preprocess
-$scripts_dir/preprocess-repo.sh
+$scripts_dir/svn-to-git/runme-preprocess-git-repo.sh
 
 # Save step 2
 cd ..
@@ -146,7 +146,7 @@ rm -f /tmp/gfb-$USER.log
 module unload cisco/git
 module load cisco/git/1.8.2.1
 
-git filter-branch --commit-filter "$scripts_dir/convert-ompi.pl"' "$@"' --tag-name-filter cat -- --all --date-order
+git filter-branch --commit-filter "$scripts_dir/svn-to-git/runme-git-filter-branch-hook.pl"' "$@"' --tag-name-filter cat -- --all --date-order
 git for-each-ref --format="%(refname)" refs/original/ | xargs -n 1 git update-ref -d
 
 # Save step 3
@@ -161,7 +161,7 @@ cd $rname
 # in script for more detail).  This requires a little more tomfoolery
 # than is easy to do in shell scripting; use perl.
 echo ----------- Fixing tags
-$scripts_dir/dotags.pl
+$scripts_dir/svn-to-git/runme-fix-tags.pl
 
 # Save step 4
 cd ..

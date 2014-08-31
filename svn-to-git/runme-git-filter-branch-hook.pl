@@ -316,4 +316,3 @@ sub svn_rev_to_hash {
     }
     return $ret;
 }
-

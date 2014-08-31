@@ -58,4 +58,3 @@ for ref in $( git for-each-ref --format="%(refname)" refs/remotes/ ) ; do
     # now delete the "remotes/" ref
     git update-ref -d $ref
 done
-
