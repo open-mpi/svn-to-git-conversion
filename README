@@ -1,14 +1,14 @@
-From an email exchange:
+The scripts in here are meant to be used for the Open MPI SVN -->
+GitHub transition.
 
-1) git svn clone with latest hwloc changes and updated authors file
-2) preprocess-repo.sh without argument
-3) git filter-branch very long line
-4) git push --mirror <wherever>
+There's at least 4 parts:
 
-NOTE: git-svn sometimes duplicates entries in .git/config, which
-causes warning messages in the conversion.  See
-http://stian.almaas.me/2012/05/git-svn-refspec-glob-conflict.html.  I
-deleted these extra/duplicated lines in the middle of the conversion,
-and then the warnings went away.
+1. SVN -> git translation, and then push to GitHub
+   --> See the "runme.sh" script to do the whole thing (set some paths
+       and variables up top first).
 
-----> Essentially: run the scripts/runme.sh script.
+2. Trac wiki -> Git markdown translation, and then push to GitHub
+
+3. Trac tickets -> Git issues translation
+
+4. Convert OMPI tarball scripts to use git instead of svn
