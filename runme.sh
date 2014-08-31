@@ -13,7 +13,12 @@ do_svn_init=0
 
 cd $base
 
-# Sanity check
+# Sanity checks
+if test "`pwd`" != "$base"; then
+    echo "I'm not sure what directory I'm in..."
+    echo Aboring before I do any harm
+    exit 1
+fi
 if test $do_svn_init -eq 0 && \
     test ! -r ompi-svn-to-git-1-after-fetch.tar.bz2; then
     echo "***  WARNING: Selected NOT to re-init SVN, but there's no tarball!"
@@ -36,8 +41,6 @@ echo "===== STARTING: $start"
 if test "$do_svn_init" -eq 1; then
     git svn init -s $svn_url $rname
     cd $rname
-
-    git config svn.authorsfile $scripts_dir/authors.txt
 
     # Get the right refs for OMPI's wonky SVN tag layout
     git config --replace-all svn-remote.svn.tags \
@@ -64,6 +67,13 @@ else
     cd $rname
     git checkout master
 fi
+
+# Get the latest authors file
+cd ..
+rm -rf authors
+git clone https://github.com/open-mpi/authors.git
+cd $rname
+git config svn.authorsfile $base/authors/authors.txt
 
 # Loop over git svn fetch (because sometimes the network between here
 # and upstream goes out, falsely causing "git svn fetch" to fail).
