@@ -60,7 +60,7 @@ if test "$do_svn_init" -eq 1; then
         'tags/v1.8-series/*:refs/remotes/tags/*'
 else
     # Extract the git svn clone
-    tar xf $rname-1-after-clone.tar.bz2
+    tar xf $rname-1-after-fetch.tar.bz2
     cd $rname
     git checkout master
 fi
@@ -90,6 +90,11 @@ while test $done -eq 0; do
         sleep 2
     fi
 done
+git checkout master
+git svn rebase
+# Without this sleep, the tar below that saves this tree sometimes
+# complains that .git/tags changes while tar is reading it (!).
+sleep 5
 stop=`date`
 echo "===== GIT SVN FETCH DONE"
 echo "===== START: $start"
@@ -122,28 +127,6 @@ git branch -D v1.2ofed@13796
 git branch -D v1.7-wrappers
 git gc
 
-# Delete any tags that git svn created with "@" -- these are saved
-# versions of tags when tags were replaced in SVN (we don't care about
-# history of tags; we just want the final value).  There were a few
-# incorrectly-created tags, too -- tags that were "vX.Y", instead of
-# "vX.Y.Z" (git svn saw them created, but ignored when they were
-# deleted).  Delete those incorrect tags, too.
-for tag in `git tag`; do
-    echo tags are: $tag
-    if test "`echo $tag | grep @`" != ""; then
-        git tag -d $tag
-    elif test "`echo $tag | grep '^v[0-9].[0-9]$'`" != ""; then
-        git tag -d $tag
-    fi
-done
-
-# We have one case where we have a branch and a tag of the same name.
-# To avoid developer annoyance with git warnings about this, rename
-# the tag to be "<foo>-tag".
-hash=`git rev-parse refs/tags/v1.8.1`
-git tag -d v1.8.1
-git tag v1.8.1-tag $hash
-
 # Rewrite SVN commit messages to translate SVN r numbers and Trac
 # ticket numbers.
 echo ----------- Running git filter-branch
@@ -162,4 +145,19 @@ echo '============ SAVING FILTERED TREE'
 tar jcf $rname-3-after-filter.tar.bz2 $rname
 cd $rname
 
+# Finally fix all the tags (unfortunately, our SVN tags are a bit of a
+# mess because SVN lets you be messy without realizing it, if you're
+# not careful... and we were apparently not careful :-( See comments
+# in script for more detail).  This requires a little more tomfoolery
+# than is easy to do in shell scripting; use perl.
+echo ----------- Fixing tags
+$scripts_dir/dotags.pl
+
+# Save step 4
+cd ..
+echo '============ SAVING AFTER TAG FIXING'
+tar jcf $rname-4-after-tag-fixing.tar.bz2 $rname
+cd $rname
+
+# All done!
 $DOTFILES/pushover git svn conversion script FINISHED
