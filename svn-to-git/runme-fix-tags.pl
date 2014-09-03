@@ -177,7 +177,7 @@ foreach my $tag (sort(keys(%{$tag_origins}))) {
         if ($tag eq "v1.8.1");
 
     print "Tag $tag corresponds to r$r, git $hash\n";
-    system("git tag $tag $hash");
+    system("git tag -a -m 'Tag the $tag release' $tag $hash");
 }
 exit(0);
 
