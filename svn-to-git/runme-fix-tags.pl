@@ -167,8 +167,10 @@ if (0) {
 foreach my $tag (sort(keys(%{$tag_origins}))) {
     my $r = $tag_origins->{$tag};
     $r =~ s/^r//;
-    my $hash = `git log --all --grep 'This commit was SVN r$r' --format=format:%H -s`;
-    chomp($hash);
+    my $output = `git log --all --grep 'This commit was SVN r$r' '--format=format:%H %ai' -s`;
+    my @parts = split(/\s+/, $output);
+    my $hash = $parts[0];
+    my $date = "$parts[1] $parts[2]";
 
     # Special case: we have both a tag and a branch named "v1.8.1"
     # (for bizarre history reasons).  So rename the tag to be
@@ -177,7 +179,10 @@ foreach my $tag (sort(keys(%{$tag_origins}))) {
         if ($tag eq "v1.8.1");
 
     print "Tag $tag corresponds to r$r, git $hash\n";
+    # Set a magic env variable to pretend we made the tag long ago
+    $ENV{'GIT_COMMITTER_DATE'} = $date;
     system("git tag -a -m 'Tag the $tag release' $tag $hash");
+    delete $ENV{'GIT_COMMITTER_DATE'};
 }
 exit(0);
 
