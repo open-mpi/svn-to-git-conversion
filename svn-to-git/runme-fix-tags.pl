@@ -170,7 +170,7 @@ foreach my $tag (sort(keys(%{$tag_origins}))) {
     my $output = `git log --all --grep 'This commit was SVN r$r' '--format=format:%H %ai' -s`;
     my @parts = split(/\s+/, $output);
     my $hash = $parts[0];
-    my $date = "$parts[1] $parts[2]";
+    my $date = "$parts[1] $parts[2] $parts[3]";
 
     # Special case: we have both a tag and a branch named "v1.8.1"
     # (for bizarre history reasons).  So rename the tag to be
