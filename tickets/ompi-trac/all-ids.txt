@@ -1,0 +1,72 @@
+jurenz = jurenz
+Freyguy19713
+adi
+afriedle
+antst
+aryzhikh
+balay
+bbenton = bbenton
+bosilca = bosilca
+bouteill = abouteiller
+brbarret
+bwesarg = bertwesarg
+cyeoh
+davidm
+dgoodell = goodell
+domke
+edgar = edgargabriel
+eugene = euloh
+fx
+ggouaillardet = ggouaillardet
+gruenich
+gshipman
+hjelmn = hjelmn
+hklimach
+hpcchris = cniethammer
+hppritcha = hppritcha
+htor
+jdmason
+jedbown
+jjhursey = jjhursey
+jladd = jladd-mlnx
+jrandall
+jsquyres = jsquyres
+kliteyn
+lennyve
+liuwind
+manjugv = manjugv
+matney
+matzeri
+miked = miked-mellanox
+msteele24
+ompi-rm1.8
+opoplawski
+owner
+pasha = shamisp
+phargrov = PHHargrove
+regrant = regrant
+reporter
+rhc = rhc54
+rlgraham
+robl
+rolfv = rolfv
+rusraink
+shiqing
+tdd
+teh
+timattox
+tprins
+yaeld
+hppritcha = hppritcha
+hadi = hadimontakhabi
+osvegis = osvegis
+mjbhaskar = mjbhaskar
+devendar = bureddy
+artpol = artpol84
+adrian = adrianreber
+naughtont = naughtont3
+alex = alex-ma
+alinas = alinask
+amikheev = alex-mikheev
+vasily = vasilyMellanox
+tkordenbrock = tkordenbrock

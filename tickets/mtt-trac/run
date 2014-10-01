@@ -1,0 +1,10 @@
+#!/bin/sh
+
+base=/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014
+
+export PYTHONPATH=$base/tickets/local/lib/python2.7/site-packages:$PYTHONPATH
+
+cd $base/tickets/mtt-trac
+
+$base/tickets/local/bin/tratihubis \
+    tratihubis.cfg --really

@@ -1,0 +1,1007 @@
+id,type,owner,reporter,milestone,status,resolution,summary,description,PosixTime,ModifiedTime,priority
+4104,defect,phargrov,jsquyres,Open MPI 1.8.4,accepted,,Fix NetBSD on AMD64 and i386 when g95 is in path,"Per thread here:
+
+    http://www.open-mpi.org/community/lists/devel/2014/01/13748.php
+
+Paul Hargrove discovered an issue on NetBSD-6 on AMD64 when g95 is in the path.  We updated README to say ""this doesn't work"" in r 30269.
+
+Paul volunteered (in http://www.open-mpi.org/community/lists/devel/2014/01/13761.php) to fix this for real (somehow) for 1.7.5 or later.",1389644378,1389999675,major
+4195,defect,,matzeri,Future,new,,cygwin 64bit:  Testing atomic_spinlock_noinline.exe segfault,"on cygwin 64 bit (not on 32 bit)
+the following 3 test fails (they are the only one) 
+(also on 1.7.x series)
+
+```
+--> Testing atomic_spinlock_noinline.exe
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  1432 Segmentation fault      (core dumped) $* $threads
+    - 1 threads: Failed
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:   440 Segmentation fault      (core dumped) $* $threads
+    - 2 threads: Failed
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  6400 Segmentation fault      (core dumped) $* $threads
+    - 4 threads: Failed
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  1840 Segmentation fault      (core dumped) $* $threads
+    - 5 threads: Failed
+    - 8 threads: Passed
+FAIL: atomic_spinlock_noinline.exe
+
+--> Testing atomic_math_noinline.exe
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_te
+sts: line 8:  5308 Segmentation fault      (core dumped) $* $threads
+    - 1 threads: Failed
+    - 2 threads: Passed
+    - 4 threads: Passed
+    - 5 threads: Passed
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_te
+sts: line 8:  4736 Segmentation fault      (core dumped) $* $threads
+    - 8 threads: Failed
+FAIL: atomic_math_noinline.exe
+
+--> Testing atomic_cmpset_noinline.exe
+assertion ""opal_atomic_cmpset_32(&vol32, old32, new32) == 1"" failed: file ""/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/atomic_cmpset_noinline.c"", line 105, function: main
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  6544 Aborted                 (core dumped) $* $threads
+    - 1 threads: Failed
+assertion ""opal_atomic_cmpset_32(&vol32, old32, new32) == 1"" failed: file ""/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/atomic_cmpset_noinline.c"", line 105, function: main
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:   688 Aborted                 (core dumped) $* $threads
+    - 2 threads: Failed
+assertion ""opal_atomic_cmpset_32(&vol32, old32, new32) == 1"" failed: file ""/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/atomic_cmpset_noinline.c"", line 105, function: main
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  7116 Aborted                 (core dumped) $* $threads
+    - 4 threads: Failed
+assertion ""opal_atomic_cmpset_32(&vol32, old32, new32) == 1"" failed: file ""/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/atomic_cmpset_noinline.c"", line 105, function: main
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  6648 Aborted                 (core dumped) $* $threads
+    - 5 threads: Failed
+assertion ""opal_atomic_cmpset_32(&vol32, old32, new32) == 1"" failed: file ""/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/atomic_cmpset_noinline.c"", line 105, function: main
+/pub/devel/openmpi/openmpi-1.9a1r30255-1/src/openmpi-1.9a1r30255/test/asm/run_tests: line 8:  4216 Aborted                 (core dumped) $* $threads
+    - 8 threads: Failed
+FAIL: atomic_cmpset_noinline.exe
+```",1390943093,1406177034,major
+4206,defect,hjelmn,jsquyres,Open MPI 1.8.4,new,,IBM dynamic/create_intercomm tests fails in basemuma/coll ml,"When I run the IBM dynamic/create_intercomm test, it fails and the call stack is in basemuma/coll ml.  Can one of the authors have a look?
+
+I use --oversubscribe because I am running on 2 servers, each with 4 cores (in a SLURM job).  This happens on both trunk and v1.7:
+
+```
+$ mpirun  --oversubscribe -np 8 -mca btl tcp,sm,self intercomm_create 
+[dell023:14082] *** Process received signal ***
+[dell023:14082] Signal: Segmentation fault (11)
+[dell023:14082] Signal code: Address not mapped (1)
+[dell023:14082] Failing at address: 0xc
+[dell023:14084] [ 2] [dell023:14082] /home/jsquyres/bogus/lib/libopen-pal.so.0(opal_memory_ptmalloc2_int_malloc+0x1e1)[0x559eabbd]
+[dell023:14082] [ 1] /home/jsquyres/bogus/lib/libopen-pal.so.0(+0xb86c1)[0x559eb6c1]
+[dell023:14082] [ 2] /home/jsquyres/bogus/lib/libopen-pal.so.0(opal_memory_ptmalloc2_int_malloc+0x1e1)[0x559eabbd]
+[dell023:14082] [ 3] /home/jsquyres/bogus/lib/libopen-pal.so.0(opal_memory_ptmalloc2_malloc+0x8b)[0x559e9e3b]
+[dell023:14082] [ 4] /home/jsquyres/bogus/lib/libopen-pal.so.0(+0xb5ff0)[0x559e8ff0]
+[dell023:14082] [ 5] /lib/libc.so.6(__libc_calloc+0x28b)[0x55754aab]
+[dell023:14082] [ 6] /home/jsquyres/bogus/lib/libopen-pal.so.0(opal_calloc+0x6e)[0x5599c8da]
+[dell023:14082] [ 7] /home/jsquyres/bogus/lib/openmpi/mca_bcol_basesmuma.so(+0x4c9a)[0x56026c9a]
+[dell023:14082] [ 8] /home/jsquyres/bogus/lib/openmpi/mca_bcol_basesmuma.so(bcol_basesmuma_bank_init_opti+0x57a)[0x560273cf]
+[dell023:14082] [ 9] /home/jsquyres/bogus/lib/openmpi/mca_coll_ml.so(+0x687b)[0x55f8987b]
+[dell023:14082] [10] /home/jsquyres/bogus/lib/openmpi/mca_coll_ml.so(+0x6b69)[0x55f89b69]
+[dell023:14082] [11] /home/jsquyres/bogus/lib/openmpi/mca_coll_ml.so(+0x9add)[0x55f8cadd]
+[dell023:14082] [12] /home/jsquyres/bogus/lib/openmpi/mca_coll_ml.so(mca_coll_ml_comm_query+0x372)[0x55f9112b]
+[dell023:14082] [13] /home/jsquyres/bogus/lib/libmpi.so.0(+0xb189b)[0x5562889b]
+[dell023:14082] [14] /home/jsquyres/bogus/lib/libmpi.so.0(+0xb1874)[0x55628874]
+[dell023:14082] [15] /home/jsquyres/bogus/lib/libmpi.so.0(+0xb1793)[0x55628793]
+[dell023:14082] [16] /home/jsquyres/bogus/lib/libmpi.so.0(+0xb15b1)[0x556285b1]
+[dell023:14082] [17] /home/jsquyres/bogus/lib/libmpi.so.0(mca_coll_base_comm_select+0xaa)[0x55621672]
+[dell023:14082] [18] /home/jsquyres/bogus/lib/libmpi.so.0(ompi_mpi_init+0xf61)[0x555bca1a]
+[dell023:14082] [19] /home/jsquyres/bogus/lib/libmpi.so.0(MPI_Init+0x1a4)[0x555ee37f]
+[dell023:14082] [20] intercomm_create[0x8048975]
+[dell023:14082] [21] /lib/libc.so.6(__libc_start_main+0xe6)[0x556f6ce6]
+[dell023:14082] [22] intercomm_create[0x8048811]
+```",1391135145,1404233856,major
+4249,defect,jsquyres,jsquyres,Open MPI 1.8.4,new,,MPI_Status_set_elements_x() does not work with an -m32 build (v1.7),"When you build OMPI (trunk or v1.7) with:
+
+```
+./configure CFLAGS=-m32 CXXFLAGS=-m32 FCFLAGS=-m32 --with-wrapper-cflags=-m32 --with-wrapper-cxxflags=-m32 --with-wrapper-fcflags=-m32
+```
+
+you end up with MPI_Count being a long long, which is 8 bytes.  But size_t is 4 bytes.
+
+When you call MPI_Status_set_elements_x() with a value larger than 2^32^ (e.g., the ibm datatypes/getel_x test), it gets passed in to MPI_Status_set_elements_x() properly, but then it calls ompi_datatype_set_element_count(), which passes the MPI_Count value through a parameter that is of type size_t, and the value gets truncated.
+
+Hence, the value that is set on the status is the truncated value, not the actual larger-than-2^32^ value.
+
+This is the v1.7 version of https://svn.open-mpi.org/trac/ompi/ticket/4205.  Due to ABI issues, the solution for v1.7/v1.8 will be different than the solution for trunk/v1.9.",1392077897,1397864491,major
+4262,defect,miked,jsquyres,Open MPI 1.8.4,new,,hello_oshmemfh link failure with xlc/ppc32/linux,"Per mail from Paul Hargrove:
+
+    http://www.open-mpi.org/community/lists/devel/2014/02/14057.php
+
+Both trunk and v1.7.5 fail to compile the oshmem examples with some undefined references.",1392213365,1394765901,critical
+4285,RFC,,hpcchris,Open MPI 1.9,new,,Remove PERUSE in favour of upcoming MPI_T pvar implementation,"Hello,
+
+I suggest to remove the PERUSE functionality from the Open MPI trunk in favour of the upcoming MPI_T pvar implementation with the attached patch.
+The PERUSE functionality is already broken as reported in https://svn.open-mpi.org/trac/ompi/ticket/4204.
+
+Best regards
+Christoph Niethammer",1392718165,1392723910,major
+4292,defect,,teh,,new,,distances.c calloc for zero objects gives SIGILL,"A call to calloc is made for zero objects. Result is SIGILL.
+
+stack from gdb -- see position 6:
+
+```
+#0  0x00007ffff5a26b67 in kill () from /lib64/libc.so.6
+#1  0x00007ffff65c4435 in ?? () from /usr/lib64/libefence.so.0
+#2  0x00007ffff65c47aa in EF_Abortv () from /usr/lib64/libefence.so.0
+#3  0x00007ffff65c483c in EF_Abort () from /usr/lib64/libefence.so.0
+#4  0x00007ffff65c4009 in memalign () from /usr/lib64/libefence.so.0
+#5  0x00007ffff65c4275 in calloc () from /usr/lib64/libefence.so.0
+#6  0x00007ffff68b84c6 in opal_hwloc132_hwloc_convert_distances_indexes_into_objects (
+    topology=topology@entry=0x7ffff224a000) at distances.c:289
+#7  0x00007ffff69067ca in hwloc_discover (topology=0x7ffff224a000) at topology.c:2023
+#8  opal_hwloc132_hwloc_topology_load (topology=0x7ffff224a000) at topology.c:2596
+#9  0x00007ffff68c0fd7 in opal_hwloc_unpack (buffer=0x7ffff1bb2000, dest=<optimized out>, num_vals=0x7fffffffd010,
+    type=<optimized out>) at base/hwloc_base_dt.c:83
+#10 0x00007ffff68bc7ee in opal_dss_unpack_buffer (buffer=buffer@entry=0x7ffff1bb2000,
+    dst=dst@entry=0x7ffff6b62b08 <opal_hwloc_topology>, num_vals=num_vals@entry=0x7fffffffd010,
+    type=type@entry=22 '\026') at dss/dss_unpack.c:120
+#11 0x00007ffff68bd79a in opal_dss_unpack (buffer=0x7ffff1bb2000, dst=0x7ffff6b62b08 <opal_hwloc_topology>,
+    num_vals=0x7fffffffd080, type=22 '\026') at dss/dss_unpack.c:84
+#12 0x00007ffff68853ff in orte_util_nidmap_init (buffer=0x7ffff1bb2000) at util/nidmap.c:146
+#13 0x00007ffff150b6fa in rte_init () at ess_env_module.c:173
+#14 0x00007ffff686e4da in orte_init (pargc=pargc@entry=0x0, pargv=pargv@entry=0x0, flags=flags@entry=32)
+    at runtime/orte_init.c:127
+#15 0x00007ffff6830899 in ompi_mpi_init (argc=argc@entry=0, argv=argv@entry=0x0, requested=0, provided=0x7fffffffd310)
+    at runtime/ompi_mpi_init.c:357
+#16 0x00007ffff6846ad6 in PMPI_Init (argc=0x0, argv=0x0) at pinit.c:86
+#17 0x00000000004156c1 in MPI::Init () at /usr/local/include/openmpi/ompi/mpi/cxx/functions_inln.h:128
+#18 0x00000000004135c2 in main () at Test_SimOutputSpatialNc.cpp:211
+```
+
+Examine stack position 6 shows call calloc(0, ...)
+
+```
+(gdb) f 6
+#6  0x00007ffff68b84c6 in opal_hwloc132_hwloc_convert_distances_indexes_into_objects (
+    topology=topology@entry=0x7ffff224a000) at distances.c:289
+289           hwloc_obj_t *objs = calloc(nbobjs, sizeof(hwloc_obj_t));
+(gdb) p nbobjs
+$3 = 0
+(gdb) l
+284         unsigned nbobjs = topology->os_distances[type].nbobjs;
+285         unsigned *indexes = topology->os_distances[type].indexes;
+286         float *distances = topology->os_distances[type].distances;
+287         unsigned i, j;
+288         if (!topology->os_distances[type].objs) {
+289           hwloc_obj_t *objs = calloc(nbobjs, sizeof(hwloc_obj_t));
+```
+
+Possible fix: insert after line 284: if (nbobjs == 0) return;
+
+```
+Platform: opensuse 13.1 64-bit
+g++ version: 4.8.1 20130909 [gcc-4_8-branch revision 202388]
+configure options:  CFLAGS='-ggdb3 -fPIC'
+```
+",1392942696,1392950291,major
+4342,defect,,edgar,Open MPI 1.6.6,new,,Make ROMIO work with PVFS2 in the 1.6 series,"this patch fixes a compilation problem with ROMIO on PVFS2 for OpenMPI, and resets two function pointers to ensure correctness of the data. Patch is attached. ",1394030327,1397246522,major
+4376,defect,miked,aryzhikh,Open MPI 1.8.4,assigned,,bug in XRC that leads to hang of heavy collective operations like Alltoall,"The attached test isend_txrc.c demonstrates the problem. The bug is intermittent so run_loop.sh scripts may be used.
+
+We reproduced the hang on Alltoall with large core count. The test isend_txrc.c uses low number of XRC buffers to catch this error.
+
+The problem appears on progress of no_wqe_pending frags because sd_wqe is common for several endpoints (that relates to same node for lcl_qp) and sd_wqe may be updated not for the same endpoint as no_wqe_pending_frags belongs to.
+
+The solution is to move no_wqe_pending_frags field from struct mca_btl_openib_endpoint_qp_t to struct mca_btl_openib_qp_t :
+
+```
+typedef struct mca_btl_openib_qp_t {
+    struct ibv_qp *lcl_qp;
+    uint32_t lcl_psn;
+    int32_t  sd_wqe;      /**< number of available send wqe entries */
+    int32_t  sd_wqe_inflight;
+    int wqe_count;
+    int users;
+
+#if 1
+    opal_list_t no_wqe_pending_frags[2]; /**< put fragments here if there is no wqe available  */
+
+#endif
+
+    opal_mutex_t lock;
+} mca_btl_openib_qp_t;
+
+
+typedef struct mca_btl_openib_endpoint_qp_t  {
+    mca_btl_openib_qp_t *qp;
+    opal_list_t no_credits_pending_frags[2]; /**< put fragment here if there is no credits
+                                     available */
+
+#if 0
+    opal_list_t no_wqe_pending_frags[2]; /**< put fragments here if there is no wqe available  */
+#endif 
+
+    int32_t  rd_credit_send_lock;  /**< Lock credit send fragment */
+    mca_btl_openib_send_control_frag_t *credit_frag;
+    size_t ib_inline_max;          /**< max size of inline send*/
+    union {
+        mca_btl_openib_endpoint_srq_qp_t srq_qp;
+        mca_btl_openib_endpoint_pp_qp_t pp_qp;
+    } u;
+} mca_btl_openib_endpoint_qp_t;
+```
+
+And revise OpenIB BTL code that have references to no_wqe_pending_frags lists.",1394609605,1394619231,major
+4429,defect,,ggouaillardet,,new,,coll/sm has memory leak(s) in v1.6,"Dear OpenMPI Folks,
+
+the attached test program evidences three memory leaks in the coll/sm module of the v1.6 branch.
+
+the two attached patches fix the issue.
+the first patch is pretty trivial, but the second does need to be reviewed since it might break something else somewhere else.
+
+Best regards,
+
+Gilles",1395298865,1395648824,major
+4442,defect,jsquyres,jsquyres,Open MPI 1.8.4,new,,Non-uniform BTL usage not working,"NOTE: My example has to do with the usnic BTL, but a quick look shows that this is in '''all''' the BTLs -- even TCP.
+
+I accidentally ran an OMPI job today spanning my head node and a compute node.  The compute node has the usnic stack loaded on it; the head node does not.  I got the following warning message:
+
+```
+An internal error has occurred in the Open MPI usNIC BTL.  This is
+highly unusual and shouldn't happen.  It suggests that there may be
+something wrong with the usNIC or OpenFabrics configuration on this
+server.
+
+Open MPI will skip this device/port in the usnic BTL, which may result
+in either lower performance or your job aborting.
+
+  Server:          mpi012
+  Device:          <none>
+  Port:            0
+  Failure:         ompi_modex_recv() failed (btl_usnic_proc.c:208)
+  Description:     Data for specified key not found
+```
+
+I tracked this down to the ompi_modex_recv() function -- it's returning OPAL_ERR_DATA_VALUE_NOT_FOUND if the peer did not put a corresponding key.
+
+This is relatively easy to fix -- if you get that return value from ompi_modex_recv(), then just assume that peer cannot communicate with this BTL.
+
+But here's the kicker: apparently other BTLs do the same thing.  They should all be checking for OPAL_ERR_DATA_VALUE_NOT_FOUND.",1395689286,1401545229,critical
+4472,documentation,rhc,jsquyres,Open MPI 1.8.4,new,,"Audit mpirun CLI options, check man page","A user reported that we're missing --display-map in mpirun.1.  We should audit the available mpirun options and ensure they're documented properly in mpirun.1.
+
+http://www.open-mpi.org/community/lists/users/2014/03/24000.php",1395957700,1395957700,critical
+4488,defect,,ggouaillardet,,new,,coll/sm has memory leak(s),"Dear OpenMPI Folks,
+
+this ticket is similar to https://svn.open-mpi.org/trac/ompi/ticket/4429.
+
+in trunk, coll/sm has several memory leaks.
+
+The attached program can be used in order to evidence them.
+it can be ran like this :
+
+mpirun -host localhost --mca coll_sm_priority 90 --mca coll_sync_priority 100 --mca coll_ml_priority 0 -np 2 a.out
+
+Best regards,
+
+Gilles",1396512499,1396513211,major
+4490,defect,hjelmn,rolfv,Open MPI 1.8.4,new,,Calling MPI_T_init_thread before MPI_Init causes SEGV,"I ran this test against the trunk.  Strange error when we call MPI_T_init_thread first.
+
+mpirun -np 1 simple_tool_test
+
+```
+Program received signal SIGSEGV, Segmentation fault.
+0x0000000001188030 in ?? ()
+(gdb) where
+#0  0x0000000001188030 in ?? ()
+#1  0x00007f641ca27c8a in opal_obj_run_constructors (object=0x7f641ccbf280)
+    at ../../../opal/class/opal_object.h:424
+#2  0x00007f641ca27d6b in opal_malloc_init () at ../../../opal/util/malloc.c:63
+#3  0x00007f641c9db269 in opal_init_util (pargc=0x7fffa0c26a3c, pargv=0x7fffa0c26a30)
+    at ../../opal/runtime/opal_init.c:258
+#4  0x00007f641e13a665 in ompi_mpi_init (argc=1, argv=0x7fffa0c26c58, requested=0, provided=0x7fffa0c26b28)
+    at ../../ompi/runtime/ompi_mpi_init.c:398
+#5  0x00007f641e16f8d6 in PMPI_Init (argc=0x7fffa0c26b6c, argv=0x7fffa0c26b60) at pinit.c:84
+#6  0x0000000000400c6a in main (argc=1, argv=0x7fffa0c26c58) at simple_tool_test.c:16
+(gdb) 
+```",1396643276,1405401557,major
+4519,defect,jsquyres,jsquyres,Open MPI 1.8.4,new,,MPI_SIZEOF missing for ignore-tkr mpi module,"As reported here on the user's list (http://www.open-mpi.org/community/lists/users/2014/04/24173.php), the MPI_SIZEOF implementations are missing in the ignore-tkr mpi module case.
+
+Reported by Luis Kornblueh.",1397508244,1411591682,critical
+4531,defect,,ggouaillardet,,new,,coll/tuned MPI_Bcast can crash or silently fail when using distinct datatypes accross tasks,"Dear OpenMPI Folks,
+
+Please consider the two attached reproducers.
+
+They work just fine with coll/basic
+```
+mpirun -np 2 -host localhost --mca coll_basic_priority 100 ./a.out
+```
+but with coll/tuned (the default with the trunk) :
+- the first test case crashes (MPI_ERR_TRUNCATE)
+- the second test case silently fails (no error is detected, but the output of MPI_Bcast is incorrect)
+
+The root cause is MPI_Send and MPI_Recv ""sizes"" (e.g. count * size(datatype)) do not match which can either cause a crash (lucky case) or an undetected failure (worst case).
+
+Best regards,
+
+Gilles
+",1397722838,1397722838,major
+4575,defect,,dgoodell,Open MPI 1.9,new,,ROMIO pthread deadlock @ finalize in 1.8.1,"From http://www.open-mpi.org/community/lists/users/2014/04/24259.php
+
+------
+
+     Hi 
+    
+        The following program deadlocks in mpi_finalize with OMPI 1.8.1 but works correctly with OMPI 1.6.5
+
+        Is there a work around?
+    
+      Thanks
+    
+     Jamil
+
+```
+program mpiio
+use mpi
+implicit none
+integer(kind=4) :: iprov, fh, ierr
+call mpi_init_thread(MPI_THREAD_SERIALIZED, iprov, ierr)
+if (iprov < MPI_THREAD_SERIALIZED) stop 'mpi_init_thread'
+call mpi_file_open(MPI_COMM_WORLD, 'test.dat', &
+MPI_MODE_WRONLY + MPI_MODE_CREATE, MPI_INFO_NULL, fh, ierr)
+call mpi_file_close(fh, ierr)
+call mpi_finalize(ierr)
+end program mpiio
+
+(gdb) bt
+#0  0x0000003155a0e054 in __lll_lock_wait () from /lib64/libpthread.so.0
+#1  0x0000003155a09388 in _L_lock_854 () from /lib64/libpthread.so.0
+#2  0x0000003155a09257 in pthread_mutex_lock () from /lib64/libpthread.so.0
+#3  0x00007ffff7819f3c in ompi_attr_free_keyval () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi.so.1
+#4  0x00007ffff7857be1 in PMPI_Keyval_free () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi.so.1
+#5  0x00007ffff15b21f2 in ADIOI_End_call () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/openmpi/mca_io_romio.so
+#6  0x00007ffff781a325 in ompi_attr_delete_impl () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi.so.1
+#7  0x00007ffff781a4ec in ompi_attr_delete_all () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi.so.1
+#8  0x00007ffff7832ad5 in ompi_mpi_finalize () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi.so.1
+#9  0x00007ffff7b12e59 in pmpi_finalize__ () from /gpfs/thirdparty/zenotech/home/jappa/apps6.4/lib/libmpi_mpifh.so.2
+#10 0x0000000000400b64 in mpiio () at t.f90:10
+#11 0x0000000000400b9a in main ()
+#12 0x000000315561ecdd in __libc_start_main () from /lib64/libc.so.6
+#13 0x0000000000400a19 in _start ()
+```",1398791966,1398794364,minor
+4577,defect,,dgoodell,Open MPI 1.8.4,new,,MPI_Comm_create_group failure,"From Lisandro: http://www.open-mpi.org/community/lists/devel/2014/04/14566.php
+-----
+
+A very basic test for MPI_Comm_create_group() is failing for me. I'm
+pasting the code, the failure, and output from valgrind.
+
+```
+[dalcinl@kw2060 openmpi]$ cat comm_create_group.c
+#include <mpi.h>
+int main(int argc, char *argv[])
+{
+ MPI_Group group;
+ MPI_Comm comm;
+ MPI_Init(&argc, &argv);
+ MPI_Comm_group(MPI_COMM_WORLD, &group);
+ MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &comm);
+ MPI_Comm_free(&comm);
+ MPI_Group_free(&group);
+ MPI_Finalize();
+ return 0;
+}
+[dalcinl@kw2060 openmpi]$ mpicc comm_create_group.c
+[dalcinl@kw2060 openmpi]$ ./a.out
+[kw2060:22673] *** An error occurred in MPI_Comm_create_group
+[kw2060:22673] *** reported by process [140737483440129,140733193388032]
+[kw2060:22673] *** on communicator MPI_COMM_WORLD
+[kw2060:22673] *** MPI_ERR_UNKNOWN: unknown error
+[kw2060:22673] *** MPI_ERRORS_ARE_FATAL (processes in this
+communicator will now abort,
+[kw2060:22673] ***    and potentially your MPI job)
+
+
+[dalcinl@kw2060 openmpi]$ valgrind -q ./a.out
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C457D6: ompi_comm_nextcid (comm_cid.c:262)
+==22675==    by 0x4C42FA8: ompi_comm_create_group (comm.c:1109)
+==22675==    by 0x4C81E35: PMPI_Comm_create_group (pcomm_create_group.c:77)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C42FB0: ompi_comm_create_group (comm.c:1116)
+==22675==    by 0x4C81E35: PMPI_Comm_create_group (pcomm_create_group.c:77)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C81E46: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C81BA0: ompi_errcode_get_mpi_code (errcode-internal.h:64)
+==22675==    by 0x4C81E51: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C4AA14: opal_pointer_array_get_item
+(opal_pointer_array.h:130)
+==22675==    by 0x4C4AA60: ompi_mpi_errnum_get_string (errcode.h:122)
+==22675==    by 0x4C4B0B4: backend_fatal_aggregate (errhandler_predefined.c:192)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Use of uninitialised value of size 8
+==22675==    at 0x327BC47B9B: _itoa_word (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC48AD0: vfprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC74D52: vasprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x52E6C4B: opal_show_help_vstring (show_help.c:309)
+==22675==    by 0x4FCFBB4: orte_show_help (show_help.c:591)
+==22675==    by 0x4C4B1B5: backend_fatal_aggregate (errhandler_predefined.c:201)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x327BC47BA5: _itoa_word (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC48AD0: vfprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC74D52: vasprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x52E6C4B: opal_show_help_vstring (show_help.c:309)
+==22675==    by 0x4FCFBB4: orte_show_help (show_help.c:591)
+==22675==    by 0x4C4B1B5: backend_fatal_aggregate (errhandler_predefined.c:201)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x327BC48B18: vfprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC74D52: vasprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x52E6C4B: opal_show_help_vstring (show_help.c:309)
+==22675==    by 0x4FCFBB4: orte_show_help (show_help.c:591)
+==22675==    by 0x4C4B1B5: backend_fatal_aggregate (errhandler_predefined.c:201)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x327BC48737: vfprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC74D52: vasprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x52E6C4B: opal_show_help_vstring (show_help.c:309)
+==22675==    by 0x4FCFBB4: orte_show_help (show_help.c:591)
+==22675==    by 0x4C4B1B5: backend_fatal_aggregate (errhandler_predefined.c:201)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x327BC487B7: vfprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC74D52: vasprintf (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x52E6C4B: opal_show_help_vstring (show_help.c:309)
+==22675==    by 0x4FCFBB4: orte_show_help (show_help.c:591)
+==22675==    by 0x4C4B1B5: backend_fatal_aggregate (errhandler_predefined.c:201)
+==22675==    by 0x4C4B657: backend_fatal (errhandler_predefined.c:334)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+[kw2060:22675] *** An error occurred in MPI_Comm_create_group
+[kw2060:22675] *** reported by process [68714692609,0]
+[kw2060:22675] *** on communicator MPI_COMM_WORLD
+[kw2060:22675] *** Unknown error (this should not happen!)
+[kw2060:22675] *** MPI_ERRORS_ARE_FATAL (processes in this
+communicator will now abort,
+[kw2060:22675] ***    and potentially your MPI job)
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C606BE: ompi_mpi_abort (ompi_mpi_abort.c:96)
+==22675==    by 0x4C4B6AA: backend_fatal (errhandler_predefined.c:346)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4C60498: opal_pointer_array_get_item
+(opal_pointer_array.h:130)
+==22675==    by 0x4C6052C: ompi_mpi_errnum_get_string (errcode.h:122)
+==22675==    by 0x4C606EA: ompi_mpi_abort (ompi_mpi_abort.c:97)
+==22675==    by 0x4C4B6AA: backend_fatal (errhandler_predefined.c:346)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4CF5382: ompi_rte_abort (rte_orte_module.c:77)
+==22675==    by 0x4C60B04: ompi_mpi_abort (ompi_mpi_abort.c:203)
+==22675==    by 0x4C4B6AA: backend_fatal (errhandler_predefined.c:346)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Conditional jump or move depends on uninitialised value(s)
+==22675==    at 0x4CF538E: ompi_rte_abort (rte_orte_module.c:77)
+==22675==    by 0x4C60B04: ompi_mpi_abort (ompi_mpi_abort.c:203)
+==22675==    by 0x4C4B6AA: backend_fatal (errhandler_predefined.c:346)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+==22675== Syscall param exit_group(status) contains uninitialised byte(s)
+==22675==    at 0x327BCBCCF9: _Exit (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC3948A: __run_exit_handlers (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x327BC39514: exit (in /usr/lib64/libc-2.18.so)
+==22675==    by 0x4FEF419: orte_ess_base_app_abort (ess_base_std_app.c:450)
+==22675==    by 0x4CF53C5: ompi_rte_abort (rte_orte_module.c:81)
+==22675==    by 0x4C60B04: ompi_mpi_abort (ompi_mpi_abort.c:203)
+==22675==    by 0x4C4B6AA: backend_fatal (errhandler_predefined.c:346)
+==22675==    by 0x4C4AB7C: ompi_mpi_errors_are_fatal_comm_handler
+(errhandler_predefined.c:69)
+==22675==    by 0x4C4A63E: ompi_errhandler_invoke (errhandler_invoke.c:53)
+==22675==    by 0x4C81E81: PMPI_Comm_create_group (pcomm_create_group.c:79)
+==22675==    by 0x4008FF: main (in /home/dalcinl/Devel/BUGS-MPI/openmpi/a.out)
+==22675==
+```
+",1398793630,1398853687,major
+4578,defect,hjelmn,dgoodell,Open MPI 1.8.4,assigned,,"Lisandro's ""Patch to fix valgrind warning""","From Lisandro: http://www.open-mpi.org/community/lists/devel/2014/04/14591.php
+-----
+
+Please review the attached patch,
+
+```
+==19533== Conditional jump or move depends on uninitialised value(s)
+==19533==    at 0x140DAB78: component_select (osc_sm_component.c:352)
+==19533==    by 0xD9BA0B2: ompi_osc_base_select (osc_base_init.c:73)
+==19533==    by 0xD9314C1: ompi_win_allocate (win.c:182)
+==19533==    by 0xD982C4E: PMPI_Win_allocate (pwin_allocate.c:79)
+==19533==    by 0xD628887: __pyx_pw_6mpi4py_3MPI_3Win_11Allocate
+(mpi4py.MPI.c:109170)
+==19533==    by 0x38442E0BD3: PyEval_EvalFrameEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442E21EC: PyEval_EvalCodeEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442E22F1: PyEval_EvalCode (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F20DB: PyImport_ExecCodeModuleEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F2357: ??? (in /usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F2FF0: ??? (in /usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F323C: ??? (in /usr/lib64/libpython2.7.so.1.0)
+==19533==
+==19533== Conditional jump or move depends on uninitialised value(s)
+==19533==    at 0x140DAB78: component_select (osc_sm_component.c:352)
+==19533==    by 0xD9BA0B2: ompi_osc_base_select (osc_base_init.c:73)
+==19533==    by 0xD93174D: ompi_win_allocate_shared (win.c:213)
+==19533==    by 0xD982FD0: PMPI_Win_allocate_shared (pwin_allocate_shared.c:80)
+==19533==    by 0xD62C727:
+__pyx_pw_6mpi4py_3MPI_3Win_13Allocate_shared (mpi4py.MPI.c:109409)
+==19533==    by 0x38442E0BD3: PyEval_EvalFrameEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442E21EC: PyEval_EvalCodeEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442E22F1: PyEval_EvalCode (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F20DB: PyImport_ExecCodeModuleEx (in
+/usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F2357: ??? (in /usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F2FF0: ??? (in /usr/lib64/libpython2.7.so.1.0)
+==19533==    by 0x38442F323C: ??? (in /usr/lib64/libpython2.7.so.1.0)
+```",1398793865,1398793933,minor
+4674,defect,hjelmn,ggouaillardet,Open MPI 1.8.4,assigned,,btl/scif : MPI_Comm_spawn hangs,"from the ibm test suite :
+
+```mpirun -np 2 --mca btl tcp,scif,self dynamic/intercomm_create```
+
+hangs in MPI_Comm_spawn()
+
+if the scif btl is removed, then it does not hang.
+
+is the scif btl supposed to work ?
+if no, should it discard itself ?
+
+/* for example the sm btl does not seem to support this :
+
+```mpirun -np 2 --mca btl sm,self dynamic/intercomm_create```
+
+fails with an error message :
+
+```At least one pair of MPI processes are unable to reach each other for MPI communications [...]```
+*/",1400756751,1400934728,major
+4693,defect,jsquyres,davidm,Open MPI 1.8.4,assigned,,packaging issue with linux spec file,"Currently if instructed to build separate runtime and devel packages, the linux spec file will accidentally put the libmpi_mpifh.so and libmpi_usempif08.so in the devel package rather than the runtime one.
+",1401839852,1411091799,major
+4709,defect,hjelmn,rolfv,Open MPI 1.9,new,,iallgather using coll ml is giving wrong answers,"I have noticed on the trunk that the ibm/collective iallgather and iallgather_in_place are getting wrong answers.  I pointed this out on the mailing list as well.
+
+http://www.open-mpi.org/community/lists/devel/2014/06/14989.php
+
+If we turn on off the allgather support in coll ml, then the test passes.  I do not see any problems with Open MPI 1.8.  This is only in the trunk.
+
+
+[rvandevaart@drossetti-ivy2 collective]$ mpirun --mca coll ml,basic,libnbc,inter --mca btl self,sm,tcp -np 3 -host drossetti-ivy2,drossetti-ivy3  iallgather
+[**ERROR**]: MPI_COMM_WORLD rank 0, file iallgather.c:77:
+bad answer (0) at index 1 of 3 (should be 1)
+[**ERROR**]: MPI_COMM_WORLD rank 1, file iallgather.c:77:
+bad answer (0) at index 1 of 3 (should be 1)
+[**ERROR**]: MPI_COMM_WORLD rank 2, file iallgather.c:77:
+bad answer (0) at index 1 of 3 (should be 1)
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 2 in communicator MPI_COMM_WORLD 
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+[rvandevaart@drossetti-ivy2 collective]$ mpirun --mca coll_ml_disable_allgather 1 --mca coll ml,basic,libnbc,inter --mca btl self,sm,tcp -np 3 -host drossetti-ivy2,drossetti-ivy3  iallgather
+[rvandevaart@drossetti-ivy2 collective]$ 
+",1402518971,1404230676,major
+4767,enhancement,,jsquyres,Future,new,,statfs() on RHEL 6.5 lies about enfs (reports it as NFS),"On July 7, 2014, the nightly builds failed due to a failure in the test/util/opal_path_nfs test.  I noticed on the build machine, the following mount was present:
+
+```
+[9:20] jaguar:~/tmp % mount | grep dikim
+encfs on /nfs/users/dikim/.passwords type fuse.encfs (rw,nosuid,nodev,default_permissions,user=dikim)
+[9:20] jaguar:~/tmp % 
+```
+
+It looks like statfs() is lying about the type of filesystem for this mount.  Specifically:
+
+```
+[9:20] jaguar:~/tmp % cat foo.c
+#include <stdio.h>
+#include <sys/vfs.h>
+
+int main()
+{
+    struct statfs buf;
+    const char *file = ""/nfs/users/dikim/.passwords"";
+    int rc = statfs(file, &buf);
+    printf(""ret:%d, f type: 0x%x\n"", rc, buf.f_type);
+    return 0;
+}
+[9:21] jaguar:~/tmp % gcc foo.c -o foo.x -g && ./foo.x
+ret:0, f type: 0x6969
+[9:21] jaguar:~/tmp % 
+```
+
+According to statfs(2) on RHEL 6.5, 0x6969 is the super magic value for NFS.  fuse/encfs is not listed.
+
+I.e., I ''suspect'' that statfs() is confused about the filesystem type of this mount and just gives it an NFS value, especially since there's another mount on this machine:
+
+```
+[9:23] jaguar:~/tmp % mount | grep users
+encfs on /nfs/users/dikim/.passwords type fuse.encfs (rw,nosuid,nodev,default_permissions,user=dikim)
+deep-thought.osl.iu.edu:/home/users on /nfs/users type nfs (rw,nosuid,nodev,soft,intr,sloppy,addr=10.79.247.75)
+[9:23] jaguar:~/tmp % 
+```
+
+So I don't know if there's really anything we can do about this -- if statfs() lies to us, I'm not sure what we can do...  But I figured I'd file this bug just to record what happened.",1404825859,1404826780,minor
+4769,defect,regrant,bbenton,Open MPI 1.8.4,new,,Portals4/MTL fails various NAS Parallel Benchmark tests,"When running with Portals4/MTL, various tests from the NAS Parallel Benchmarks fail in MPI_Wait or MPI_Waitall with an internal error.  This is with r32154 on the 1.8 branch and building/running on CentOS6.5.
+
+
+With my setup, the failures can be seen with bt.B.4, cg.B.4, and sp.B.4.  Here is a representative failure from cg.B.4:
+```
+[brad@dinar2c13 1.8]$ mpirun -np 4 ./cg.B.4
+
+
+ NAS Parallel Benchmarks 2.3 -- CG Benchmark
+
+ Size:      75000
+ Iterations:    75
+ Number of active processes:     4
+
+   iteration           ||r||                 zeta
+        1       0.22570593804977E-12    59.9994751578754
+        2       0.87940525110205E-15    21.7627846142534
+        3       0.91437860021792E-15    22.2876617043224
+        4       0.94070151553213E-15    22.5230738188351
+        5       0.95061921543782E-15    22.6275390653894
+        6       0.95020110557135E-15    22.6740259189539
+        7       0.96182780922821E-15    22.6949056826254
+        8       0.95596074233319E-15    22.7044023166870
+        9       0.95970296822520E-15    22.7087834345616
+       10       0.96585915228054E-15    22.7108351397173
+       11       0.96181371319440E-15    22.7118107121338
+       12       0.96172939735102E-15    22.7122816240974
+       13       0.96249111012209E-15    22.7125122663251
+       14       0.95484515346749E-15    22.7126268007600
+       15       0.95859112595530E-15    22.7126844161815
+       16       0.95944617919119E-15    22.7127137461757
+       17       0.95550237102011E-15    22.7127288401998
+       18       0.95635771795123E-15    22.7127366848299
+       19       0.95917386303274E-15    22.7127407981220
+       20       0.95268979542345E-15    22.7127429721363
+       21       0.95810825900668E-15    22.7127441294025
+       22       0.95400990447020E-15    22.7127447493899
+       23       0.95367097788352E-15    22.7127450834529
+       24       0.95960112286270E-15    22.7127452643880
+       25       0.95521595160553E-15    22.7127453628459
+       26       0.95199057443662E-15    22.7127454166512
+       27       0.95208372247816E-15    22.7127454461693
+       28       0.95289804858272E-15    22.7127454624206
+       29       0.96058618286659E-15    22.7127454713970
+       30       0.95022456844079E-15    22.7127454763706
+       31       0.95077106519748E-15    22.7127454791340
+       32       0.95572706699156E-15    22.7127454806733
+       33       0.95798346533471E-15    22.7127454815324
+       34       0.95271350739035E-15    22.7127454820135
+       35       0.95966736799946E-15    22.7127454822838
+       36       0.95214511214537E-15    22.7127454824349
+       37       0.95219895853123E-15    22.7127454825207
+[dinar2c13:21072] *** An error occurred in MPI_Wait
+[dinar2c13:21072] *** reported by process [228930682881,576179277326712833]
+[dinar2c13:21072] *** on communicator MPI_COMM_WORLD
+[dinar2c13:21072] *** MPI_ERR_INTERN: internal error
+[dinar2c13:21072] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[dinar2c13:21072] ***    and potentially your MPI job)
+-------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code.. Per user-direction, the job has been aborted.
+-------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[19797,1],1]
+  Exit code:    17
+--------------------------------------------------------------------------
+
+```
+",1404831576,1404831576,critical
+4770,defect,bosilca,rhc,Open MPI 1.8.4,new,,Move r31982 to 1.8.3: MPI_Request_free and errors reporting,"Per discussion on the MPI Forum, if a request is released by the user using MPI_Request_free, and in the unlikely case there is an error on the corresponding communication, the error is supposed to became FATAL. For more information please look at  MPI Forum Ticket 143 .
+
+Unfortunately, in Open MPI, we are unable to follow this requirement. We always trigger the error on request completion, so if there is no request ... there is no way to trigger the error.
+",1404832562,1410275867,major
+4814,defect,manjugv,hpcchris,,assigned,,Memchecker - valgrind: the 'impossible' happened,"Hi,
+
+Building current trunk (1.9a1r32338) with gcc 4.7.3 and
+
+```--enable-memchecker --with-valgrind=$HOME/bin/valgrind/3.9.0/```
+
+and executing a simple test program, which only does MPI_Init and MPI_Finalize(), with 
+
+```mpirun  -np 2 $HOME/bin/valgrind/3.9.0/bin/valgrind --suppressions=$HOME/bin/mpi/openmpi/trunk/share/openmpi/openmpi-valgrind.supp --track-origins=yes  $PWD/test.mpi```
+
+causes valgrind to crash at MPI_Finalize while with current v1.8 branch (1.8.2rc2r32338) it works just fine.
+The displayed error message is
+
+```
+--21448-- VALGRIND INTERNAL ERROR: Valgrind received a signal 11 (SIGSEGV) - exiting
+--21448-- si_code=1;  Faulting address: 0x12CBB038;  sp: 0x802dbed70
+
+valgrind: the 'impossible' happened:
+   Killed by fatal signal
+==21448==    at 0x3805A573: mkInuseBlock (m_mallocfree.c:320)
+==21448==    by 0x3805C10E: vgPlain_arena_malloc (m_mallocfree.c:1660)
+==21448==    by 0x3801F744: vgMemCheck_new_block (mc_malloc_wrappers.c:377)
+==21448==    by 0x3801FACF: vgMemCheck_calloc (mc_malloc_wrappers.c:452)
+==21448==    by 0x3809CE72: vgPlain_scheduler (scheduler.c:1766)
+==21448==    by 0x380AC2B9: run_a_thread_NORETURN (syswrap-linux.c:103)
+
+sched status:
+  running_tid=1
+
+Thread 1: status = VgTs_Runnable
+==21448==    at 0x4C2A023: calloc (vg_replace_malloc.c:618)
+==21448==    by 0x59B1703: mca_base_var_generate_full_name4 (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59B7E82: mca_base_var_group_find (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59AF72F: ri_destructor (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59AFE48: mca_base_component_repository_release (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59B03B4: mca_base_components_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59B89C3: mca_base_framework_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0xC5332DC: ml_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/openmpi/mca_coll_ml.so)
+==21448==    by 0x59B0320: mca_base_component_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59B03B4: mca_base_components_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59B8AA5: mca_base_framework_close (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x4E79667: ompi_mpi_finalize (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libmpi.so.0.0.0)
+==21448==    by 0x400C40: main (test.mpi.c:36)
+
+Thread 2: status = VgTs_WaitSys
+==21448==    at 0x541AD2D: ??? (in /lib64/libc-2.17.so)
+==21448==    by 0x59D8B15: poll_dispatch (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x59CFDD4: opal_libevent2021_event_base_loop (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-pal.so.0.0.0)
+==21448==    by 0x571DC3D: orte_progress_thread_engine (in $HOME/bin/mpi/openmpi/trunk-memchecker/lib/libopen-rte.so.0.0.0)
+==21448==    by 0x5122F39: start_thread (in /lib64/libpthread-2.17.so)
+
+
+Note: see also the FAQ in the source distribution.
+It contains workarounds to several common problems.
+In particular, if Valgrind aborted or crashed after
+identifying problems in your program, there's a good chance
+that fixing those problems will prevent Valgrind aborting or
+crashing, especially if it happened in m_mallocfree.c.
+
+If that doesn't help, please report this bug to: www.valgrind.org
+
+In the bug report, send all the above text, the valgrind
+version, and what OS and version you are using.  Thanks.
+
+-------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code.. Per user-direction, the job has been aborted.
+-------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[29037,1],1]
+  Exit code:    1
+--------------------------------------------------------------------------
+```
+",1406632506,1406651183,major
+4815,defect,manjugv,rolfv,Future,assigned,,Some dynamic tests fail when coll ml is enabled,"I have noticed with the latest trunk (after BTL movement) that some of the ibm dynamic tests are failing.  However, if I run with ```coll ^ml``` the tests pass.  The list of failing tests is:
+* ibm/dynamic/intercomm_create
+* ibm/dynamic/spawn_multiple
+* ibm/dynamic/spawn_with_env_vars
+* ibm/dynamic/loop_spawn
+
+I got a core dump from one of the tests and that is shown here.
+
+```
+(gdb) where
+#0  0x00007f44f2ce81d0 in ?? ()
+#1  <signal handler called>
+#2  0x00007f44fdffbd58 in orte_util_compare_name_fields (fields=2 '\002', name1=0x1629b0c, name2=0xf) at ../../orte/util/name_fns.c:522
+#3  0x00007f44f1a577c3 in bcol_basesmuma_smcm_allgather_connection (sm_bcol_module=0x7f44ee91b040, module=0x15e11a0, 
+    peer_list=0x7f44f1c5c748, back_files=0x7f44eedb06c8, comm=0x604f40, input=..., base_fname=0x7f44f1a58606 ""sm_payload_mem_"", 
+    map_all=false) at ../../../../../ompi/mca/bcol/basesmuma/bcol_basesmuma_smcm.c:237
+#4  0x00007f44f1a4e307 in bcol_basesmuma_bank_init_opti (payload_block=0x163b300, data_offset=64, bcol_module=0x7f44ee91b040, 
+    reg_data=0x162a660) at ../../../../../ompi/mca/bcol/basesmuma/bcol_basesmuma_buf_mgmt.c:302
+#5  0x00007f44f28a3386 in mca_coll_ml_register_bcols (ml_module=0x161fdc0) at ../../../../../ompi/mca/coll/ml/coll_ml_module.c:510
+#6  0x00007f44f28a368f in ml_module_memory_initialization (ml_module=0x161fdc0) at ../../../../../ompi/mca/coll/ml/coll_ml_module.c:558
+#7  0x00007f44f28a66b1 in ml_discover_hierarchy (ml_module=0x161fdc0) at ../../../../../ompi/mca/coll/ml/coll_ml_module.c:1539
+#8  0x00007f44f28aae0b in mca_coll_ml_comm_query (comm=0x604f40, priority=0x7fffd2808cb8)
+    at ../../../../../ompi/mca/coll/ml/coll_ml_module.c:2963
+#9  0x00007f44fe915af5 in query_2_0_0 (component=0x7f44f2b06940, comm=0x604f40, priority=0x7fffd2808cb8, module=0x7fffd2808cf0)
+    at ../../../../ompi/mca/coll/base/coll_base_comm_select.c:372
+#10 0x00007f44fe915ab4 in query (component=0x7f44f2b06940, comm=0x604f40, priority=0x7fffd2808cb8, module=0x7fffd2808cf0)
+    at ../../../../ompi/mca/coll/base/coll_base_comm_select.c:355
+#11 0x00007f44fe9159be in check_one_component (comm=0x604f40, component=0x7f44f2b06940, module=0x7fffd2808cf0)
+    at ../../../../ompi/mca/coll/base/coll_base_comm_select.c:317
+#12 0x00007f44fe915804 in check_components (components=0x7f44feb96ed0, comm=0x604f40)
+    at ../../../../ompi/mca/coll/base/coll_base_comm_select.c:281
+#13 0x00007f44fe90e3b5 in mca_coll_base_comm_select (comm=0x604f40) at ../../../../ompi/mca/coll/base/coll_base_comm_select.c:117
+#14 0x00007f44fe8a22ed in ompi_mpi_init (argc=1, argv=0x7fffd2809598, requested=0, provided=0x7fffd2809448)
+    at ../../ompi/runtime/ompi_mpi_init.c:917
+#15 0x00007f44fe8d6e7e in PMPI_Init (argc=0x7fffd280948c, argv=0x7fffd2809480) at pinit.c:84
+#16 0x000000000040158f in main (argc=1, argv=0x7fffd2809598) at spawn_with_env_vars.c:151
+(gdb) 
+
+(gdb) print name1
+$1 = (const orte_process_name_t *) 0x1629b0c
+(gdb) print *name1
+$2 = {jobid = 3282567170, vpid = 1}
+(gdb) print *name2
+Cannot access memory at address 0xf
+(gdb) 
+
+
+```
+
+
+",1406657446,1406700710,major
+4823,defect,ggouaillardet,jsquyres,Open MPI 1.8.4,assigned,,Abort if --enable-mpi-fortran=usempif08 is specified but we can't build F08 bindings,"As noted by Paul Hargrove in http://www.open-mpi.org/community/lists/devel/2014/07/15347.php, if you
+
+  --enable-mpi-fortran=usempif08
+
+and configure determines that we can't build the F08 bindings, it doesn't abort.
+
+r32354 was an attempt to fix this, but it wasn't quite right.",1406760750,1407320186,major
+4839,defect,,liuwind,Open MPI 1.8.4,new,,problem for installing openmpi on mac os x 10.9.4,"when i install the openmpi on mac os x 10.9.4, I meet a problem like
+
+```
+  FCLD     libmpi_usempi_ignore_tkr.la
+ld: library not found for -ldylib1.10.5.o
+make[2]: *** [libmpi_usempi_ignore_tkr.la] Error 1
+make[1]: *** [all-recursive] Error 1
+make: *** [all-recursive] Error 1
+```
+
+by the way, I use the ifort.
+
+thanks",1407393308,1407767183,major
+4856,defect,hppritcha,jsquyres,Open MPI 1.8.4,accepted,,ROMIO patches,"Per http://www.open-mpi.org/community/lists/users/2014/08/24934.php, there's several ROMIO patches that we should probably apply to trunk/v1.8.  RobL/Argonne kindly itemized the patches that we'll probably need.",1407856227,1408037539,critical
+4896,defect,,robl,Open MPI 1.8.4,reopened,,large count test fails,"The attached test case is from MPICH2 (sssh! don't tell them I told you!).  OpenMPI (from back in early August) does not pass this test case, giving me the following errors:
+
+```
+check failed: (elements == (2147483647)), line 222
+check failed: (elements_x == (2147483647)), line 222
+check failed: (count == 1), line 222
+check failed: (elements == (2147483647)), line 222
+check failed: (elements_x == (2147483647)), line 222
+check failed: (count == 1), line 222
+check failed: (elements == (4)), line 223
+check failed: (elements_x == (4)), line 223
+check failed: (count == 1), line 223
+found 18 errors
+```
+",1410191997,1410323609,major
+4902,defect,regrant,bbenton,Open MPI 1.8.4,new,,Poor Portals 4 Lateny Performance (both MTL & BTL),"The Portals 4 implementation (both MTL and BTL) has severe performance issues.  Small message latency is well over 2 milliseconds.  This appears to be specific to the ompi implementation and not the underlying portals4 library.  In particular, MPICH over portals shows much more reasonable (if not great) performance.  Here are some snippets of osu_latency (v4.4) results:
+
+ompi-portals4-mtl:
+
+```
+# OSU MPI Latency Test v4.4
+# Size          Latency (us)
+0                    2833.44
+1                    2626.80
+2                    2627.08
+4                    2632.88
+8                    2629.11
+16                   2716.61
+32                   2677.22
+64                   2724.93
+128                  2663.69
+256                  2679.85
+512                  2804.30
+1024                 2654.66
+2048                 2647.85
+```
+
+MPICH-3.2-nemesis-portals4
+
+```
+# OSU MPI Latency Test v4.4
+# Size          Latency (us)
+0                      15.68
+1                      10.17
+2                      10.18
+4                      10.21
+8                      13.08
+16                     12.83
+32                     10.89
+64                     13.44
+128                    11.07
+256                    10.68
+512                     9.37
+1024                   21.04
+2048                   29.65
+```
+The portals4 library is implemented over QDR IB.",1410388389,1410388389,critical
+4903,defect,,quantheory,Open MPI 1.8.4,new,,Shipped valgrind suppressions file is incompatible with valgrind 3.9.0,"The suppression file that is shipped with OpenMPI 1.8.2 (same as the one on the trunk as of today) works with valgrind 3.8.1, but not the latest version, 3.9.0, which rejects the file with the following error:
+
+```
+==55582== FATAL: in suppressions file ""/home/santos/openmpi-gcc-nag/share/openmpi/openmpi-valgrind.supp"" near line 95:
+==55582==    bad or missing extra suppression info
+==55582== exiting now.
+```
+
+According to the documentation [http://valgrind.org/docs/manual/mc-manual.html#mc-manual.suppfiles here], suppressions of ""Memcheck:Param"" require an extra line containing the system call parameter, but one of the suppressions in the OpenMPI file lacks this line.
+
+I believe that the following patch addresses the issue:
+
+```
+--- a/contrib/openmpi-valgrind.supp	2014-07-11 12:12:06.000000000 -0600
++++ b/contrib/openmpi-valgrind.supp	2014-09-10 19:04:29.915957910 -0600
+@@ -92,6 +92,7 @@
+ {
+   tcp_send
+   Memcheck:Param
++  writev(vector[...])
+   fun:writev
+   fun:mca_btl_tcp_frag_send
+   fun:mca_btl_tcp_endpoint_send
+```
+",1410399160,1410557176,minor
+4918,defect,tkordenbrock,bbenton,Open MPI 1.8.4,new,,Portals4/MTL failed ref_cnt asserts with various ibm/collective tests,"When running with Portals4/MTL, various tests from the ibm/collectives set of tests abort with failed ref_cnt assertions. This is with r32740 on the 1.8 branch and building/running on CentOS6.5. The assertion failures happen with both ref_get and ref_put.
+
+Here are some typical assertion failures:
+
+```
+bcast_struct: ptl_ref.h:80: ref_put: Assertion `ref_cnt >= 0' failed.
+ireduce_big: ptl_ref.h:62: ref_get: Assertion `ref_cnt >= 1' failed.
+```
+
+With -np 16, I see failures in the following tests:[[BR]]
+  bcast_struct[[BR]]
+  ibcast_struct[[BR]]
+  reduce_big[[BR]]
+  ireduce_big[[BR]]
+  reduce_in_place[[BR]]
+  reduce_loc
+",1411140282,1411140282,critical
+4924,defect,jsquyres,bosilca,Open MPI 1.8.4,new,,Fix the MPI_Ireduce_scatter for MPI_IN_PLACE over 1 proc,Please move r32807 to the 1.8. It covers a corner case where a call to MPI_Ireduce_scatter is issued with a communicator with a single process and MPI_IN_PLACE.,1411942295,1411942295,major

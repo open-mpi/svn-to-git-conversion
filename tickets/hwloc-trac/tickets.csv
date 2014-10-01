@@ -1,0 +1,1640 @@
+id,type,owner,reporter,milestone,status,resolution,summary,description,PosixTime,ModifiedTime,priority
+1,task,bgoglin,sthibaul,v0.9.1,closed,fixed,rename everything,"rename topo_* into hwloc_*, libtopology into libhwloc, etc.",1252509408,1253400965,blocker
+2,defect,jsquyres,jsquyres,v0.9.1,closed,wontfix,Fix vpath distcheck,"Per http://www.open-mpi.org/community/lists/hwloc-devel/2009/09/0045.php, the following recipe results in failure:
+
+{{{
+svn co ... 
+cd trunk
+./autogen.sh
+mkdir build
+cd build
+../src/configure
+make
+make distcheck
+}}}",1253050817,1254414896,normal
+3,defect,jsquyres,jsquyres,v0.9.1,closed,fixed,utils man pages depend on executables,"As mentioned in http://www.open-mpi.org/community/lists/hwloc-devel/2009/09/0060.php, there's a causality issue in ""make dist"": the man pages depend on the executables (because the man pages are generated via help2man).
+
+This causes a problem with the following (e.g., nightly tarball generation):
+
+{{{
+svn co ...
+cd ...
+./autogen.sh
+./configure
+make dist
+}}}
+
+because the executables will try to build, but fail when there is no libhwloc.la.
+
+A workaround, of course, is to ""make all"" first and then ""make dist"".  But this is somewhat icky; it would be nice to have a better solution.",1253541070,1253893449,normal
+4,enhancement,jsquyres,jsquyres,v1.0,closed,fixed,Add embedding capabilies,"PLPA is ""fully embeddable"" in larger software projects, meaning:
+
+ * Relevant m4 is available in a standalone file that is m4_include'able.
+ * Specific m4 macros are exported in this file that can be called in a higher-level file (e.g., configure.ac).
+ * When building in an ""embedded"" mode, only the library is made (as an LT convenience library); nothing is installed.
+ * Prefix name shifting is available for all public symbols.
+
+This capability needs to be brought to hwloc before it can be a wholesale replacement for PLPA.",1253627886,1261997798,critical
+5,enhancement,bgoglin,bgoglin,v1.3,closed,fixed,I/O device support,"Updated TODO-list:
+  * Add iterators to find GPUs, NICs, ...
+  * Update documentation 
+  * Find a pci lib for MacOSX (neither pciutils nor pciaccess seems available, and pciaccess doesn't expose the hierarchy of brdiges anyway)
+  * Add some hwloc_insert_object_by_pcisomething, e.g. for a CUDA plugin which provides extended information to the object (e.g. number of streaming processors, etc.), which the core merges with the objects created by the libpci module.
+
+ * provide functions like:
+
+hwloc_obj_t hwloc_get_path_obj(hwloc_topology_t topo, const char *path);
+hwloc_obj_t hwloc_get_fd_obj(hwloc_topology_t topo, int fd);
+
+(the latter may return a network device or a disk device, depending on whether it's a socket or a file. Mmm and how about nfs-mounted files!)
+",1253768500,1302038258,normal
+6,enhancement,,bgoglin,v0.9.1,closed,fixed,heterogeneous topology support,"what if we have a machine with different processors? for instance if one socket has a shared L3 and the other one doesn't?
+  - sthibaul: should work fine already
+
+support levels that do not cover the whole machine? (no L3 above the cores of the second socket above)
+  - sthibaul: I do not understand
+
+support object whose children are not in the exact next level? (socket pointing to cores instead of cache above)
+  - sthibaul: should work fine already
+
+need to be decided if we want to put GPUs as hwloc_obj_t, see ticket:5
+",1253768810,1356162745,normal
+7,enhancement,bgoglin,bgoglin,v1.0,closed,fixed,PLPA-like API (or at least PLPA-like information retrieval),"Most core/socket/processor-id conversion routines are easy to implement.
+
+One thing that we miss is the number of offline processors.
+We could add offline_procs to struct topology_info, but should be put ignored procs there as well (in case of cpuset or other administrator-disabling thing) ?
+Might be worth fixing before 0.9.1 so that we don't change struct topology_info later.
+
+Or we could just drop struct topology_info since it became very small now (we didn't want ten different accessors but it's not the case anymore). Maybe make it hwloc_get_topology_depth() and hwloc_is_thissystem() ?
+
+
+Add cpulist-string to/from cpuset conversion routines?",1253777485,1261997739,normal
+8,defect,,bgoglin,,closed,wontfix,XLC/AIX build warnings,"Reported by Mathieu Faverge.
+
+Summary of warnings:
+
+{{{
+""lstopo-text.c"", line 292.12: 1506-077 (E) The wchar_t value 0x250c is not valid.
+  - Just a warning that it won't work in a non-UTF-8 locale. We check that at runtime indeed so not a problem.
+}}}
+",1253858967,1356164984,normal
+9,task,,bgoglin,v1.1,closed,fixed,add memory binding API,"  * add hwloc_set_membind(topology, beginaddr, endaddr, HWLOC_MEMBIND_BIND/FIRSTTOUCH/INTERLEAVE, hwloc_cpuset_t)
+    * size instead of endaddr?
+    * if beginaddr=endaddr=NULL, setmempolicy?
+    * reverse routine?
+    * no level = empty mask, and we may want an easy alias for ""whole machine""
+  * allocation with a given policy
+    * get Samuel's code from pm2's marcel_sysdep.c
+  * apply a policy to a given area (not all OSes support that).
+",1253895860,1356164321,blocker
+10,task,bgoglin,bgoglin,v1.0,closed,fixed,add linux cgroup support (seems to be cpuset-exclusive?),"add linux cgroup support (seems to be cpuset-exclusive?)
+{{{
+  if /proc/self/cgroup exists and is not empty, take the path from the 3rd ':'-separated field
+    read cpuset cpulist in /dev/cgroup/<path>/cpuset.cpus
+    read cpuset memlist in /dev/cgroup/<path>/cpuset.mems
+}}}
+",1253895921,1255288333,normal
+11,enhancement,sthibaul,bgoglin,Future,closed,wontfix,IRIX support,"sysmp(MP_NPROCS/MP_NAPROCS/MP_STAT)
+NUMA: /hw : /hw/nodenum/0 -> /hw/module/1/slot/n1/node
+/hw/cpunum/0 -> /hw/module/1/slot/n1/node/cpu/a
+check through getmntent where hwgfs is mounted
+sysmp(MP_MUSTRUN/MP_MUSTRUN_PID)
+PTHREAD_SCOPE_BOUND_NP
+pthread_setrunon_np()
+process_cpulink()
+mld_create() mldset_create() numa_acreate() migr_range_migrate()
+",1253896105,1387215397,normal
+12,enhancement,,sthibaul,v1.2,closed,fixed,support user-defined processor restriction,"Use sched_getaffinity etc. to restrict discovery to the current cpumask.
+
+1) Add a configuration flag to limit the discovery to the current binding of the process. Could let the user choose between using the CPU or using the memory binding, and between using the current process or the current thread binding. But those variants are not very important and they can be implemented with (2) anyway. So just keep the important variant(s?). I'd say the current thread CPU binding (HWLOC_TOPOLOGY_FLAG_RESTRICT_TO_BINDING)
+
+(2) Add a configuration function to limit the discovery to a given cpuset. To get the current binding of the process, one has to run a first discovery, then use get_cpubind, then run a second one with the configuration. This is tedious, the API works this way.
+
+hwloc_topology_restrict_to_cpuset(topology, cpuset);
+
+(no need for a nodeset flavor, it won't be used often, and we have conversion functions anyway)
+
+(3) Add a function to restrict a discovered topology to a given cpuset. This looks like within the scope of the functions we are thinking about for network use (extract part of a topology, merge topologies).
+",1254058732,1356164714,normal
+13,defect,,sthibaul,v1.2,closed,fixed,hwloc_distribute should handle asymetric topologies,"hwloc_distribute currently assumes that all children of an object have
+the same weight. There should be at least variants which take into
+account the cpuset/gpuset etc.
+
+It should also likely ignore children with empty CPU sets (happens with CPU-less NUMA nodes).
+",1254227928,1356162651,normal
+14,enhancement,bgoglin,sthibaul,v1.0,closed,fixed,libhwloc should provide the function to save XML files,"Currently, only lstopo foo.xml permits to create xml files.  Ideally
+the functionality should be available from libhwloc itself.
+",1254228077,1356162680,normal
+15,enhancement,,bgoglin,Future,new,,misc TODO,"=== API ===
+
+  * ""ignore"" config function for a range of depths of a given type of object (e.g. being able to ignore just L1 caches).
+    * what about cache types?
+    * maybe add a vertical kind of restrict() which removes an entire level after load()?
+
+  * Allow to restrict multinode topo
+    * Add a restrict by obj instead of by cpuset?
+      * Could also be a remove_all_under(), which can be used multiple times to restrict to several parts by removing others
+        * Unless the custom interface is enough but I don't think so (NULL cpuset, fixed new object types, ...)
+
+=== Tools ===
+
+  * bind process on 2 cores ""near"" physical proc id 3 ?
+    * hwloc-calc: add an option to request a cpuset containing of n close entries among the generated cpuset
+
+  * internationalize the output of lstopo? object types and memory size units
+
+  * hwloc-top, like lstopo, but keeps printing every 3s or so, and show bound threads as well as the used CPU%
+
+=== Doc ===
+
+  * automatically generate the pngs?
+    * see doc/images/HACKING
+
+=== Support ===
+
+  * add info about supported instructions (sse, avx, ...)
+  * add info about available execution units (fpu)
+    * and say if they are shared between threads/cores
+      * this could help improving the current ambiguity between two real cores, one hyperthreaded core, and AMD dual-fake-core compute units
+
+  * reduce distance matrices so that parent objects get distances between them as well (just like we do when computing group distances after inserting groups)
+
+  * when assembling topologies that start with a Machine object, increase its os_index?
+
+  * parallelize the discovery ? :)
+
+  * Use libnetdevname ? http://linux.dell.com/wiki/index.php/Oss/libnetdevname
+
+=== I/O ===
+
+  * Find a pci lib for MacOSX (neither pciutils nor pciaccess seems available)
+
+ * provide functions like this (see latest numactl at http://halobates.de/blog/p/196):
+
+  hwloc_obj_t hwloc_get_path_obj(hwloc_topology_t topo, const char *path);
+  hwloc_obj_t hwloc_get_fd_obj(hwloc_topology_t topo, int fd);
+  # the latter may return a network device or a disk device, depending on whether it's a socket or a file. Mmm and how about nfs-mounted files!
+
+  * CCI interoperability to get cci_device and/or cci_device->name locality
+    * use cci_device->pci.{domain,bus,dev,func} to retrieve the PCI device
+    * wait for the CCI API to be stable
+
+  * Add a ofed plugin to gather ofed device info without relying on Linux sysfs
+    * Not sure whether ofed works the same on other OS anyway
+
+=== Backends and Ports ===
+
+  * XML
+    * store ""support"" info too (such as binding support, ...). how to load/report it on import without breaking the current behavior ?
+      * just tell people to binary export the support struct manually?
+
+  * Try to make the distance grouping code a separate component ?
+
+  * QNX
+    * _syspage_ptr() SYSPAGE_ENTRY(entry)
+    * ThreadCtl/Thread_ctl_r(_NTO_TCTL_RUNMASK)
+
+  * BSD
+    * sys/sched.h: sched_bind/sched_unbind, but that's in-kernel only for now.
+
+  * Cray Catamount?
+
+  * X86
+    * Use cpuid's apicid to implement get_last_cpu_location(THREAD)
+
+  * Windows
+    * Implement get_cpubind.
+    * Use DEVPKEY_Numa_Proximity_Domain with SetupDiGetDeviceProperty to map a GPU to a pci local CPU. See http://blogs.technet.com/b/winserverperformance/archive/2008/09/13/getting-system-topology-information-on-windows.aspx",1255072954,1410512014,normal
+16,defect,,balaji,v0.9.1,closed,fixed,hwloc build fails with strict compiler flags,"Here's a snippet of the error:
+
+{{{
+libtool: compile:  gcc -DHAVE_CONFIG_H -I. -I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src -I../include/private -I../include/hwloc -I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/include -I../include -std=c99 -Wall -Wmissing-prototypes -Wundef -Wpointer-arith -Wcast-align -Wall -Wextra -Wno-missing-field-initializers -Wstrict-prototypes -Wmissing-prototypes -DGCC_WALL -Wno-unused-parameter -Wno-unused-label -Wshadow -Wmissing-declarations -Wno-long-long -Wfloat-equal -Wdeclaration-after-statement -Wundef -Wno-endif-labels -Wpointer-arith -Wbad-function-cast -Wcast-align -Wwrite-strings -Wno-sign-compare -Waggregate-return -Wold-style-definition -Wno-multichar -Wno-deprecated-declarations -Wpacked -Wnested-externs -Winvalid-pch -Wno-pointer-sign -Wvariadic-macros -std=c89 -Wno-format-zero-length -Wno-type-limits -D_POSIX_C_SOURCE=199506L -g -MT topology.lo -MD -MP -MF .deps/topology.Tpo -c /home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology.c  -fPIC -DPIC -o .libs/topology.o
+In file included from /home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology.c:20:
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/include/hwloc.h: In function 'hwloc_get_obj_by_type':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/include/hwloc.h:425: warning: declaration of 'index' shadows a global declaration
+/usr/include/string.h:309: warning: shadowed declaration is here
+
+[...snip...]
+
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology.c:1313: warning: ISO C90 forbids mixed declarations and code
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology.c:1337: warning: ISO C90 forbids mixed declarations and code
+make[2]: *** [topology.lo] Error 1
+make[2]: Leaving directory `/home/balaji/projects/mpich2/hydra/build/tools/bind/hwloc/hwloc/src'
+make[1]: *** [all-recursive] Error 1
+make[1]: Leaving directory `/home/balaji/projects/mpich2/hydra/build/tools/bind/hwloc/hwloc'
+make: *** [all-recursive] Error 1
+}}}
+
+This is causing MPICH2's builds to fail when configured with strict compiler options.",1255986286,1256132383,normal
+17,defect,jsquyres,jsquyres,v1.0,closed,fixed,Fix icc warnings,"There's a truckload of warnings generated when icc 11.1.056 is used to compile hwloc.  Most are in one of three types:
+
+ * Variable/parameter is never referenced
+ * Variable is set but never used
+ * Mix enum with another type
+
+The first two should probably be fixed; we may or may not care about fixing the third.",1256147872,1271798868,normal
+18,defect,,jsquyres,v1.0,closed,fixed,vsnprintf warnings,"When using super-picky compilation warning flags, hwloc gets warnings about vsnprintf:
+
+{{{
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/cpuset.c:
+In function 'hwloc_snprintf':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/cpuset.c:37:
+warning: implicit declaration of function 'vsnprintf'
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/cpuset.c:37:
+warning: nested extern declaration of 'vsnprintf'
+}}}
+
+Here's the flags that Pavan used to generate these warnings:
+
+{{{
+libtool: compile:  gcc -DHAVE_CONFIG_H -I.
+-I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src
+-I../include/private -I../include/hwloc
+-I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/include
+-I../include -std=c99 -Wall -Wmissing-prototypes -Wundef -Wpointer-arith
+-Wcast-align -O2 -Wall -Wextra -Wno-missing-field-initializers
+-Wstrict-prototypes -Wmissing-prototypes -DGCC_WALL
+-Wno-unused-parameter -Wno-unused-label -Wshadow -Wmissing-declarations
+-Wno-long-long -Wfloat-equal -Wdeclaration-after-statement -Wundef
+-Wno-endif-labels -Wpointer-arith -Wbad-function-cast -Wcast-align
+-Wwrite-strings -Wno-sign-compare -Waggregate-return
+-Wold-style-definition -Wno-multichar -Wno-deprecated-declarations
+-Wpacked -Wnested-externs -Winvalid-pch -Wno-pointer-sign
+-Wvariadic-macros -std=c89 -Wno-format-zero-length -Wno-type-limits
+-D_POSIX_C_SOURCE=199506L -MT cpuset.lo -MD -MP -MF .deps/cpuset.Tpo -c
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/cpuset.c
+-o cpuset.o >/dev/null 2>&1
+}}}
+
+Pavan suggested the following (on #16):
+
+  The vsnprintf warnings occur because snprintf and vsnprintf are present only in C99, not C89. There are a few solutions possible:
+
+  1. Check in configure to (i) add a prototype for snprintf/vsnprintf where needed and (ii) add an alternative implementation for them for platforms that don't provide them.
+  1. An alternative (simpler) solution is to include MPL ( https://svn.mcs.anl.gov/repos/mpi/mpich2/trunk/src/mpl) into hwloc and just use MPL_snprintf and friends everywhere.
+  1. Check if snprintf/vsnprintf exist in configure and abort if they don't. Other libraries relying on hwloc can see this error and not build hwloc in those cases.
+
+  Not sure if either approach is acceptable for you guys, so I'm leaving this ticket as closed. Please reopen if appropriate.",1256148660,1274245422,normal
+19,defect,jsquyres,jsquyres,v1.0,closed,fixed,fgets() return value not checked,"Pavan reported that when compiling with super-picky compiler flags, we get warnings about not checking the return status of fgets():
+
+{{{
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:
+In function 'hwloc_parse_sysfs_unsigned':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:241:
+warning: ignoring return value of 'fgets', declared with attribute
+warn_unused_result
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:
+In function 'hwloc_read_cpuset_mask':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:326:
+warning: ignoring return value of 'fgets', declared with attribute
+warn_unused_result
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:346:
+warning: ignoring return value of 'fgets', declared with attribute
+warn_unused_result
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:
+In function 'look_cpuinfo':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:863:
+warning: ignoring return value of 'fscanf', declared with attribute
+warn_unused_result
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:
+In function 'hwloc__get_dmi_info':
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:917:
+warning: ignoring return value of 'fgets', declared with attribute
+warn_unused_result
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/topology-linux.c:931:
+warning: ignoring return value of 'fgets', declared with attribute
+warn_unused_result
+}}}
+
+Here's the super-picky flags that he used:
+
+{{{
+libtool: compile:  gcc -DHAVE_CONFIG_H -I.
+-I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src
+-I../include/private -I../include/hwloc
+-I/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/include
+-I../include -std=c99 -Wall -Wmissing-prototypes -Wundef -Wpointer-arith
+-Wcast-align -O2 -Wall -Wextra -Wno-missing-field-initializers
+-Wstrict-prototypes -Wmissing-prototypes -DGCC_WALL
+-Wno-unused-parameter -Wno-unused-label -Wshadow -Wmissing-declarations
+-Wno-long-long -Wfloat-equal -Wdeclaration-after-statement -Wundef
+-Wno-endif-labels -Wpointer-arith -Wbad-function-cast -Wcast-align
+-Wwrite-strings -Wno-sign-compare -Waggregate-return
+-Wold-style-definition -Wno-multichar -Wno-deprecated-declarations
+-Wpacked -Wnested-externs -Winvalid-pch -Wno-pointer-sign
+-Wvariadic-macros -std=c89 -Wno-format-zero-length -Wno-type-limits
+-D_POSIX_C_SOURCE=199506L -MT cpuset.lo -MD -MP -MF .deps/cpuset.Tpo -c
+/home/balaji/projects/mpich2/hydra/hydra/tools/bind/hwloc/hwloc/src/cpuset.c
+-o cpuset.o >/dev/null 2>&1
+}}}",1256148787,1256544468,normal
+20,defect,,jsquyres,v1.0,closed,fixed,Windows warning,"I'm getting this warning when compiling on RHEL4 with gcc:
+
+{{{
+../../src/topology-windows.c: In function `hwloc_look_windows':
+../../src/topology-windows.c:194: warning: assignment from incompatible pointer type
+}}}
+
+I don't know anything about Windows code to fix it...",1256149087,1256160542,normal
+21,enhancement,,jsquyres,v1.0,closed,fixed,Allow lookup of specific PIDs,"Per discussion on the OMPI devel list, it would be useful to allow looking up topology information about specific PIDs (e.g., what cpuset they're bound to, etc.).
+
+  http://www.open-mpi.org/community/lists/devel/2009/10/7003.php",1256219327,1266179981,normal
+22,enhancement,,jsquyres,v1.0,closed,fixed,Report whole system topology vs. current cpuset,"Per discussion on the OMPI devel list, it would be nice to be able to distinguish between looking up topology information about the whole system vs. the current process (e.g., if the current progress/group is bound to a specific cpuset).
+
+  http://www.open-mpi.org/community/lists/devel/2009/10/7001.php
+
+This may be a simple variation on #21.",1256219452,1256219731,normal
+23,enhancement,,bgoglin,v1.4,closed,fixed,network topology support,"How do we gather multiple machine information and store them in the same big topology so that the process manager has a global knowledge of the cluster?
+
+ * Need a way to merge multiple ""local"" topology in a single big one
+
+  /* create a topology with only a System object root */
+  hwloc_topology_create_empty()
+  /* load a XML topology and insert it below a given object */
+  hwloc_topology_insert_xml_by_parent()
+
+A new utility would use these to agregate multiple XML topologies. You
+would have to run lstopo foo.xml on each node and run this new utility
+to create the global XML topology. Finally, you can run hwloc with the
+new global topology and do whatever you want.
+
+  mpirun lstopo <hostname>.xml
+  hwloc_xml_agregate cluster.xml *.xml
+  export HWLOC_XMLFILE=cluster.xml
+
+
+ * Need to extend cpusets, either by extracting the local part before binding, or by adding a ""network id"" attribute internally, or a local flag to objects (set to 0 by default when agregating topologies, and process can then set it back to 1 their own Machine object and children).
+
+ * Need network topology detection
+
+Note: For OFED, ibnetdiscover provides the network topology
+",1258988406,1318661064,normal
+24,defect,,sthibaul,v1.0,closed,fixed,Add whole processus binding support on Linux,"This can be implemented by enumerating /proc/{<pid>,self}/task/*, bind them, enumerate again to check that none have appeared in between.",1259166515,1356162574,normal
+25,enhancement,,jsquyres,v1.0,closed,fixed,Add --logical and --physical options to all hwloc CLI commands,"As discussed in this thread:
+
+    http://www.open-mpi.org/community/lists/hwloc-devel/2009/12/0456.php
+
+It would be beneficial to allow the hwloc CLI commands to support outputting indexes either as physical/OS values or as hwloc-logical values.",1259889094,1262082709,normal
+26,enhancement,,jsquyres,v1.0,closed,fixed,Make hwloc CLI commands all default to same index bias,"After #25, make all hwloc CLI commands uniformly default to both output and accept as input either physical/OS or hwloc-logical index values.
+
+Simple example: hwloc-bind should accept as input the index values output by the default output of lstopo.
+
+See also the thread started here:
+
+    http://www.open-mpi.org/community/lists/hwloc-devel/2009/12/0456.php",1259889265,1262109193,normal
+27,enhancement,,jsquyres,v1.0,closed,fixed,"Ignore leading ""0x"" if present in cpuset strings","Cpuset strings are expressed as hex numbers.  Some users may put a ""0x"" prefix at the beginning of hex numbers; it should be pretty easy to ignore such a prefix if it is present.",1259889321,1356162620,normal
+28,enhancement,,bgoglin,v1.0,closed,fixed,get nbprocs on the command-line,"As suggested by Samuel, we could have an easy way to get the number of processors from the command line:
+
+  shell$ lstopo --n<proc|core|socket|node|machine|system>
+  4
+",1260428725,1262095366,normal
+29,enhancement,,sthibaul,v1.0,closed,fixed,Pave the way for network support,"- the top object may not always be a system.
+- objects may not have a cpuset.
+- there is no global notion of cpuset, only relative to a tree of
+  objects representing a machine.
+",1263258508,1264862410,normal
+30,enhancement,,sthibaul,Future,new,,USB tree?,"I've came across the location of a CD-ROM drive:
+
+/sys/devices/pci0000:00/0000:00:02.1/usb1/1-5/1-5:1.0/host6/target6:0:0/6:0:0:0/block:sr0",1263379982,1336507219,minor
+31,defect,bgoglin,bgoglin,v1.1,closed,fixed,array of stringified infos,"As discussed a while ago, I think we should add something like this to the end of the hwloc_obj structure:
+
+  char **infos; /**< \brief Array of string name=value */
+  unsigned infos_count; /**< \brief Length of the infos array */
+
+We would store in there things like:
+
+  DMIBoardVendor=Tyan (currently in obj->attr->machine.dmi_board_vendor)
+  DMIBoardModel=S4885 (currently in obj->attr->machine.dmi_board_info)
+  PCIVendor=AMD
+  PCIModel=Radeon HD4350
+
+Some of them are already used in obj->name but that doesn't need to change.
+
+Some system-fields might be interesting too, they should go in the topology or in the widest related object:
+
+  Backend=Synthetic
+  OS=Linux
+  LinuxCpuset=/foobar
+  FsRoot=/var/lib/topology/myworderfulmachine
+  Hostname=foobar
+",1266911005,1356164308,normal
+32,enhancement,,bgoglin,v1.2,closed,fixed,distances,"INTRO:
+Some people want a fake/virtual/topological distance between random pairs of objects, from the tree point of view, not from the physical point of view. The distance between A and B is basically the depth difference between the highest of A and B and their lowest common ancestor. This is probably too simple to deserve some discussion here. At most, we'll add a new helper.
+
+
+DONE:
+Some people want to know the actual physical distance between objects (especially numa nodes). We already had the full matrices of distances between all pairs of objects of the same level (when given by the BIOS/OS). In the distances branch, we are now also exporting this ""latency"" matrix (after normalization to floats with 1.0 on the diagonal).
+
+If we ever have the distances between a subset of objects, we store the matrix in the common ancestor instead of the root. No problem there, we can group objects and report distances the same.
+
+Distance matrices may also be given by the user between init and load (as unsigned right now, maybe use float there too?).
+
+
+TODO:
+Some people may want the topological graph connecting objects, which means we have a number of hops (ou a route?) between peers instead of a latency. It could be another matrix (unsigned, 0 on the diagonal).
+
+NUMA topology could also be exported as a series of proximity domains (like solaris's lgrps). ** TODO explain what this means **
+",1267384903,1356164682,normal
+33,enhancement,,bgoglin,v1.1,closed,fixed,hwloc-aware top/ps,"Based on discussion here, it looks like some people use top to verify the binding of their MPI processes. They will get physical processor index there. But they might want to easily check that the binding is ""hwloc-correct"" when MPI uses hwloc for binding.
+
+So having a hwloc-aware top (or ps) would be good. No need to reimplement everything, only showing basic top/ps info would be enough. Something like below should be easy:
+  <pid> <user> <command> <cpuset> <socket1.core5>
+
+With some options for filtering with a userid, process name, ...
+
+Maybe print %CPU if it's easy to retrieve (but we may need to make it refresh the display every second or so, which opens the room for lots of useless requests from users). Probably better to let the user revert to the plain top/ps instead or reinventing the wheel.
+",1267605878,1356164260,normal
+34,enhancement,bgoglin,bgoglin,v1.1,closed,fixed,dynamic cpusets,"The dyncpuset branch might be mergeable now. The remaining possible optimization are orthogonal, not required before entering trunk. I'd like some feedback about the current implementation.
+
+FWIW, below is the duration (in microseconds) of hwloc_topology_load() depending on the topology size/hierarchy. It's a synthetic topo, so load() does pretty much nothing apart from allocating objects and manipulating tons of cpusets to insert in the tree and compute the {allowed,complete,online}_{cpuset,nodeset}.
+
+{{{
+                                                   size    trunk     dyncpusets
+  synthetic proc:4                                 4       100       100
+  synthetic proc:32                                32      745       413
+  synthetic node:4 die:4 core:4 proc:4             256     7750      5409
+  synthetic proc:256                               256     41932     34773
+  synthetic mach:4 node:4 die:4 core:4 proc:4      1024    44215     49406
+  synthetic proc:1024                              1024    1237049   1442945
+  synthetic m:4 n:4 d:4 cache:4 core:4 4           4096    X         700547
+  synthetic m:4 n:4 d:4 cache:4 cache:4 core:4 4   16384   X         11597185
+}}}
+
+In short, dyncpusets decrease memory waste, and do not increase CPU cycles.
+
+1024 is the current static size in the trunk, that's why it's faster than dyncpusets. The dyncpusets branch works at least until 16384 in the above test but the lstopo time became too long for me :)
+",1271799384,1356164224,normal
+35,defect,,jsquyres,v1.0.1,closed,fixed,32 bit builds fail,"hwloc fails to build when CFLAGS=-m32.  It has shown up in nightly Open MPI test builds, but is easy to reproduce in standalone builds:
+
+{{{
+$ ./configure CFLAGS=-m32
+...
+$ make
+...
+Making all in src
+make[1]: Entering directory `/nfs/rinfs/san/homedirs/jsquyres/svn/hwloc/src'
+depbase=`echo topology-x86.lo | sed 's|[^/]*$|.deps/&|;s|\.lo$||'`;\
+	/bin/sh ../libtool --tag=CC   --mode=compile gcc -DHAVE_CONFIG_H -I. -I../include/private -I../include/hwloc  -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include  -std=gnu99   -fvisibility=hidden -I/usr/include/libxml2   -std=gnu99   -fvisibility=hidden -m32 -pipe -I/u/jsquyres/svn/hwloc/include -Wall -Wunused-parameter -Wundef -Wno-long-long -Wsign-compare -Wmissing-prototypes -Wstrict-prototypes -Wcomment -pedantic -MT topology-x86.lo -MD -MP -MF $depbase.Tpo -c -o topology-x86.lo topology-x86.c &&\
+	mv -f $depbase.Tpo $depbase.Plo
+libtool: compile:  gcc -DHAVE_CONFIG_H -I. -I../include/private -I../include/hwloc -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include -I/u/jsquyres/svn/hwloc/include -std=gnu99 -fvisibility=hidden -I/usr/include/libxml2 -std=gnu99 -fvisibility=hidden -m32 -pipe -I/u/jsquyres/svn/hwloc/include -Wall -Wunused-parameter -Wundef -Wno-long-long -Wsign-compare -Wmissing-prototypes -Wstrict-prototypes -Wcomment -pedantic -MT topology-x86.lo -MD -MP -MF .deps/topology-x86.Tpo -c topology-x86.c  -fPIC -DPIC -o .libs/topology-x86.o
+/u/jsquyres/svn/hwloc/include/private/cpuid.h: In function ‘hwloc_cpuid’:
+/u/jsquyres/svn/hwloc/include/private/cpuid.h:54: error: can't find a register in class ‘BREG’ while reloading ‘asm’
+make[1]: *** [topology-x86.lo] Error 1
+make[1]: Leaving directory `/nfs/rinfs/san/homedirs/jsquyres/svn/hwloc/src'
+make: *** [all-recursive] Error 1
+}}}
+
+Any ideas?",1274298947,1356164125,normal
+36,enhancement,,sthibaul,Future,closed,wontfix,Add likwid backend for cpuid-based detection,"To benefit from potential future updates of likwid concerning new cpuid conventions
+
+http://code.google.com/p/likwid/",1279728613,1396298453,normal
+37,defect,bgoglin,bgoglin,v1.2,closed,fixed,Properly gather/support Linux Cgroup/Cpuset in remote topologies,"http://www.open-mpi.org/community/lists/hwloc-devel/2010/12/1717.php
+
+We need to:
+* gather /proc/mounts
+* gather the relevant cpuset/cgroup mount point in hwloc-gather-topology.sh (or warn if we didn't gather it)
+* make sure we properly read those in src/topology-linux.c when fsroot was changed
+* update the expected topologies of tests/linux/*cpuset* (might be wrong right now)
+* stop ignoring failures at the end of test-gather-topology.sh.in (or at least only ignore when Linux cpuset/cgroup are enabled)
+
+Note that you need to mount a cpuset or cgroup/cpuset mount point to reproduce the problem.
+",1292483900,1356164566,normal
+38,defect,,taa,v1.1.1,closed,fixed,Hwloc build errors on SPARC Solaris with native compiler,"Attempting a build on Solaris 10 with Sun compiler tools v 5.9, configured with:
+/configure --target=sparc-sun-solaris2.10 --prefix=.../hwloc-sparc --enable-debug=no --disable-xml --disable-cairo --disable-visibility CC=""cc -xc99=all"" CXX=""CC"" CFLAGS=""-m64"" CXXFLAGS=""-m64"" LDFLAGS=""""
+
+hwloc_have_cpuid() was undefined (and referenced), as was hwloc_cpuid(). I couldn't find a configuration option that would fix this, so ended up changing include/private/cpuid.h as shown in the attachment. The config.h comes up with HWLOC_HAVE_CPUID=1.
+",1293993651,1356164201,normal
+39,enhancement,,sthibaul,v1.5,closed,fixed,function to get the current cpu number,"It can be useful to know where a thread is currently actually executing. Of course, the information may be outdated shortly after being returned, but that's still useful to monitoring applications.
+
+",1296783404,1356164513,normal
+40,enhancement,,bgoglin,v1.2,closed,fixed,hwloc-calc hierarchical output formatting,"From http://www.open-mpi.org/community/lists/hwloc-users/2011/02/0276.php
+
+hwloc-calc may currently convert anything into a list of objects given as type:index. The above message suggests that it may be useful to report as type1:index1.type2:index2 but there is no easy to guess what type1 and type2 should be (and the user may want more levels).
+
+So maybe do hwloc-calc --ho socket,core to report a hierarchical output as socket:X.core:Y
+
+If multiple cores are included in the input, just append another socket:T.core:Z string.
+
+If the input is smaller than a single core, two solutions:
+* socket:X.core:Y.L1Cache:Z
+* socket:X.core:Y and specify in the doc that the output may be larger than the input
+",1297588512,1356164485,normal
+41,enhancement,bgoglin,bgoglin,v1.5,closed,fixed,"convert between ""L2cache""-like string and (type,depth) and actual depth within the tree","We usually cannot currently convert between a type and a depth if the type is cache or group because we ignore the corresponding depth attribute. People have to manually handle the HWLOC_TYPE_DEPTH_MULTIPLE.
+
+Since r3255, hwloc-calc uses this internally:
+  int hwloc_obj_type_sscanf(const char *string, hwloc_obj_type_t *typep, unsigned *depthattrp)
+It could be added to the public interface. But we need to make sure that unsigned depthattr is the only object attribute that may ever appear in the complete type name. It currently works for L2Cache and Group3. I don't know what else we could ever have.
+
+Then, we could have something converting between (hwloc_obj_type_t type, unsigned depthattr) and an actual depth in the tree (unsigned depth). But we need good names for these. We already have get_type_depth and get_depth_type. Maybe this:
+
+int hwloc_get_type_depthattr_depth(topology, type, depthattr, &depth);
+int hwloc_get_depth_type_depthattr(topology, depth, &type, &depthattr);
+
+Ticket #50 talks about adding instruction caches to hwloc, it would then be needed in the aforementioned function. depthattr may then become a union containing an int for groups (depth) and two ints for cache (depth + cachetype).
+",1299651092,1331904084,normal
+42,defect,,jsquyres,,closed,wontfix,hwloc fails to link with gcc >= 4.3 with -fexceptions,"Initially reported by LANL on the OMPI trac (https://svn.open-mpi.org/trac/ompi/ticket/2778), I have similar linking problems if I use a hand-installed gcc 4.5 on RHEL5.  Notes:
+
+ * Happens with hand-install gcc 4.5 on RHEL5, but not the built-in gcc 4.1
+ * Happens with hwloc 1.1.2, but not with hwloc 1.2 or trunk
+
+Here's the specific link failure I get if I compile hwloc by itself (i.e., not as part of OMPI):
+
+{{{
+[11:36] svbu-mpi:~/svn/hwloc-1.1 % ./configure CFLAGS=-fexceptions
+...lots of output...
+[11:36] svbu-mpi:~/svn/hwloc-1.1 % make
+Making all in src
+make[1]: Entering directory `/home/jsquyres/svn/hwloc-1.1/src'
+  CC     topology.lo
+  CC     traversal.lo
+  CC     topology-synthetic.lo
+  CC     bind.lo
+  CC     cpuset.lo
+  CC     misc.lo
+  CC     topology-xml.lo
+  CC     topology-linux.lo
+  CC     topology-x86.lo
+  CCLD   libhwloc.la
+.libs/traversal.o: In function `__pthread_cleanup_routine':
+traversal.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/topology-synthetic.o: In function `__pthread_cleanup_routine':
+topology-synthetic.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/bind.o: In function `__pthread_cleanup_routine':
+bind.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/cpuset.o: In function `__pthread_cleanup_routine':
+cpuset.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/misc.o: In function `__pthread_cleanup_routine':
+misc.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/topology-xml.o: In function `__pthread_cleanup_routine':
+topology-xml.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/topology-linux.o: In function `__pthread_cleanup_routine':
+topology-linux.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+.libs/topology-x86.o: In function `__pthread_cleanup_routine':
+topology-x86.c:(.text+0x0): multiple definition of `__pthread_cleanup_routine'
+.libs/topology.o:topology.c:(.text+0x0): first defined here
+collect2: ld returned 1 exit status
+make[1]: *** [libhwloc.la] Error 1
+make[1]: Leaving directory `/home/jsquyres/svn/hwloc-1.1/src'
+make: *** [all-recursive] Error 1
+}}}
+
+Need to investigate this more to see if it's worthwhile to issue a 1.1.3 or not.",1303756718,1303757646,normal
+43,enhancement,,bgoglin,Future,new,,throughput distance matrix,"Add a throughput matrix on the side of the existing latency one (basically the same behavior except that the grouping code looks at maximum instead of mininum values). set_distance() doesn't have a latency/throughput parameter. So we will look at the matrix to find out if it's throughput (diagonal is maximum) or latency (all other cases)
+
+If we rework the distance API because of tickets #48, #67 and #68, it might be good to add a parameter specifying if the given matrice is latency/throughput/number-of-hops/...",1303894202,1336507096,normal
+44,defect,jsquyres,jsquyres,v1.2.1,closed,fixed,"""./configure --enable-xml"" doesn't fail if XML can't be built","Andreas Kupries noticed that if you configure hwloc with:
+
+{{{
+./configure --enable-xml ...
+}}}
+
+but configure fails to find XML support, it'll still continue and just give you an hwloc without XML support.
+
+This violates the Law of Least Astonishment.  If someone asks for --enable-<foo> and configure fails to find the Right Stuff for <foo>, then configure should abort.
+
+--enable-xml is definitely broken in this regard; the other --enable-<foo> and --with-<foo> options should be checked for this kind of behavior as well.",1308076090,1356164382,normal
+45,defect,,cs,v1.2.1,closed,fixed,"hwloc-ps core dump on Altix, with CPU set interactions","hwloc 1.2's hwloc-ps dumps core when executed from a user's non-root
+CPU set:
+
+{{{
+cs@altix-02$ cat /proc/self/cpuset
+/
+cs@altix-02$ hwloc-ps
+cs@altix-02$ echo $$ | sudo cpuset -a /test
+cpuset: attached one pid to cpuset </test>
+cs@altix-02$ cat /proc/self/cpuset
+/test
+cs@altix-02$ hwloc-ps
+Segmentation fault (core dumped)
+}}}
+
+After rebuilding hwloc-1.2 for debugging, here's what I learned
+with gdb:
+
+{{{
+cs@altix-02$ gdb /usr/local/bin/hwloc-ps
+GNU gdb 6.2.1
+Copyright 2004 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and you are
+welcome to change it and/or distribute copies of it under certain conditions.
+Type ""show copying"" to see the conditions.
+There is absolutely no warranty for GDB.  Type ""show warranty"" for details.
+This GDB was configured as ""ia64-suse-linux""...Using host libthread_db library ""/lib/tls/libthread_db.so.1"".
+
+(gdb) run
+Starting program: /usr/local/bin/hwloc-ps 
+
+Program received signal SIGSEGV, Segmentation fault.
+hwloc_obj_type_snprintf (string=0x60000fffffffad00 ""Machine"", size=64, 
+    obj=0x0, verbose=1) at traversal.c:188
+188       hwloc_obj_type_t type = obj->type;
+(gdb) bt
+#0  hwloc_obj_type_snprintf (string=0x60000fffffffad00 ""Machine"", size=64, 
+    obj=0x0, verbose=1) at traversal.c:188
+#1  0x4000000000002c20 in main (argc=1, argv=0x60000fffffffb1a8)
+    at hwloc-ps.c:144
+(gdb) up
+#1  0x4000000000002c20 in main (argc=1, argv=0x60000fffffffb1a8)
+    at hwloc-ps.c:144
+144             hwloc_obj_type_snprintf(type, sizeof(type), obj, 1);
+(gdb) list 140
+135           hwloc_bitmap_asprintf(&cpuset_str, cpuset);
+136           printf(""%s"", cpuset_str);
+137         } else {
+138           hwloc_bitmap_t remaining = hwloc_bitmap_dup(cpuset);
+139           int first = 1;
+140           while (!hwloc_bitmap_iszero(remaining)) {
+141             char type[64];
+142             unsigned idx;
+143             hwloc_obj_t obj = hwloc_get_first_largest_obj_inside_cpuset(topology, remaining);
+144             hwloc_obj_type_snprintf(type, sizeof(type), obj, 1);
+(gdb) print topology
+$1 = 0x6000000000008010
+(gdb) print *topology
+$2 = {nb_levels = 3, next_group_depth = 0, level_nbobjects = {1, 2, 1, 
+    0 <repeats 125 times>}, levels = {0x60000000000090d0, 0x600000000000ab70, 
+    0x600000000000acc0, 0x0 <repeats 125 times>}, flags = 0, type_depth = {0, 
+    0, 1, -1, -1, -1, 2, -1, -1}, ignored_types = {HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_KEEP_STRUCTURE, HWLOC_IGNORE_TYPE_NEVER}, 
+  is_thissystem = 1, is_loaded = 1, pid = 0, 
+  set_thisproc_cpubind = 0x200000000003ca38 <local+7656>, 
+  get_thisproc_cpubind = 0x200000000003c868 <local+7192>, 
+  set_thisthread_cpubind = 0x200000000003c878 <local+7208>, 
+  get_thisthread_cpubind = 0x200000000003c888 <local+7224>, 
+  set_proc_cpubind = 0x200000000003ca28 <local+7640>, 
+  get_proc_cpubind = 0x200000000003c858 <local+7176>, set_thread_cpubind = 0, 
+  get_thread_cpubind = 0, 
+  get_thisproc_last_cpu_location = 0x200000000003c8a8 <local+7256>, 
+  get_thisthread_last_cpu_location = 0x200000000003c8b8 <local+7272>, 
+  get_proc_last_cpu_location = 0x200000000003ca58 <local+7688>, 
+  set_thisproc_membind = 0, get_thisproc_membind = 0, 
+  set_thisthread_membind = 0x200000000003c8e8 <local+7320>, 
+  get_thisthread_membind = 0x200000000003c8f8 <local+7336>, 
+  set_proc_membind = 0, get_proc_membind = 0, 
+  set_area_membind = 0x200000000003c8c8 <local+7288>, get_area_membind = 0, 
+  alloc = 0x200000000003c828 <local+7128>, 
+  alloc_membind = 0x200000000003c8d8 <local+7304>, 
+  free_membind = 0x200000000003c808 <local+7096>, support = {
+    discovery = 0x6000000000009070, cpubind = 0x6000000000009090, 
+    membind = 0x60000000000090b0}, os_distances = {{nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 2, indexes = 0x6000000000009700, 
+      objs = 0x60000000000096c0, distances = 0x60000000000096e0}, {nbobjs = 0, 
+      indexes = 0x0, objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}}, backend_type = HWLOC_BACKEND_SYSFS, backend_params = {
+    sysfs = {root_path = 0x0, root_fd = -1}, synthetic = {arity = {0, 0, 
+        4294967295, 0 <repeats 125 times>}, type = {
+        HWLOC_OBJ_SYSTEM <repeats 128 times>}, id = {0 <repeats 128 times>}, 
+      depth = {0 <repeats 128 times>}}}}
+(gdb) print remaining
+$3 = 0x6000000000009da0
+(gdb) print *remaining
+$4 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x600000000000b120, 
+  infinite = 0}
+(gdb) break hwloc_get_first_largest_obj_inside_cpuset
+Breakpoint 1 at 0x4000000000003092: file helper.h, line 234.
+(gdb) run
+The program being debugged has been started already.
+Start it from the beginning? (y or n) y
+
+Starting program: /usr/local/bin/hwloc-ps 
+
+Breakpoint 1, hwloc_get_first_largest_obj_inside_cpuset (
+    topology=0x6000000000008010, set=0x6000000000009da0) at helper.h:234
+234       hwloc_obj_t obj = hwloc_get_root_obj(topology);
+(gdb) next
+236       if (!hwloc_bitmap_intersects(obj->cpuset, set))
+(gdb) next
+237         return NULL;
+(gdb) break hwloc_bitmap_intersects
+Breakpoint 2 at 0x2000000000076ee2: file cpuset.c, line 895.
+(gdb) delete 1
+(gdb) run
+The program being debugged has been started already.
+Start it from the beginning? (y or n) y
+
+Starting program: /usr/local/bin/hwloc-ps 
+
+Breakpoint 2, hwloc_bitmap_intersects (set1=0x6000000000009890, 
+    set2=0x6000000000009650) at cpuset.c:895
+895             for(i=0; i<set1->ulongs_count || i<set2->ulongs_count; i++)
+(gdb) print *set1
+$5 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x60000000000098b0, 
+  infinite = 0}
+(gdb) print *set2
+$6 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x6000000000009670, 
+  infinite = 0}
+(gdb) next
+896                     if ((HWLOC_SUBBITMAP_READULONG(set1, i) & HWLOC_SUBBITMAP_READULONG(set2, i)) != HWLOC_SUBBITMAP_ZERO)
+(gdb) next
+895             for(i=0; i<set1->ulongs_count || i<set2->ulongs_count; i++)
+(gdb) next
+899             if (set1->infinite && set2->infinite)
+(gdb) next
+902             return 0;
+}}}",1309216393,1356164793,normal
+46,enhancement,,bgoglin,v1.4,closed,fixed,support get_area_membind on Linux,"Do get_mempolicy (with MPOL_F_ADDR) on each virtual page in the area and combine the result. This should work because get_mempolicy seems to only look at VMA mempolicy (not at current task policy) in this case.
+
+Requested by Alfredo Buttari.",1309937242,1314090065,normal
+47,enhancement,,sthibaul,Future,new,,Add servet/LMbench backends for benchmark-based detection,"http://servet.des.udc.es
+http://lmbench.sourceforge.net/whatis_lmbench.html
+
+Could use the grouping code with relaxed comparison functions
+",1313540841,1396298193,normal
+48,enhancement,,bgoglin,Future,new,,distances vs multinode,"Some user want distances in multinode topologies.
+
+1) It's currently disabled because we use cpusets/nodesets to find/create a common ancestor where the matrix is attached. Multinode objects have no cpusets/nodesets.
+
+One way to solve this would be to add a hostset or machineset bitmap to each object to identify the hosts/machines it corresponds too.
+
+2) We'll need a better way to identified objects in multinode topologies. Most distance insertion routines currently use physical indexes, but those are meaningless in multinode systems (and even not always meaningfull in single-node systems because core ids are not always unique).
+
+See also ticket #67 when people don't care about grouping.
+",1317798648,1378842540,normal
+49,enhancement,,bgoglin,v1.4,closed,fixed,multinode graphical lstopo output,"lstopo currently uses boxes for everything, except when a system object contains multiple Machine objects (it draws a network).
+
+With custom topologies, we can now easily get multiple levels of Groups between Machine and System. And we can also get multiple System levels if we assemble multiple times.
+
+Ideally, this special drawing would even be used as soon as we have objects with cpusets above objects with cpusets.",1319347428,1319405113,normal
+50,enhancement,,bgoglin,v1.5,closed,fixed,Instruction Cache,"We currently only detect Data and Unified caches. Some people want Instruction caches as well.
+
+* We can easily detect those and add a cache type attribute. But we we would add a new level to most exiting topologies (L1i above or below L1d).
+* We can make the detection depend on a new topology flag, so that the topology does not change much with next release
+* We can store both data and instruction sizes in the same object. Unfortunately, AMD Bulldozer has L1i and L1d with different sharing.
+
+We'll have to take this new attribute into account in #41.
+",1319349542,1331904024,normal
+51,defect,,cbkyeoh,v1.4,closed,fixed,hwloc_topology_clear should set pointers to NULL after free,"This is more a change to make things easier to debug than a bug fix, but I think it would be much better if hwloc_topology_clear set the topology->levels[l] pointers to NULL after freeing them.
+
+The reason for this is the way this function is called. For example, OMPI calls thisvia hwloc_discover and topology_load. Although an error code is returned it is sort of rather unexpected behavior that the function would have freed resources from the hwloc_topology object that was originally passed to topology_load. Given that different errors may occur its not really possible to be sure what may have been freed - short of looking at the source code. 
+
+Setting the pointers to NULL makes it clear that this memory is no longer valid to access and allows the calling code to clean up properly as well as not accidentally referencing memory which may have been overwritten.
+
+Patch is attached.
+
+",1319429626,1356165023,minor
+52,defect,,wkosters,v1.3.1,closed,fixed,PCI pulled in on openSuSE 11.4,"I have not been able to get the PCI detection code to build, have built and installed pciutils-3.1.8, ./configure detects 'pci.h' but fails pci_init and pci_lookup_name tests.",1319737391,1356164913,normal
+53,enhancement,,bgoglin,Future,new,,hwloc binding gui,"Berkeley likes hwloc but still thinks it is too hard for normal people such as physicists. So they would like a GUI combining lstopo and top to bind processes or threads with your mouse.
+
+Some Bordeaux student worked on this during Spring 2012. They got something interesting with QT. We need to review the details and the IP.",1321557456,1336507166,normal
+54,enhancement,,bgoglin,v1.7,closed,fixed,"interoperability with graphics (X, OpenGL, ...)","Stefan Eilemann would like more interoperability with graphics devices than just Cuda devices.
+
+He uses things like 'XOpenDisplay("":0.<gpu>"") with OpenGL and needs a way to find the affinity and/or PCI device corresponding to a X server number and/or X xscreen. The bus ID is known to Xorg and may be in some xorg.conf but it's not easy to retrieve inside hwloc.
+
+His terms:
+- port: the X server number or unused (Windows/Mac)
+- GL device: The X screen, affinity device (Windows) or CGL renderer ID (OS X)
+- Cuda/OpenCL device
+
+Cuda is already OK, but OpenCL seems to have nothing to help us.
+
+https://github.com/Eyescale/Equalizer/issues/57
+",1322643169,1362573230,normal
+55,defect,jsquyres,binki,v1.3,closed,fixed,hwloc ./configure ignores PKG_CONFIG environment variable,"hwloc maintains a fork of pkg.m4 with everything, including the environment variables it respects, prefixed with HWLOC_. If hwloc needs to do anything special with pkg-config, it should add wrappers around the API exposed by pkg.m4 instead of forking it. Also, if a fork is to be maintained, it should follow the conventions of respecting PKG_CONFIG (and perhaps testing if HWLOC_PKG_CONFIG is set first and then falling back to PKG_CONFIG and then falling back to the behavior of looking up pkg-config).
+
+hwloc should respect PKG_CONFIG so that in build environments where PKG_CONFIG is defined, it will respect that variable definition. hwloc shouldn't be a special case where packagers also need to define HWLOC_PKG_CONFIG.",1323228658,1323371968,normal
+56,defect,,sthibaul,v1.3,closed,fixed,xml output depends on locale,"In e.g. the french locale, the xml output uses ',' for decimal point, instead of '.'",1323772126,1327671089,normal
+57,defect,,fx,v1.3,closed,fixed,build fails with Solaris cc,"On Solaris 10 with
+{{{
+# cc -V
+cc: Sun C 5.8 Patch 121016-07 2007/10/03
+}}}
+I needed the following patch, otherwise the compiler barfs on `__inline`
+",1323794756,1323797650,normal
+58,defect,,fx,v1.3,closed,fixed,visibility-related build failure on Solaris with gcc,"I have gcc-4.3.3 from the CSW repository on Solaris 10.  It's configured to use the native ld, it seems.  The build fails if just configured with `./configure`, as follows (with a load of similar visibility warnings).  If I `configure --disable-visibility` it's happy.
+
+{{{
+...
+  CC     topology-x86.lo
+topology-x86.c: In function 'hwloc_look_x86':
+topology-x86.c:543: warning: visibility attribute not supported in this configuration; ignored
+  CCLD   libhwloc.la
+ld: fatal: relocation error: R_386_GOTOFF: file .libs/topology.o: symbol hwloc_report_os_error: a GOT relative relocation must reference a local symbol
+*** Error code 1
+The following command caused the error:
+echo ""  CCLD  "" libhwloc.la;/bin/bash ../libtool --silent --tag=CC    --mode=link gcc -fvisibility=hidden  -I/usr/include/libxml2 -fvisibility=hidden  -I/usr/include/libxml2    -I/var/tmp/hwloc-1.3/include      -no-undefined  -version-number 4:0:4 -lxml2 -lpthread -lz -lm -lsocket -lnsl    -o libhwloc.la -rpath /usr/local/lib topology.lo traversal.lo distances.lo  topology-synthetic.lo topology-xml.lo bind.lo cpuset.lo  misc.lo  topology-solaris.lo           topology-x86.lo  -lkstat -llgrp
+make: Fatal error: Command failed for target `libhwloc.la'
+}}}
+
+Sorry I don't have time to investigate the autoconfiscation, but I might be able to sometime later.",1323795564,1327193996,normal
+59,defect,,fx,v1.3,closed,fixed,autoconf failures on trunk,"I found this with the 1.4a1r4032, using Solaris cc, but it looks like a general problem.  In addition to the patch in #57, I needed this patch, since the configured variables are 0/1, not undef/defined.",1323796335,1323797900,normal
+60,enhancement,,bgoglin,Future,new,,report available memory,"From Daniel Gruber:
+> Do you plan to support an easy way to get the use memory
+> per NUMA region like ""numactl --hardware"" does on Linux?
+> Do you see any way to accomplish that?
+
+Shouldn't be hard on Linux. Already done on Windows :)
+
+Would need a new field in the memory structure (or a topology flag saying that it replaces total memory).
+",1324031768,1336507189,normal
+61,defect,,bgoglin,,closed,wontfix,process wide membind on Linux,"Daniel Gruber noticed that we cannot membind process-wide on Linux, even for single-threaded process. I don't remember if there's any reason for this.
+
+Looks like this should just reuse the existing code that handles multithreaded processes for cpubind.",1324031954,1356165003,normal
+62,defect,,DooMMasteR,,closed,fixed,Wrong cache report on AMD Bulldozer plattforms,"i have an AMD FX-6100 running
+it has 2MB of L2-cache per module and 3 modules with 2 cores, that makes 6MB of L2-cache
+
+ http://datatomb.de/~doommaster/topo.png
+
+lstopo seems to report it as 2MB per Core and not per Module
+
+L1 again is a lot bigger than reported, AMD specifies 128kB per core (one 64kB block for data one for instructions)
+
+{{{
+
+  Socket L#0 (P#0)
+    L3Cache L#0 (8192KB line=64)
+      Core L#0 (P#0)
+        L2Cache L#0 (2048KB line=64)
+          L1Cache L#0 (16KB line=64)
+            PU L#0 (P#0)
+        L2Cache L#1 (2048KB line=64)
+          L1Cache L#1 (16KB line=64)
+            PU L#1 (P#1)
+      Core L#1 (P#2)
+        L2Cache L#2 (2048KB line=64)
+          L1Cache L#2 (16KB line=64)
+            PU L#2 (P#2)
+        L2Cache L#3 (2048KB line=64)
+          L1Cache L#3 (16KB line=64)
+            PU L#3 (P#3)
+      Core L#2 (P#4)
+        L2Cache L#4 (2048KB line=64)
+          L1Cache L#4 (16KB line=64)
+            PU L#4 (P#4)
+        L2Cache L#5 (2048KB line=64)
+          L1Cache L#5 (16KB line=64)
+            PU L#5 (P#5)
+
+}}}
+
+should instead be
+
+
+{{{
+  Socket L#0 (P#0)
+    L3Cache L#0 (8192KB line=64)
+      Core L#0 (P#0)
+        L2Cache L#0 (2048KB line=64)
+          L1Cache L#0 (128KB line=64)
+            PU L#0 (P#0)
+          L1Cache L#1 (128KB line=64)
+            PU L#1 (P#1)
+      Core L#1 (P#2)
+        L2Cache L#2 (2048KB line=64)
+          L1Cache L#2 (128KB line=64)
+            PU L#2 (P#2)
+          L1Cache L#3 (128KB line=64)
+            PU L#3 (P#3)
+      Core L#2 (P#4)
+        L2Cache L#4 (2048KB line=64)
+          L1Cache L#4 (128KB line=64)
+            PU L#4 (P#4)
+          L1Cache L#5 (128KB line=64)
+            PU L#5 (P#5)
+}}}
+
+I also made a hwloc-gather-topology tarbal http://datatomb.de/~doommaster/Bulldozer.tar.bz2",1326980476,1331326121,normal
+63,defect,,fx,v1.3,closed,fixed,warnings with PGI compiler,"I accidentally configured with the PGI compiler (v. 10.5) by having $CC defined when running configure.
+
+I don't understand the warnings it gave, and guess they're spurious, but here they are in case you understand them and they are useful:
+
+{{{
+Making all in src
+make[1]: Entering directory `/usr/src/hwloc-1.4.1a1r4268/src'
+  CC     topology.lo
+PGC-W-0155-No va_start() seen  (topology.c: 30)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CC     distances.lo
+PGC-W-0155-No va_start() seen  (distances.c: 30)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CC     topology-xml.lo
+PGC-W-0095-Type cast required for this conversion (topology-xml.c: 1133)
+PGC-W-0155-No va_start() seen  (topology-xml.c: 38)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CC     topology-libpci.lo
+PGC-W-0155-No va_start() seen  (topology-libpci.c: 564)
+PGC-W-0155-No va_start() seen  (topology-libpci.c: 30)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CC     topology-linux.lo
+PGC-W-0155-No va_start() seen  (topology-linux.c: 30)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CC     topology-x86.lo
+PGC-W-0155-No va_start() seen  (topology-x86.c: 30)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+  CCLD   libhwloc.la
+make[1]: Leaving directory `/usr/src/hwloc-1.4.1a1r4268/src'
+Making all in include
+make[1]: Entering directory `/usr/src/hwloc-1.4.1a1r4268/include'
+make[1]: Nothing to be done for `all'.
+make[1]: Leaving directory `/usr/src/hwloc-1.4.1a1r4268/include'
+Making all in utils
+make[1]: Entering directory `/usr/src/hwloc-1.4.1a1r4268/utils'
+  CCLD   lstopo
+  CCLD   hwloc-assembler
+  CC     hwloc-calc.o
+PGC-W-0095-Type cast required for this conversion (hwloc-calc.c: 112)
+PGC-W-0095-Type cast required for this conversion (hwloc-calc.c: 114)
+PGC/x86-64 Linux 10.5-0: compilation completed with warnings
+}}}
+",1328546659,1328603018,normal
+64,enhancement,,bgoglin,v1.3,closed,fixed,pass -qhalt=e to xlc,"xlc fails to detect sched_setaffinity properly because it doesn't return an error code when the number of function parameters is wrong. We detect this behavior at configure since 1.3.2/1.4.1 and emit a configure error saying that -qhalt=e should be passed to xlc, patch taken from this mail:
+
+http://www.open-mpi.org/community/lists/hwloc-devel/2012/02/2777.php
+
+It'd be good to add -qhalt=e automagically. Related mails:
+
+http://www.open-mpi.org/community/lists/hwloc-devel/2012/02/2775.php
+http://www.open-mpi.org/community/lists/hwloc-devel/2012/02/2799.php
+http://www.open-mpi.org/community/lists/hwloc-devel/2012/02/2801.php
+
+No urge.
+",1328697361,1329925289,minor
+65,enhancement,,Aleksej Saushev,v1.7,closed,fixed,Basic NetBSD support for hwloc,"I'm able to build hwloc 1.4 on NetBSD with minimal changes as attached.
+I don't quite know if I have more or less correctly functional hwloc,
+but I've got reasonably looking (at first sight) output from lstopo:
+
+ * CPU cpusets *
+
+cpu 0 (os 0) has cpuset 0x00000001
+cpu 1 (os 1) has cpuset 0x00000002
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0xf...f complete 0x00000003 online 0xf...f allowed 0xf...f nodeset 0x0 completeN 0x0 allowedN 0xf...f
+  PU#0 cpuset 0x00000001
+  PU#1 cpuset 0x00000002
+
+Restrict topology cpusets to existing PU and NODE objects
+
+Propagate offline and disallowed cpus down and up
+
+Propagate nodesets
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002
+
+Removing unauthorized and offline cpusets from all cpusets
+
+Removing disallowed memory according to nodesets
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002
+
+Removing ignored objects
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002
+
+Removing empty objects except numa nodes and PCI devices
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002
+
+Removing objects whose type has HWLOC_IGNORE_TYPE_KEEP_STRUCTURE and have only one child or are the only child
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002
+
+Add default object sets
+
+Ok, finished tweaking, now connect
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f arity 2
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f
+--- PU level has number 1
+
+
+Propagate total memory up
+
+Looking for PCI devices
+
+no PCI detection
+
+Now reconnecting
+--- PU level has number 1
+
+Machine#0(OSName=NetBSD OSRelease=5.99.60 OSVersion=""NetBSD 5.99.60 (GENERIC) #1: Fri Jan 27 02:12:22 MSK 2012  asau@lithium:/home/asau/v) cpuset 0x00000003 complete 0x00000003 online 0x00000003 allowed 0x00000003 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f arity 2
+  PU#0 cpuset 0x00000001 complete 0x00000001 online 0x00000001 allowed 0x00000001 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f
+  PU#1 cpuset 0x00000002 complete 0x00000002 online 0x00000002 allowed 0x00000002 nodeset 0xf...f completeN 0xf...f allowedN 0xf...f
+",1330825711,1354896147,normal
+66,defect,jsquyres,sthibaul,v1.4.2,closed,fixed,script permissions wrong,"the hwloc-assembler-remote and hwloc-gather-topology scripts don't get +x on make install
+
+We already set the +x bit at ./configure time, from config/hwloc_internal.m4
+
+but at installation time the script's content is patched, and +x is not applied there. This needs more automake magic.",1331293524,1356164890,normal
+67,enhancement,,bgoglin,Future,new,,relaxed distance constraints when NOT grouping,"I got some user requests about distance that don't fit well in the current distance model.
+
+People want to insert distances just for getting them back later. Basically the topology (especially as XML) puts all inputs together (usual hwloc stuff + external things such as distances). The application just loads hwloc instead of loading multiple things and merging them
+
+They don't care about us grouping. Grouping is actually what makes the current distance API not very satisfying, because grouping can reorder objects, and thus change logical indexes.
+
+For their case, there's no reason to use physical indexes to identify objects in matrices, and we can deal with multiple topologies without any problem (ticket #48)
+
+So these people need some relaxed distance matrix API that doesn't group and just annotates the topology with distance matrices.
+",1332411010,1336507195,normal
+68,enhancement,,bgoglin,v1.6,closed,fixed,latency between PU/core and local caches,"I got some user requests about distance that don't fit well in the current distance model (follow-up to #67).
+
+People want distance from coreX to cacheY or memoryZ. That's different from our current matrices: we have distance from typeX to typeY (always the same type).
+
+I don't think it's really a problem to say that distance from coreX to numaY is different from numaX to numaY. But our model currently does not support distance from a core to it's local cache for instance.
+
+So we could annotate the tree to add the latencies between each core and its local caches. Different solutions:
+1) each cache object (and numa node?) gets a new attribute for the latency to PU/core(s) under to this cache. This assume each core below a shared cached has the same latency...
+2) Each pu (or core?) object gets an array of latencies to all memory/caches objects above it. API may be ugly given the variety of cache levels we can have.
+",1332411486,1356162195,normal
+69,defect,,igalic,v1.4.2,closed,fixed,pointless configure check?,"Solaris 9 doesn't have fabsf(), naturally the configure check fails - this however doesn't abort the process - even with no alternatives.
+
+Instead we happily proceed to compile and then fail with:
+{{{
+  CC     distances.lo
+""distances.c"", line 669: warning: implicit function declaration: fabsf
+}}}
+and later at:
+{{{
+  CC     lstopo-lstopo-cairo.o
+""lstopo-cairo.c"", line 529: warning: empty translation unit
+  CCLD   lstopo
+Undefined                       first referenced
+ symbol                             in file
+fabsf                               /home/igalic/mgar/pkg/hwloc/trunk/work/solaris9-sparc/build-isa-sparcv8/hwloc-1.4.1/src/.libs/libhwloc.so
+ld: fatal: Symbol referencing errors. No output written to .libs/lstopo
+gmake[1]: *** [lstopo] Error 1
+}}}",1332423428,1356162959,normal
+70,defect,,bgoglin,v1.4,closed,fixed,>32 processors support on Windows,"Make sure we don't forget this one.
+
+We need to apply something like
+  http://www.open-mpi.org/community/lists/hwloc-users/2012/03/0599.php
+and make sure it works for 32bits build too.
+",1332452556,1335898926,normal
+71,defect,gridengine,gridengine,v1.7,closed,fixed,NVML Support in hwloc,"NVIDIA created the NVML (NVIDIA Management Library) API for management software to check the status of the GPU devices in the system.
+
+The NVML API set offers things that are not available to cudaGetDeviceProperties(). Applications that use the NVML APIs are usually job schedulers or some kind of parallel starters that they themselves do not perform any GPGPU computations, but they do need to check the status of the GPUs and start jobs that use the GPUs for computation.
+
+So with NVML support in hwloc, the node management daemons running on individual nodes can query the distances between a GPU device and each individual processor, and decide which processors to include when binding the job to offer the max. bandwidth from the processors running the job to the GPU - and thus better performance than the non-binding case.
+
+Open Grid Scheduler-Grid Engine and many other job schedulers already use the hwloc library for topology discovery & processor binding, and OGS/GE also uses the NVML library to report various GPU statistics from the execution hosts to the master host. With NVML Support in hwloc OGS/GE could make even better job scheduling and processor binding decision.
+
+In this support ticket, we are planning to implement the following APIs:
+
+- hwloc_nvml_get_device_pci_ids()
+- hwloc_nvml_get_device_cpuset()
+- hwloc_nvml_get_device_pcidev()
+
+References:
+- NVML from NVIDIA:
+http://developer.nvidia.com/nvidia-management-library-nvml
+
+- Grid Engine Multi-Core Processor Binding with hwloc:
+http://gridscheduler.sourceforge.net/projects/hwloc/GridEnginehwloc.html",1335312256,1356162114,normal
+72,task,bgoglin,bgoglin,v1.9,new,,remove kerrighed support,"Kerrighed is dead. The company that maintained it closed down during Fall 2011. The mailing lists are empty, except when people ask why download links are broken. No commits since the end of 2010. Let's plan its removal.
+
+For the record, the topology has never been well exposed in kerrighed (tweaked /proc/cpuinfo only). Binding still has a lot of TODOs.
+
+And it makes the Linux detection code much more ugly than it should be, which makes us waste time when maintaining it. So either remove it next time we have to work-around it when modifying the Linux code, or at the end of 2012 (one year after the official death, hence around v1.6).
+",1335420239,1378894663,normal
+73,defect,,bgoglin,Future,new,,win32 support for more than 32 cores,"Windows support for more than 32 cores was fixed in 1.4.2 (ticket #70) but it's broken in win32 because windows report crappy affinity info. See Remarks in
+  http://msdn.microsoft.com/en-us/library/windows/desktop/dd405488%28v=vs.85%29.aspx
+
+On a 48 core machine, hwloc reports a big warning and ignores all objects that should contain bits >= 32.
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/05/3054.php
+
+That's likely not very important, but somebody may want to dig into this.
+",1335871870,1336507350,normal
+74,defect,,bgoglin,Future,new,,windows locale support,"The XML output is still localized on Windows from what I see.
+make check even fails in tests/xml when running in French language (export LANG/LC_ALL in the test-topology script doesn't help).
+
+Followup to ticket #56
+",1336507467,1336507467,minor
+75,defect,,bgoglin,v1.5,closed,fixed,filter invalid strings,"We get some (rare) failures when some object info attributes contain invalid characters. XML (either basic or libxml2) fails to export/reimport them properly. We should filter things out, either during export, or when inserting the object info attribute (assuming that's the only place where the problem comes from).
+
+For the record, two cases where the problem occured:
+* Strange DMI info on Cisco servers
+* invalid PICL info on x86 Solaris 10 (CR 6702349 ""cpu info in picl devtree may be missing or incorrect on x86, already fixed"")
+",1336589864,1341604804,normal
+76,defect,,bgoglin,v1.5,closed,fixed,improve AIX cpubind support,"cpubind on AIX currently only uses rsets while there's another (older) way to bind stuff on AIX: bindprocessor() for set and getthrds() for get. Both methods conflict, you get EPERM if you set with one after the other. And you cannot get the binding set by one with the other. The old one has limitation: cannot bind to random sets, cannot unbind a single thread.
+
+The old is used (at least) by the XL OpenMP runtime on AIX 6.1.
+
+So we need:
+* get: Try both methods. Patch sent to Hendryk Bockelmann for testing. This will likely go in v1.5.
+* set: Try rsets as usual. If it fails with EPERM, unbind with the old method and try rsets again. One drawback is that we can't unbind a single thread, so we have to unbind the entire process and assume each individual thread will get rebound by hwloc. Maybe do that only when STRICT is given.
+
+By the way, looks like get_last_cpu_location() is only possible for the current thread on AIX.
+",1340776323,1341842306,normal
+77,defect,,bgoglin,Future,new,,improve Windows cpubind,"Hartmut Kaiser (the user who has a 48core windows machine) once said
+  may I ask you to implement hwloc_get_cpubind() for Windows, please?
+
+We have some support for get_cpubind() but I assume it's not enough for his large machine (use groups too). There are some TODO in the code, we'll need to implement all this and get Hartmut to test them.
+",1340776465,1362579675,normal
+78,enhancement,,bgoglin,v1.7,closed,fixed,BlueGene/Q support,"Based on discussion with Jeff Hammond and Chris Samuel.
+
+BGQ nodes have 16 cores with 4 threads (actually 18 cores but one is for the OS and one reserved for fault tolerance). hwloc doesn't get any topology about that, there's nothing in /proc and /sys (file I/O are not locally supported on BG).
+
+There is some kind of binding support but it's not widely used. Usually tasks are placed at launch and they don't ever move.
+
+There are ways to retrieve the current core/thread number (get_last_cpu_location()).
+
+There's a lot of doc about this in
+  http://www.redbooks.ibm.com/redpieces/abstracts/sg247948.html?Open
+
+Marking this as v1.6 since we don't have direct access to BGQ as of today.",1340776945,1360963823,normal
+79,defect,,bgoglin,v1.6,closed,fixed,annotate console output for colorized boxes,"Colorized boxes are totally ignored in console mode. --pid 0, offline, disallowed, ... PUs are just displayed as usual. Try to find a way to annotate them in console mode. Maybe by adding special characters or keywords at the end, maybe only in the verbose output.
+
+For the record, we're talking about Green for ""current process binding"", Black for offline and Red for unallowed CPUs.
+
+Comes from
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/06/3140.php
+",1341002534,1352632096,normal
+80,defect,,fx,v1.6,closed,fixed,bad hwloc_pid_t definition on Cygwin,"hwloc.m4 has
+
+hwloc_pid_t=HANDLE
+
+for Cygwin, but HANDLE is void *, which is surely wrong, with compilation warnings.
+
+It didn't pass `make check` (under virtualbox), but I need to go back and see if it was a real problem.",1341864899,1343106114,normal
+81,defect,bgoglin,bgoglin,v1.5,closed,fixed,doxygen breaks hello.c indentation in the README,"From http://www.open-mpi.org/community/lists/hwloc-devel/2012/07/3174.php
+
+Doxygen >= 1.8 does not put code fragments inside <pre> tags anymore.
+They use the CSS to make sure indentation is preserved (we should update
+out own CSS), but that doesn't seem to work with w3m and lynx. That's
+why hello.c is not indented anymore in the README. Currently under
+discussion at https://bugzilla.gnome.org/show_bug.cgi?id=680073 but I
+don't expect much.
+
+r4619 fixes indentation in the README (verbatim forces <pre>
+tags) but it removes doxygen syntax colorizing in the HTML and PDF
+outputs, which is bad IMHO.
+
+One workaround would be to modify the doxygen HTML code before passing
+it to w3m/lynx and try to fix this mess. We'll see.
+We may need such a step anyway because w3m does not export everything
+well. For instance &ndash; (generated by doxygen in place of -- since
+1.8) and © are exported as ""?"".
+
+Another way would be to manually insert hello.c in the README in place
+of the doxygen-generated code.
+
+TODO:
+* likely revert r4619
+* update our copy of doxygen.css (add div.line stuff)
+* fix the README
+",1342512679,1342606631,normal
+82,defect,,pekka,v1.4,closed,invalid,Symbols missing when embedding hwloc to another project,"Hi,
+
+I'm trying to embed hwloc 1.4.2 to the pocl project (http://launchpad.net/pocl). For some reason a couple of symbols are missing from the final built library:
+
+../../lib/CL/.libs/libpocl.so: undefined reference to `pocl_hwloc_look_linuxfs'
+../../lib/CL/.libs/libpocl.so: undefined reference to `pocl_hwloc_backend_linuxfs_init'
+../../lib/CL/.libs/libpocl.so: undefined reference to `pocl_hwloc_backend_linuxfs_exit'
+../../lib/CL/.libs/libpocl.so: undefined reference to `pocl_hwloc_set_linuxfs_hooks'
+
+When I look at libpocl.so via nm, it seems other (prefix renamed) hwloc symbols are linked OK. The nonprefixed symbols for those listed above are not there either. Maybe this is some conditionally linked code that should be enabled somehow in the build process?",1342622149,1342632511,normal
+83,enhancement,bgoglin,bgoglin,v1.6,closed,fixed,hwloc-annotate to add object string info,"In the valarray branch, I added a hwloc-annotate tool to add string info attributes (or valarrays) to object in XML topologies.
+  $ hwloc-annotate input.xml output.xml Core:4 MyInfo ThisIsCore4
+This could be easily extracted to trunk if somebody needs it without valarray support.
+
+For the record, the user that requested ""valarray"" support still hasn't tested the branch so it's not clear when this branch will become candidate for merging in trunk.
+",1343805187,1350201562,normal
+84,enhancement,,bgoglin,v1.6,closed,fixed,base64 encoding of binary userdata,"v1.6 lets application specify how to export/import obj->userdata but the application has to take care of converting its binary data from/to printable characters allowed in XML.
+
+We could add hwloc_export_obj_userdata_encoded() which takes care of converting to base64 before exporting. We'd add a encoded=1 to the XML userdata line, and importing would decode back before passing the buffer to the application.
+
+We'd embed a base64 encoder/decoder inside hwloc, something like
+  http://opensource.apple.com/source/OpenSSH/OpenSSH-7.1/openssh/bsd-base64.c
+
+Add we could have hwloc-annotate support things like that too.
+",1346163127,1346271585,normal
+85,enhancement,,bgoglin,v1.6,closed,fixed,CPUModel detection on more OSes,"http://www.open-mpi.org/community/lists/hwloc-users/2012/10/0747.php
+http://www.open-mpi.org/community/lists/hwloc-users/2012/10/0748.php
+
+This may offer a way to setup socket CPUModel infor string on:
+1) darwin/anyarch
+2) anyOS/x86
+
+We should likely put (2) in the x86 backend, make sure we always load
+the x86 component, but have it only setup the CPUModel string when another
+backend did the main discovery earlier.
+
+Also, we may want to make sure there's an object to store this. Storing CPUModel in the Machine object (when all sockets have the same model) could help. See http://www.open-mpi.org/community/lists/hwloc-users/2012/10/0755.php
+",1351203005,1352414861,normal
+86,defect,,bgoglin,v1.6,closed,fixed,clarify what's CPUType,"v1.6 will likely have CPUModel socket attribute on many OS and on x86. We also have CPUType support on Linux and Solaris but it's definition isn't clear to me, so I want to me if/how we extend its support as well.
+
+The CPUType value is kind of OS specific. And we also have things like Architecture=x86_64 (taken from uname):
+
+Linux/x86 says Architecture=i686 CPUType=i686 (CPUType is taken from uname on Linux)
+Linux/x86_64 says Architecture=x86_64 CPUType=x86_64
+Solaris/T1 says Architecture=sun4v CPUType=sparcv9 (CPUType comes from PICL or so)
+Solaris/x86 says Architecture=i86pc and a corrupter CPUType string (or none)
+
+Terry Dontje requested (and implemented) the basics of CPUType, we need to clarify what he really wanted.
+",1351844389,1356162166,normal
+87,enhancement,,bgoglin,Future,new,,cmake support for native Windows build,Shiqing (former OMPI windows builder) sent a draft of patch (a couple months ago) to enable native Windows build with cmake.,1352632404,1362579792,normal
+88,defect,,bgoglin,v1.7,closed,fixed,public API for external plugins,"Plugins support currently used internal headers (mostly private/components.h and private/private.h). If we want people to develop external plugins, we may want to make those headers kind of public, so that they don't need the full hwloc source tree anymore.
+
+The plugin ABI uses some version checks to make sure people don't mix incompatible versions. We may need to check the ABI of things like the topology structure too.
+",1352716517,1354747073,normal
+89,defect,,bgoglin,Future,new,,AIX plugins,"AIX currently rejects --enable-plugins because of ltdl bugs.
+See a summary of the problem here
+http://lists.gnu.org/archive/html/libtool/2012-08/msg00020.html
+A possible upcoming fix
+http://lists.gnu.org/archive/html/libtool/2012-08/msg00025.html
+A possible work-around (not sure I tried this one)
+http://lists.gnu.org/archive/html/libtool/2012-08/msg00023.html
+",1352716917,1352716917,normal
+90,defect,,bgoglin,Future,new,,Windows plugin support,"Building plugins on Windows currently fails because libtool/mingw doesn't support undefined symbols:
+
+libtool: link: undefined symbols not allowed in i686-w64-ming32 shared libraries
+
+And building without undefined symbols would require to link plugins with the core hwloc lib, which brings other problems.
+
+The OMPI windows maintainer uses native builds (with cmake) to workaround this, but I am not even sure that would solve everything (see #87). And I am not sure he was aware of all the above problems.
+
+",1352717300,1352717300,normal
+91,defect,bgoglin,jsquyres,v1.6,closed,wontfix,XML::Simple XMLin() warns/ignores some objects because of non-unique names,"Report at
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/11/3402.php
+
+Related to these warnings
+  Warning: <object> element has non-unique value in 'name' key attribute: Intel Corporation I350 Gigabit Network Connection at ./topo.pl line 16 
+
+Details at
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/11/3403.php
+
+But XML::Simple doesn't look so good
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/11/3404.php
+so we're going to close this as wontfix.
+",1353356529,1353356542,normal
+92,defect,,bgoglin,v1.6,new,,broken doxygen links in PDF doc,"The PDF output has many broken hyperlinks:
+* all \ref to \page anchors
+* all references to header files
+All those point to page 1 instead of the right target.
+
+The HTML output looks good. \section are properly referenced.
+
+Not sure if that's our fault or doxygen's fault.
+Happens with current hwloc trunk built with doxygen 1.8.1.2 but already happened in the past (hwloc 1.2 with doxygen 1.7.4).
+
+Brice
+
+",1353365096,1384181302,normal
+93,enhancement,,bgoglin,v1.7,closed,fixed,OpenCL device locality,"AMD OpenCL offers a non-portable extension to get the PCI bus id of a OpenCL device. Let's that will become standard at some point.
+
+
+
+From AMD APP OpenCL Programming Guide, Annex A.8.6
+
+Calling clGetDeviceInfo with <param_name> set to CL_DEVICE_TOPOLOGY_AMD returns the following 32-bytes union of structures.
+{{{
+  typedef union {
+    struct {
+      cl_uint type;
+      cl_uint data[5];
+    } raw;
+    struct {
+      cl_uint type;
+      cl_char unused[17];
+      cl_char bus;
+      cl_char device;
+      cl_char function;
+    } pcie;
+  } cl_device_topology_amd;
+}}}
+The type of the structure returned can be queried by reading the first unsigned int of the returned data. The developer can use this type to cast the returned union into the right structure type. Currently, the only supported type in the structure above is PCIe (type value = 1). The information returned contains the PCI Bus/Device/Function of the device,
+and is similar to the result of the lspci command in Linux. It enables the developer to match between the OpenCL device ID and the physical PCI connection of the card.
+",1353534188,1356162102,normal
+94,enhancement,,bgoglin,Future,new,,"combine linux sysfs, devicetree and /proc/cpuinfo","The devicetree is currently only used when no caches were detected from sysfs, which is very rare. When it's used, it may detect things that end up being ignored because sysfs or /proc/cpuinfo added different things first.
+
+We recently got some report about a FreeScale P4080 machine where Linux reports L2/L3 with size=0 while the devicetree contains better info. We must improve this.
+
+/proc/cpuinfo is already well used: we gather everything and make it available to others (instead of directly adding objects to the topology).
+
+We should do the same for sysfs and the devicetree: detect everything, create objects, keep them in the linux backend, compare what we got from all sources, keep/merge the best information, and then only add objects to the topology.
+
+Brice
+",1353608434,1364326061,normal
+95,enhancement,,bgoglin,Future,new,,more generic device-tree support,"We got a report from a FreeScale P4080 user where hwloc doesn't find anything about L2 and L3 in the device tree. The reasons are:
+* the current code expects a handle in the l2-cache while this platform has a l2-cache sub-directory instead.
+* the l3 is under /proc/device-tree/soc@ffe000000/l3-cache-controller@10000/ while we only look in /proc/device-tree/cpus for now
+
+These files contain better info than Linux (it sees L2/L3 but doesn't find the cache sizes).
+
+I don't know how standard these directories/files are. And the device-tree code is hard to understand. So it's not clear what how much time we need/should spend on this.
+",1353662739,1353662739,minor
+96,defect,,bgoglin,Future,new,,get_last_memory_location(),"hwloc_get_last_memory_location(hwloc_topology_t topology, const void *addr, size_t len, hwloc_nodeset_t nodeset)
+
+And maybe another one with a PID.
+
+This would set a bit in nodeset if a page in the range is allocated on the corresponding node.
+
+The drawback is that this doesn't tell us if the pages are 50% across two nodes, or 99%-1%, or 1% on one 1% on the other and 98% not physically allocated. Maybe have a way to return an array on node* corresponding to each page (NULL if not allocated) like Linux move_pages syscall does.
+",1355260143,1364326045,normal
+97,defect,,bgoglin,v1.7,closed,fixed,I/O lib interoperability vs. plugin OS devices,"Once we'll have OpenCL/NVML/CUDA plugins, we'll need to clarify what we actually need in inline helpers, and document better when one should/may use helpers or hwloc objects.
+
+There are four types of helpers:
+
+1) Convert OS handle into hwloc cpuset (usually only returns something useful on Linux). Works locally only. Doesn't need plugins/libpci. Needs better documentation (they are here for when plugins are not available, or hwloc objects are not needed).
+   hwloc_ibv_get_device_cpuset()
+   hwloc_cuda_get_device_cpuset()
+   hwloc_cudart_get_device_cpuset()
+
+2) Convert OS handle into PCI bus id. Works locally only. Those are not hwloc specific at all (it's a helper for (1), the topology argument should never have been added).
+   hwloc_cuda_get_device_pci_ids()
+   hwloc_cudart_get_device_pci_ids()
+
+3) Convert name/index into OSDev (or PCIDev). Works on remote topology. Needs libpci/plugins on remote machine. Should rather return a OSDev. Needs documentation (orthogonal to (1)).
+   hwloc_ibv_get_device_osdev_by_name()
+
+4) Convert OS handle into OSDev/PCIDev. Only works locally (manipulates local OS handle).
+Should rather return a OSDev. Needs documentation (orthogonal to (1)).
+   hwloc_cuda_get_device_pcidev()
+   hwloc_cudart_get_device_pcidev()
+
+(1) is useful when there's no plugin (and Linux is enough)
+(2) isn't strictly needed, it's often a wrapper around a single library call
+(3) is needed for proper remote topology support.
+(4) is needed as soon as there's no easy handle->index/name function (true for NVML, CUDA, OpenCL at least)
+
+NVML/CUDA don't have OS handle names (like mlx4_0, eth0, ...). But they have indexes that we just append to the backend name to create OSDev names (cuda0, nvml1, ...).
+
+OpenCL doesn't have names either, and its index is a platform index + a per-platform device index. The current opencl branch names OSDev opencl0, ... It should rather be openclXY so that we can easily retrieve platform/device indexes from the name. Maybe openclpXdY or openclX_Y for platform X device Y.
+",1355567269,1356254083,normal
+98,defect,,bgoglin,v1.8,closed,fixed,cleanup (or forbid?) reloading,"The ability to call load() multiple times on the same topology is convenient, but it's becoming a mess to maintain. We have to make sure we keep the configuration done between loads (set_foo) but everything created during loads must be recreated (including what comes from the environment).
+
+Regression in v1.6:
+* assert(false) when load() is called twice without changing the main backend in the middle. Fixed in v1.7 and v1.6.1.
+
+Old bugs (not regression):
+* Fails to load twice from XML with the nolibxml backend unless the backend is reset in the middle. Fixed in v1.7.
+* Duplicate system/env-given distance matrices when calling load() twice. Could be fixed without too much pain (mark which distance needs to be kept on reload).
+
+Also:
+* v1.6+ basically ignores the HWLOC_COMPONENTS environment variable during reload.
+
+This starts to look like a pandora box. I am wondering if we should just drop this feature at some point: cannot call load() if already loaded.
+
+I don't think users actually use this feature since it is mostly useful when supporting multiple backends and switching from one to another at runtime. hwloc-calc and hwloc-bind use it because locations can be mixed with options on the command-line (and it's documented), but this can still be worked-around anyway.
+
+v1.6.1 and v1.7 warn if reloading a topology (more than one place to fix). We will change that into an error.",1357204428,1366274538,normal
+99,task,,bgoglin,v1.9,new,,remove libpci support,"libpci won't be enabled by default in v1.6.2 and v1.7, so it won't get much testing anymore. If libpciaccess appears to work well, we will consider removing libpci support instead of trying to maintain something that very few people actually test. We'll see in v1.8 or v1.9.",1360964491,1378894627,normal
+100,task,bgoglin,bgoglin,Future,new,,cleanup cmdline pci device selection by vendor/device ids,"hwloc-calc and friends support specifying pci device by device/vendor ids:
+  $ hwloc-calc pci:8086:3b2f
+The device or vendor id may be omitted for a wildcard, an optional index may even be added in case of multiple matches:
+  $ hwloc-calc pci:3b2f::2
+
+This has never been documented for some reason. And that's good because the syntax looks like core:2:3 which means something totally different (3 cores start with the second one).
+
+The original intent of the syntax was to ease selection of devices that have no OS devices. For instance NVIDIA GPUs. Now that we have the cuda component, it doesn't matter much anymore.
+
+If we still want to support something like this (and document it), we should likely change the syntax. Could be something similar to lspci vendor/device display **pci[vendor:device]:index** (Brice has a patch to do that). Could also be **pci=[vendor:device]:index** to follow the existing **pci=busid** or **os=name** syntax.
+",1362579613,1385567294,normal
+101,enhancement,,bgoglin,Future,new,,some osdev without pcidev when no PCI backend,"The usual way to add OS device is to detect PCI devices with the PCI backend, and ask other backends if they have any OS device to add under a given PCI device.
+
+Backends such as Cuda and OpenCL could work the other way: they list their devices, and tell the core ""I need a PCI device whose bus id is xx:yy.z"". If the PCI backend isn't available, we can't create a fully-configured PCI device, but the OS may still be able to retrieve its locality (Linux can). So we could still add the OS device at the right place in the topology.
+
+So basically these backends would define both the discover() and notify_new_obj() callback. discover() would try to insert all devices that were not inserted by notify_new_obj() earlier.
+
+Issues:
+* notify_new_obj() and get_obj_cpuset() callbacks want a PCI device object, and we cannot really create one without the PCI backend. Either we create a fake PCI object. Or we modify the callback to accept a bus ID instead of a full object, but these callbacks are not supposed to be PCI specific, they could be used for other types.
+* in normal cases, Cuda/OpenCL are loaded last, so their discover() will be called after notify_new_obj() had a chance to be called. But if one changes default component priorities, discover() may be called early, causing the new fallback code to run before notify_new_obj() had a chance to do the full PCI thing. Having a special discover() that is guaranteed to be called at the end of the discovery could help.
+* can we insert a OS device in the topology without a bridge and a pci device above it?
+
+First, let's wait and see if people complain about missing I/O devices because of missing PCI headers.
+",1365191962,1369760144,minor
+102,defect,,bgoglin,Future,closed,fixed,out-of-order XML can break things,"The XML import assumes that objects are given in the logical order. If somebody ever gives Sockets out of order, bad things can actually happen (broken topology).
+
+We could sort things during insert_object_by_parent(). But this is a user error, so we could just also be lazy, ignore the out-of-order object and report an error.
+",1367409819,1367488776,normal
+103,defect,,bgoglin,Future,closed,fixed,groups inserted by custom interface shouldn't get merged,"If we create a custom interface with explicit group objects, those will get merged if they have a single children. Basically means you cannot have switches with a single node behind it.
+
+Possible solutions:
+* disable the default ignore_keep_structure flag on groups above machines
+* add an ""automatically-added"" flag to group object and use that to disable auto-merging
+",1367444969,1369821168,normal
+104,enhancement,,bgoglin,Future,new,,pkg-config testing,"Find a way to test hwloc.pc, both for dynamic and static lib cases, both with and without plugins (for ltdl/ldl dependencies).
+
+Static would require --enable-static.
+
+By the way it looks like pkg-config sometimes output libs out of order (at least when xnvctrl is enabled and not a plugin, some X libs are at the end, after -lpthread which they need). Our test would fail in this case.
+
+May be something independent of make check (just like tests/embedded or tests/rename) to keep things simple.",1368606087,1368606087,minor
+105,defect,,bgoglin,v1.9,closed,fixed,clarify object ordering wrt to cpusets,"v1.8 has some debug checks regarding children ordering wrt cpusets.
+
+0x1111 should be before 0x2222. But if a Linux cpusets restricts those to 0x1100 and 0x2220, the expected order changes. You get a warning when reloading that from XML (and assert(0) if HWLOC_DEBUG_CHECK=1 in the env, even without XML in the middle).
+
+It's not clear whether we should reorder for real. Ordering may just need to be based on the complete cpusets? Clarify that and update debug checks, after reviewing the actual assumptions made in the core regarding this ordering.
+",1371648502,1393251598,critical
+106,defect,,tedheadster,v1.8,closed,invalid,lstopo text and graphical provide different results,"lstopo version 1.8 (and some earlier version) give different results when invoked as text versus graphics.
+
+Text reports ""Socket L#1"" ; graphics reports ""Socket P#0"" (numbers don't match).
+Text reports ""Core L#1"" ; graphics reports ""Core P#0"" (numbers don't match).
+
+Here is the text output:
+
+Machine (1518MB)
+  Socket L#0 + Core L#0 + PU L#0 (P#0)
+  Socket L#1 + Core L#1 + PU L#1 (P#1)
+  HostBridge L#0
+    PCI 0e11:ae32
+      Net L#0 ""eth0""
+    PCI 1000:0001
+    PCI 1013:00bc
+    PCI 8086:7111
+      Block L#1 ""sda""
+  HostBridge L#1
+    PCI 1000:000b
+    PCI 1000:000b
+",1385566060,1385566942,normal
+107,enhancement,,bgoglin,Future,new,,windows PCI (or least CUDA) locality,"Based on http://www.open-mpi.org/community/lists/hwloc-users/2013/11/0926.php
+
+This code should map a CUdevice to a numa node (by enumerating all PCI devices). I have not compiled the the code in this form or tested it as is, but the calls should work fine for mapping any cuda device to the OS enumeration wrt to PCI device location:
+
+ 
+{{{
+long GetNumaNode(CUdevice dev)
+{
+    BOOL ret;
+    DWORD lastError;
+    // get the cuda device string
+    char cuDevString[CUDA_DEV_STRING_LEN];
+    unsigned long cudaBus;
+    unsigned long cudaSubdevice;
+    unsigned long cudaFunction;
+    CUresult status = cuDeviceGetPCIBusId(cuDevString, CUDA_DEV_STRING_LEN, dev);
+    assert(CUDA_SUCCESS == status);
+    if (CUDA_SUCCESS != status) {
+        return 0;
+    }
+    char *tmp;
+    char *tmp2;
+    char del[] = "":."";
+    // remove domain
+    tmp = strtok_s(cuDevString, del, &tmp2);
+    // get bus
+    tmp = strtok_s(NULL, del, &tmp2);
+    sscanf_s(tmp, ""%x"", &cudaBus);
+    // get subdevice
+    tmp = strtok_s(NULL, del, &tmp2);
+    sscanf_s(tmp, ""%x"", &cudaSubdevice);
+    // get function
+    tmp = strtok_s(NULL, del, &tmp2);
+    sscanf_s(tmp, ""%x"", &cudaFunction);
+    // Use NULL as the first parameter as we need to look at non display devices too
+    HDEVINFO hNvDevInfo = SetupDiGetClassDevs(NULL, NULL, NULL, DIGCF_PRESENT | DIGCF_ALLCLASSES);
+    if(hNvDevInfo == INVALID_HANDLE_VALUE)
+    {
+        assert(!""INVALID_HANDLE_VALUE"");
+        return 0;
+    }
+    // Find the deviceInfoData for each GPU
+    DWORD deviceIndex;
+    for (deviceIndex = 0; ; deviceIndex++)
+    {
+        SP_DEVINFO_DATA deviceInfoData;
+        unsigned long bus;
+        unsigned long subdevice;
+        unsigned long function;
+        deviceInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+        ret = SetupDiEnumDeviceInfo(hNvDevInfo, deviceIndex, &deviceInfoData);
+        if (!ret)
+        {
+            // MSDN says:
+            //   call SetupDiEnumDeviceInfo until there are no more values (the function fails and a call
+            //   to GetLastError returns ERROR_NO_MORE_ITEMS).
+            lastError = GetLastError();
+            assert(lastError == ERROR_NO_MORE_ITEMS);
+            break;
+        }
+
+        char locinfo[256];
+        ret = SetupDiGetDeviceRegistryPropertyA(hNvDevInfo, &deviceInfoData, SPDRP_LOCATION_INFORMATION, NULL,
+            (PBYTE)locinfo, sizeof(locinfo), NULL);
+        if (!ret)
+        {
+            lastError = GetLastError();
+        }
+        bool dataSet = false;
+        if (strncmp(locinfo, ""PCI"", 3) == 0) {
+            char *busString = strstr(locinfo, ""bus"");
+            if (busString) {
+                busString += 3;
+                char *deviceString = strstr(locinfo, "","");
+                if (deviceString) {
+                    deviceString[0] = 0;
+                    bus = atoi(busString);
+                    deviceString++;
+                    deviceString = strstr(deviceString, ""device"");
+                    if (deviceString) {
+                        deviceString+=6;
+                        char *functionStr = strstr(deviceString, "","");
+                        if (functionStr) {
+                            functionStr[0] = 0;
+                            subdevice = atoi(deviceString);
+                            functionStr++;
+                            functionStr = strstr(functionStr, ""function"");
+                            if (functionStr) {
+                                functionStr+=8;
+                                function = atoi(functionStr);
+                                dataSet = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (dataSet &&
+            (bus == cudaBus) &&
+            (subdevice == cudaSubdevice) &&
+            (function == cudaFunction))
+        {
+            ret = SetupDiGetDeviceRegistryPropertyA(hNvDevInfo, &deviceInfoData, SPDRP_HARDWAREID, NULL,
+                (PBYTE)locinfo, sizeof(locinfo), NULL);
+            printf(""locinfo %s\n"", locinfo);
+            int data[20];
+            data[0] = 0;
+            DEVPROPTYPE type;
+            DEVPROPKEY key = DEVPKEY_Numa_Proximity_Domain;
+            lastError = 0;
+            ret =  SetupDiGetDeviceProperty(hNvDevInfo, &deviceInfoData,&key , &type, (PBYTE)&data[0], 20*sizeof(int), NULL,0);
+            if (!ret)
+            {
+                lastError = GetLastError();
+            }
+            printf(""DEVPKEY_Numa_Proximity_Domain %d err %d\n"", data[0], lastError);
+            key = DEVPKEY_Device_Numa_Node;
+            lastError = 0;
+            ret =  SetupDiGetDeviceProperty(hNvDevInfo, &deviceInfoData,&key , &type, (PBYTE)&data[0], 20*sizeof(int), NULL,0);
+            if (!ret)
+            {
+                lastError = GetLastError();
+            }
+            printf(""DEVPKEY_Device_Numa_Node %d err %d\n"", data[0], lastError);
+            return data[0];
+        }
+    }
+    return -1;
+}
+",1385567561,1385567561,normal
+108,enhancement,,bgoglin,Future,new,,"more ""nofile"" info in fsroot topologies","Add to /proc/hwloc-nofile-info every other information that cannot be gathered as real files:
+* hwloc_getpagesize()
+* sysconf(_SC_LARGE_PAGESIZE)
+* hwloc_fallback_nbprocessors(topology)
+
+If that works well, we should be able to get the exact same output from a fake fsroot topology and from the actual machine, making test-gather-topology easier (no need to force thissystem=0 anymore, no need to remove /proc/hwloc-nofile-info manually).",1391096534,1391158376,minor
+109,enhancement,,bgoglin,Future,new,,extensible diff interface to adding/removing info (duplicate) fields,"The diff interface wants objects to have the exact same list of info keys before the diff can be computed. We should be able to support different lists of keys by just having a way to say (key,NULL,newvalue) for adding a keypair or (key,oldvalue,NULL) for removing a keypair.
+
+Also, if the same key appears twice, only the first keypair one can be replaced. We could add an index to specify if the diff applies to the first or the second matching keypair.
+
+Not critical at all, but better documented here than in my TODO list.",1391158326,1391158326,minor
+110,enhancement,,bgoglin,Future,closed,fixed,lossy topology compression with synthetic string + PU order,"Aside of the diff interface which ""compresses"" topologies by computing exact differe,ces, some people want a stronger compression that doesn't need to be lossless.
+
+Basically, they want a synthetic description with some additions such as:
+* PU order on the PU level
+* NUMA order on the NUMA level
+This would make the compressed topology info very small, while keeping the ability to bind tasks and memory properly.
+
+Then we should be able to add some info keys when really needed (needs ticket #109).
+
+The last issue is about adding some I/O objects, only what's important (mostly OS devices, maybe some PCI devices, likely no bridges), but that's harder. We'll need to define what users want to keep among I/O object fields. type+name+infos are useful for OS devices. class+vendor+device+busid are (at least) needed for PCI devices.
+",1391158758,1407330781,normal
+111,defect,,moben,,closed,fixed,[PATCH] fix cgroup related test failure on linux,"test/linux/hwlock-gather-topology wouldn't save /proc/self/cgroup to the tarball.
+this caused the xml files generated by lstopo to differ, resulting in this test failure:
+
+{{{
+FAIL: test-gather-topology.sh
+=============================
+
+Saving current system topology to XML...
+Saving current system topology to a tarball...
+Hierarchy gathered in /tmp/tmp.IjcxgWkiPW/save.tar.bz2 and kept in /tmp/tmp.Ps2vThTw5a/save/
+Expected topology output stored in /tmp/tmp.IjcxgWkiPW/save.output
+Extracting tarball...
+Saving tarball topology to XML...
+Comparing XML outputs...
+--- save.xml    2014-06-03 11:58:03.260202794 +0200
++++ save2.xml   2014-06-03 11:58:06.409327468 +0200
+@@ -17,7 +17,6 @@
+     <info name=""DMIBIOSDate"" value=""10/26/2010""/>
+     <info name=""DMISysVendor"" value=""LENOVO""/>
+     <info name=""Backend"" value=""Linux""/>
+-    <info name=""LinuxCgroup"" value=""/""/>
+     <object type=""Socket"" os_index=""0"" cpuset=""0x0000000f"" complete_cpuset=""0x0000000f"" online_cpuset=""0x0000000f"" allowed_cpuset=""0x0000000f"">
+       <info name=""CPUModel"" value=""Intel(R) Core(TM) i7 CPU       M 620  @ 2.67GHz""/>
+       <object type=""Cache"" cpuset=""0x0000000f"" complete_cpuset=""0x0000000f"" online_cpuset=""0x0000000f"" allowed_cpuset=""0x0000000f"" cache_size=""4194304"" depth=""3"" cache_linesize=""64"" cache_associativity=""16"" cache_type=""0"">
+}}}
+
+The attached patch fixes that for me.",1401789694,1401793468,normal
+112,enhancement,,bgoglin,Future,new,,Reduce the number of info objects,"Some people would like to see less info attributes in objects. Either because they want more predictable/comparable topologies (synthetic and diff can help), or to make the discovery lighter (space and/or time). Not clear if that's a good idea, but save notes here.
+
+Ideas:
+* add topology flags to ignore some kinds of infos (hardware model, hardware parameter, hardware ID, software stuff, etc) during discovery
+* add callback for filtering info during discovery
+* add topology_prune_infos() with some flags like above, or a per-info callback and/or per-object callback
+",1409512014,1409512014,normal

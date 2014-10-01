@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -x
+
+base=/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014
+prefix=$base/tickets/local
+pygithub=$base/PyGithub-1.25.0
+
+export PYTHONPATH=$prefix/lib/python2.7/site-packages:$pygithub:$prefix:$PYTHONPATH
+
+rm $prefix/lib/python2.7/site-packages/tratihubis*
+
+python setup.py install --prefix=$prefix

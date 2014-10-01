@@ -1,0 +1,678 @@
+INFO:tratihubis:log on to github as user "ompiteam"
+INFO:tratihubis:got org "open-mpi"
+INFO:tratihubis:connect to github repo "open-mpi/ompi"
+INFO:tratihubis:read ticket comments from "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/ompi-trac/comments.csv"
+INFO:tratihubis:read attachments from "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/ompi-trac/attachments.csv"
+INFO:tratihubis:analyze existing issues
+INFO:tratihubis:  found 0 issues
+INFO:tratihubis:analyze existing milestones
+INFO:tratihubis:  found 0 milestones
+INFO:tratihubis:analyze existing labels
+INFO:tratihubis:  found 12 labels
+INFO:tratihubis:read ticket details from "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/ompi-trac/tickets.csv"
+INFO:tratihubis:convert ticket #19: BTL checkpoint friendly
+INFO:tratihubis:  issue #1: owner=bosilca-->None; milestone= (0)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  added attachment from bosilca
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:add milestone: Future
+INFO:tratihubis:convert ticket #76: Global / local MCA parameters
+INFO:tratihubis:  issue #2: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:add milestone: Open MPI 1.8.4
+INFO:tratihubis:convert ticket #174: Provide warnings if unknown MC...
+INFO:tratihubis:  issue #3: owner=hjelmn-->Nathan Hjelm; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by hjelmn: u'_Trac comment by hjelmn on 201...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #184: MPI attribute code need thread...
+INFO:tratihubis:  issue #4: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #192: Add PGI debugger invocation to...
+INFO:tratihubis:  issue #5: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #200: LN, LN_S and RM
+INFO:tratihubis:  issue #6: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #393: OMPI build broken on OpenBSD
+INFO:tratihubis:  issue #7: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  added attachment from ompiteam
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by adi on 2006-0...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by adi on 2007-1...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by adi on 2007-1...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #576: Make F90 MPI_IN_PLACE, MPI_ARG...
+INFO:tratihubis:  issue #8: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #585: Make new MCA fw open call to o...
+INFO:tratihubis:  issue #9: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:add milestone: Open MPI 1.6.6
+INFO:tratihubis:convert ticket #628: MPI_Pack_external_size is retu...
+INFO:tratihubis:  issue #10: owner=bosilca-->None; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  added attachment from rolfv
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2010...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2010...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by rusraink on 2...'
+INFO:tratihubis:convert ticket #710: Better error message propagati...
+INFO:tratihubis:  issue #11: owner=rlgraham-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #731: Cannot launch from head node o...
+INFO:tratihubis:  issue #12: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #790: Heterogeneous Multi-port OpenI...
+INFO:tratihubis:  issue #13: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #798: Allow F90 MPI_BUFFER_DETACH to...
+INFO:tratihubis:  issue #14: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #917: PGI compiler f90 issues with -...
+INFO:tratihubis:  issue #15: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #989: Not checking OF device attribu...
+INFO:tratihubis:  issue #16: owner=gshipman-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1010: A bunch of VxWorks issues
+INFO:tratihubis:  issue #17: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1012: Add support for ibv_req_notify...
+INFO:tratihubis:  issue #18: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1050: Allow alternate IOF wireup str...
+INFO:tratihubis:  issue #19: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1080: Make MX MTL only open endpoint...
+INFO:tratihubis:  issue #20: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1096: Make mpi_preconnect_all work f...
+INFO:tratihubis:  issue #21: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1113: installdir functionality does ...
+INFO:tratihubis:  issue #22: owner=bosilca-->None; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1143: Recursive behavior in ompi_mpi...
+INFO:tratihubis:  issue #23: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label critical
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tprins on 200...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tprins on 200...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1159: Implement MPIX_GREQUEST_START
+INFO:tratihubis:  issue #24: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1161: Rename openib BTL to ofrc
+INFO:tratihubis:  issue #25: owner=afriedle-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1172: Routed RML message ordering pr...
+INFO:tratihubis:  issue #26: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2008-0...'
+INFO:tratihubis:convert ticket #1184: Fortran wrappers are calling f...
+INFO:tratihubis:  issue #27: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #1185: Allow flexible stdin routing t...
+INFO:tratihubis:  issue #28: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1188: Fix corner case of DDT launchi...
+INFO:tratihubis:  issue #29: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:add milestone: Open MPI 1.9
+INFO:tratihubis:convert ticket #1207: Show MPI connectivity map duri...
+INFO:tratihubis:  issue #30: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2008-0...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2008-0...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2008-0...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:convert ticket #1240: openib btl: APM and async even...
+INFO:tratihubis:  issue #31: owner=pasha-->Pasha; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by shamisp: u'_Trac comment by pasha on 2008...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1241: Add support for blocking progr...
+INFO:tratihubis:  issue #32: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1249: Implement a "better" MPI preco...
+INFO:tratihubis:  issue #33: owner=bosilca-->None; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by hjelmn: u'_Trac comment by hjelmn on 201...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:convert ticket #1262: Add FAQ item re: flowchart of ...
+INFO:tratihubis:  issue #34: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  added attachment from jsquyres
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1269: Orted prolog and epilog hooks
+INFO:tratihubis:  issue #35: owner=rhc-->None; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2008-0...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2008-0...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2010-0...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1273: Solaris does not work correctl...
+INFO:tratihubis:  issue #36: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:convert ticket #1284: Allow different btl_openib_rec...
+INFO:tratihubis:  issue #37: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:convert ticket #1287: rework mca_btl_tcp_proc_accept...
+INFO:tratihubis:  issue #38: owner=adi-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by adi on 2008-0...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:convert ticket #1291: mca_base_open() "none" and "al...
+INFO:tratihubis:  issue #39: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1296: Document openib btl per-device...
+INFO:tratihubis:  issue #40: owner=bbenton-->None; milestone=Future (1)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #1313: Clean up error handling in ope...
+INFO:tratihubis:  issue #41: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2013-0...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1322: IPv6 support in rdmacm cpc of ...
+INFO:tratihubis:  issue #42: owner=jdmason-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #1352: loopback verbs connections: pe...
+INFO:tratihubis:  issue #43: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1362: BTLs progress should progress ...
+INFO:tratihubis:  issue #44: owner=pasha-->Pasha; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:convert ticket #1363: Document sm BTL MCA params
+INFO:tratihubis:  issue #45: owner=bosilca-->None; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1366: Add FAQ entry about firewalls
+INFO:tratihubis:  issue #46: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1367: Document exactly what is/is no...
+INFO:tratihubis:  issue #47: owner=bosilca-->None; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1368: Add several datatypes to Fortr...
+INFO:tratihubis:  issue #48: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by hjelmn: u'_Trac comment by hjelmn on 201...'
+INFO:tratihubis:convert ticket #1371: Improve ompi_info's component ...
+INFO:tratihubis:  issue #49: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1377: Have ompi_proc_t destructor ca...
+INFO:tratihubis:  issue #50: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:convert ticket #1391: MCA relative priority option
+INFO:tratihubis:  issue #51: owner=hjelmn-->Nathan Hjelm; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by hjelmn: u'_Trac comment by hjelmn on 201...'
+INFO:tratihubis:convert ticket #1393: orte-ps enhancements and docum...
+INFO:tratihubis:  issue #52: owner=jjhursey-->Josh Hursey; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1395: Debugging output directory of ...
+INFO:tratihubis:  issue #53: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1396: MPI_COMM_ACCEPT thread safety
+INFO:tratihubis:  issue #54: owner=bouteill-->Aurelien Bouteiller; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by rusraink on 2...'
+INFO:tratihubis:convert ticket #1434: Improve error handling in open...
+INFO:tratihubis:  issue #55: owner=pasha-->Pasha; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1476: Implement remote send cancel i...
+INFO:tratihubis:  issue #56: owner=bosilca-->None; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:convert ticket #1505: TCP BTL wireup fails when the ...
+INFO:tratihubis:  issue #57: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1519: Enable global ID lookup in deb...
+INFO:tratihubis:  issue #58: owner=edgar-->Edgar Gabriel; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by edgargabriel: u'_Trac comment by edgar on 2010...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1524: Aggregate stack trace messages
+INFO:tratihubis:  issue #59: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:convert ticket #1541: Enhance error messages in MPI_...
+INFO:tratihubis:  issue #60: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:convert ticket #1544: IBM gen 1 eHCA does not work w...
+INFO:tratihubis:  issue #61: owner=bbenton-->None; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #1546: Document openib CPC possibilit...
+INFO:tratihubis:  issue #62: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:convert ticket #1603: Reductions on REAL*16's are no...
+INFO:tratihubis:  issue #63: owner=bosilca-->None; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2008-1...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2008-1...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by stevengj on 2...'
+INFO:tratihubis:convert ticket #1656: Some Intel tests fail in heter...
+INFO:tratihubis:  issue #64: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  added attachment from rolfv
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2008...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2009-0...'
+INFO:tratihubis:convert ticket #1665: OpenIB wireup fails when there...
+INFO:tratihubis:  issue #65: owner=jdmason-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by jdmason on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:convert ticket #1684: Document file descriptors limi...
+INFO:tratihubis:  issue #66: owner=-->Open MPI administrative account; milestone= (0)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2008-1...'
+INFO:tratihubis:  add comment by shamisp: u'_Trac comment by pasha on 2008...'
+INFO:tratihubis:  add comment by rhc54: u'_Trac comment by rhc on 2008-1...'
+INFO:tratihubis:  add comment by shamisp: u'_Trac comment by pasha on 2008...'
+INFO:tratihubis:convert ticket #1711: unaligned access on IA64
+INFO:tratihubis:  issue #67: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #1712: Intermittent onesided test_loc...
+INFO:tratihubis:  issue #68: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #1716: Spawn with srq failes with seg...
+INFO:tratihubis:  issue #69: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by lennyve on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by lennyve on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by lennyve on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by lennyve on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by timattox on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by tdd on 2009-1...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1719: Check and stamp out valgrind w...
+INFO:tratihubis:  issue #70: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:convert ticket #1720: Stamp out valgrind warnings in...
+INFO:tratihubis:  issue #71: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:convert ticket #1769: Checkpoint/restart hangs with ...
+INFO:tratihubis:  issue #72: owner=jjhursey-->Josh Hursey; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1782: Attempt to create loopback QP ...
+INFO:tratihubis:  issue #73: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1784: Better error message when no o...
+INFO:tratihubis:  issue #74: owner=-->Open MPI administrative account; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1805: Cleanup all pending libevent e...
+INFO:tratihubis:  issue #75: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1812: In obscure situations, sizeof(...
+INFO:tratihubis:  issue #76: owner=jsquyres-->Jeff Squyres; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1817: Create FAQ entry for --preload...
+INFO:tratihubis:  issue #77: owner=jjhursey-->Josh Hursey; milestone=Future (1)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1900: Update "amount of registered m...
+INFO:tratihubis:  issue #78: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #1961: Timer triggered checkpoint
+INFO:tratihubis:  issue #79: owner=jjhursey-->Josh Hursey; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #1970: PML add procs fails for MPI_In...
+INFO:tratihubis:  issue #80: owner=pasha-->Pasha; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #1983: TCP BTL timeouts
+INFO:tratihubis:  issue #81: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  added attachment from jsquyres
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by weiliew on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by buptzhugy on ...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by buptzhugy on ...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #1986: shared/static problem
+INFO:tratihubis:  issue #82: owner=jsquyres-->Jeff Squyres; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  added attachment from bosilca
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by brbarret on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2019: Implement "better" XML handlin...
+INFO:tratihubis:  issue #83: owner=bbenton-->None; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:convert ticket #2027: Communicator construction/dest...
+INFO:tratihubis:  issue #84: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:convert ticket #2045: tcp btl lack of diagnostic out...
+INFO:tratihubis:  issue #85: owner=jsquyres-->Jeff Squyres; milestone=Open MPI 1.9 (4)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #2049: MPI_Comm_spawn(_multiple) cann...
+INFO:tratihubis:  issue #86: owner=-->Open MPI administrative account; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #2062: Continue cleanup of build syst...
+INFO:tratihubis:  issue #87: owner=jsquyres-->Jeff Squyres; milestone=Future (1)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #2093: generalized request query func...
+INFO:tratihubis:  issue #88: owner=jsquyres-->Jeff Squyres; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  added attachment from ompiteam
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by cyeoh on 2010...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2095: topo communicator error segv
+INFO:tratihubis:  issue #89: owner=edgar-->Edgar Gabriel; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by edgargabriel: u'_Trac comment by edgar on 2010...'
+INFO:tratihubis:convert ticket #2098: Allow user to specify checkpoi...
+INFO:tratihubis:  issue #90: owner=jjhursey-->Josh Hursey; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by jjhursey: u'_Trac comment by jjhursey on 2...'
+INFO:tratihubis:convert ticket #2145: Fortran Bindings for MPI_File_...
+INFO:tratihubis:  issue #91: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2146: mca_pml_ob1_progress does not ...
+INFO:tratihubis:  issue #92: owner=hjelmn-->Nathan Hjelm; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  added attachment from euloh
+INFO:tratihubis:  add comment by rolfv: u'_Trac comment by rolfv on 2010...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #2153: MPI_Sendrecv_replace performan...
+INFO:tratihubis:  issue #93: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:convert ticket #2155: Hang when running out of regis...
+INFO:tratihubis:  issue #94: owner=bosilca-->None; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bosilca: u'_Trac comment by bosilca on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by derbeyn on 20...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by derbeyn on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by swise on 2010...'
+INFO:tratihubis:  add comment by ompiteam: u'_Trac comment by swise on 2010...'
+INFO:tratihubis:  add comment by jsquyres: u'_Trac comment by jsquyres on 2...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2168: MPI-2 dynamic openib/rdmacm wo...
+INFO:tratihubis:  issue #95: owner=-->Open MPI administrative account; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2191: Improve multi-job checkpoint c...
+INFO:tratihubis:  issue #96: owner=jjhursey-->Josh Hursey; milestone=Future (1)
+INFO:tratihubis:  add label enhancement
+INFO:tratihubis:  add label minor
+INFO:tratihubis:convert ticket #2198: Add FAQ entries about non-MPI ...
+INFO:tratihubis:  issue #97: owner=-->Open MPI administrative account; milestone=Open MPI 1.8.4 (2)
+INFO:tratihubis:  add label documentation
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2203: #procs limit hardcoded in Inte...
+INFO:tratihubis:  issue #98: owner=-->Open MPI administrative account; milestone=Open MPI 1.6.6 (3)
+INFO:tratihubis:  add label bug
+INFO:tratihubis:  add label minor
+INFO:tratihubis:  add comment by euloh: u'_Trac comment by eugene on 201...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:  add comment by bbenton: u'_Trac comment by bbenton on 20...'
+INFO:tratihubis:convert ticket #2224: loop_spawn IBM test hanging
+ERROR:tratihubis:422 {u'documentation_url': u'https://developer.github.com/v3/issues/#create-an-issue', u'message': u'Validation Failed', u'errors': [{u'field': u'assignee', u'code': u'invalid', u'resource': u'Issue', u'value': u'jladd-mlnx'}]}
+Traceback (most recent call last):
+  File "build/bdist.macosx-10.9-intel/egg/tratihubis.py", line 734, in main
+    labelMapping=labelMapping, attachmentsPrefix=attachmentsPrefix, pretend=not options.really)
+  File "build/bdist.macosx-10.9-intel/egg/tratihubis.py", line 576, in migrateTickets
+    issue = repo.create_issue(title, body, githubAssignee, milestone)
+  File "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/local/lib/python2.7/site-packages/PyGithub-1.25.0-py2.7.egg/github/Repository.py", line 857, in create_issue
+    input=post_parameters
+  File "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/local/lib/python2.7/site-packages/PyGithub-1.25.0-py2.7.egg/github/Requester.py", line 169, in requestJsonAndCheck
+    return self.__check(*self.requestJson(verb, url, parameters, headers, input, cnx))
+  File "/Users/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/tickets/local/lib/python2.7/site-packages/PyGithub-1.25.0-py2.7.egg/github/Requester.py", line 177, in __check
+    raise self.__createException(status, responseHeaders, output)
+GithubException: 422 {u'documentation_url': u'https://developer.github.com/v3/issues/#create-an-issue', u'message': u'Validation Failed', u'errors': [{u'field': u'assignee', u'code': u'invalid', u'resource': u'Issue', u'value': u'jladd-mlnx'}]}
+{}
+{u'Future': <github.Milestone.Milestone object at 0x10c5d7d10>}
+{u'Future': <github.Milestone.Milestone object at 0x10c5d7d10>, u'Open MPI 1.8.4': <github.Milestone.Milestone object at 0x10c5d7e50>}
+{u'Open MPI 1.6.6': <github.Milestone.Milestone object at 0x10c5d7fd0>, u'Future': <github.Milestone.Milestone object at 0x10c5d7d10>, u'Open MPI 1.8.4': <github.Milestone.Milestone object at 0x10c5d7e50>}

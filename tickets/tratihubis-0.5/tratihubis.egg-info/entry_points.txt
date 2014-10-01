@@ -1,0 +1,3 @@
+[console_scripts]
+tratihubis = tratihubis:_mainEntryPoint
+

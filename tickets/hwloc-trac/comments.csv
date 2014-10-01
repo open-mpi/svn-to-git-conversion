@@ -1,0 +1,2355 @@
+ticket,PosixTime,author,newvalue
+1,1252509568,sthibaul,"(In [895]) turned into trac ticket
+Refs #1
+"
+1,1253400965,bgoglin,should be done now
+2,1254414896,jsquyres,"We agreed not to fix this one.  Only VPATH dist/distcheck will be supported.
+
+As an explanation: complexity really enters the picture because of the docbook integration (where the output files may be in the source tree or the build tree).  Wonkyness ensues."
+3,1253858596,bgoglin,"Is ""writing manpages manually"" considered a better solution ? Given that these utils have few command-line options, the manpages won't be very hard to write/maintain manually.
+
+By the way, currently we get the ""lt-"" prefix in the toolname in the auto-generated manpages. We'll have to fix this if we keep using help2man."
+3,1253886225,jsquyres,"Yes, it certainly would.  Tell you what, I'll generate them with help2man and then commit the final pages.  Then we'll just manually update from there."
+3,1253893449,jsquyres,"(In [1001]) Fixes #3.
+
+Have fixed versions of the man pages for the executables in svn under
+the .1in filename pattern.  These files are processed during ""make
+all"" to make the corresponding .1 files.  The changes that are added
+in are the project name, date, and release version.  This gives
+nice/proper headers and footers on the man pages that are specific to
+the version that they came from.
+
+This also fixes the issue of having the man pages depend on the
+executables, which was causing problems for making nightly tarballs.
+"
+4,1255890903,bgoglin,"Pavan Balaji works on the MPICH/Hydra port, he would like a way to know when we try to configure hwloc on a non-supported platform. Current configure just warns, we might want to error-out instead (maybe only if some ""strictly-supported"" flag is given) and/or add a #define HAVE_UNSUPPORTED_OS to config.h.
+"
+4,1255976726,jsquyres,"Adding Pavan to the ticket...
+
+Adding embedded capabilities is in the near future.  I'm open to input here -- I was planning to do something like PLPA here, where you do something like this:
+
+HWLOC_INIT(srcdir, action_on_success, action_on_fail)
+
+This is the pattern we use throughout OMPI's configure m4 mojo; it's also what we did in PLPA.  Pavan -- is that kosher for MPICH2 as well?"
+4,1255982700,balaji,"This might or might not work for MPICH2 depending on how the m4 macro is setup. We currently stay away from libtool and just rely on automake/autoconf together with a bunch of our internal scripts. All third-party packages are configured directly and not added as AC_LOCAL_SUBDIRS in our configure.in/ac scripts. See http://trac.mcs.anl.gov/projects/mpich2/browser/mpich2/trunk/src/pm/hydra/configure.in?rev=5480#L346 for example.
+
+Basically, if HWLOC_INIT() relies on any libtool macros, we cannot call it from MPICH2's configure scripts directly. If not, we should be fine."
+4,1255984474,jsquyres,"I was planning to pretty much carbon-copy PLPA's setup scheme.  plpa.m4 doesn't use any Libtool macros (its top-level configure.ac does, but an embedded scenario wouldn't use that), but its Makefile.am's do assume the use of Libtool.
+
+How do you handle that in MPICH2?"
+4,1255984690,balaji,"We don't use PLPA's configure routines in MPICH2. We directly use the source files. So, we didn't run into this issue earlier."
+4,1255984965,jsquyres,"Ok.  So you want to use hwloc's (upcoming) hwloc.m4, in which we'll likely have something like HWLOC_INIT(srcdir, action_on_success, action_on_failure).  I'm guessing that that will be fine for you:
+
+{{{
+# Make a hard-stop on failure
+HWLOC_INIT([.], [], [AC_MSG_ERROR([hwloc configure failed!])])
+
+# Just set a shell variable indicating success/failure
+HWLOC_INIT([.], [hwloc_success=1], [hwloc_success=0])
+}}}
+
+If you don't use our Makefile.am's, you should be fine -- you can use whatever your normal build system is.  The question is then just to ensure that you can use our hwloc.m4 output (e.g., any AC_DEFINE's, AM_CONDITIONAL's, etc.).  Do you use Automake, or is that also a no-no?
+you can have an AC_MSG_ERROR if you want a hard-stop on failure, or something more benign (e.g., hwloc_success=0)"
+4,1255985050,jsquyres,"Oops -- excuse the cut-n-paste error in the last comment (the last phrase was left over and should have been deleted: ""you can have an AC_MSG_ERROR ..."")."
+4,1255985772,balaji,"Yes, I believe that'll be sufficient. The MPICH2/Hydra configure can do an HWLOC_INIT(), and if successful, it can call hwloc's actual configure. If you have a pre-release version of hwloc.m4, I'll be happy to test it out to make sure things work as expected.
+"
+4,1255989029,jsquyres,"Ah -- miscommunication: I meant that HWLOC_INIT() ''is'' effectively hwloc's configure script.  That is, hwloc's configure.ac will essentially be a little setup, calling HWLOC_INIT(), and then a little finalization.  Hence, the intent is that you effectively embed our configure in your configure.
+
+Are you looking to fork/exec hwloc's shell script configure executable directly, and then invoke ""make [target]"" in the hwloc subdirectory?  That should work if you're not looking to embed our configure in yours.  ...or is there something currently broken with that scheme?
+
+(I have no pre-release hwloc.m4 yet -- I was out all week and this still remains on my to-do list)"
+4,1255989736,balaji,"That'll work fine as well as long as HWLOC_INIT has none of the libtool macros that are present in hwloc/configure.ac currently. Yes, we are doing a fork/exec of hwloc's configure executable directly (for now)."
+4,1255999540,jsquyres,"Ok -- but do you really want to (effectively) run hwloc's configure twice?  Because if you call HWLOC_INIT() and then fork/exec hwloc's configure if HWLOC_INIT runs action_on_success, that's what you'll be doing.
+
+Do you want just a sensible error abort from hwloc's configure if it fails?  E.g., return non-zero status?  That would give you a way to know if it succeeds or fails today, and as your text implies that you might want to embed someday, switching to HWLOC_INIT() in the future could also be possible."
+4,1256001835,balaji,"Yes, the configure error'ing out is the easiest as far as MPICH2/Hydra is concerned. However, even if I didn't fork/exec, but instead just called hwloc's configure as a sub-configure, how can I avoid configuring twice, assuming we want to find whether hwloc is supported on that platform at configure time?
+
+An alternative to avoid doing the configure twice is for hwloc to never fail on configure, but to fail in the hwloc init call."
+4,1256002628,balaji,"Replying to [comment:12 balaji]:
+> An alternative to avoid doing the configure twice is for hwloc to never fail on configure, but to fail in the hwloc init call.
+
+For clarity, by ""hwloc init call"" here I mean the library init call, not the HWLOC_INIT macro."
+5,1253911804,bgoglin,"Using libpci to scan all devices is fairly easy actually. We can build the busid string from there, and then read /sys/bus/pci/devices/%s/{local_cpus,numa_node}. I have some code to fill the following kind of structure:
+{{{
+struct hwloc_iodev {
+  char *busid; /* <domain>:<bus>:<dev>.<func> */
+  char *name; /* obtain from pci.ids, or NULL */
+  unsigned short vendor_id, device_id, device_class;
+  hwloc_cpuset_t local_cpus; /* mask of procs nearby */
+  unsigned numanode_osindex; /* numa node nearby */
+}
+}}}
+
+numanode_osindex is probably useless, but I need to check that the kernel never set numanode without setting local_cpus properly. We could group all objects that have the same local_cpus/numanode_osindex, create doubly-linked lists of them, and attach the head of the list the lowest hwloc_obj that covers local_cpus. So each hwloc_obj_t will have two new fields:
+{{{
+   hwloc_iodev_t *first_iodev, *last_iodev;
+}}}
+(ABI change: I wonder if we should save 16bytes now to prepare the future). And each hwloc_iodev would have a ""rank"" within this list and a pointer to its ""parent"" hwloc_obj.
+
+We only gather the linear list of objects, we don't gather the actual PCI hierarchy (I don't think we care about it). We could filter the device class to only keep GPUs, NICs, and other HPC-related stuff so that lstopo remains interesting.
+
+Once the hwloc core has this, we can add some specific helper such as ""open an IB NIC near this cpuset"" or ""tell me the cpuset near this ibv_device that I just opened"" (not hard to implement). We'll need same info for Cuda but we still haven't feedback from their developers about this.
+"
+5,1254116887,bgoglin,"What's a properly set cpuset for a device? Do you want to add fake OS numbers to each device when discovering them ? (note for the implementers: modify cpuset of all objects covering this device when adding this fake OS number).
+
+Also, on which level would these objects be stored? Are we breaking the rule that currently puts only objects with same type on the same level? Or do we add a new depth just for pci devices (and one for pci devices) ? (note to implementers: we'd have to make sure we don't put those below PROC)
+And I guess we'll need a way to return ""not comparable"" from hwloc_compare_types().
+
+By the way, GPUs will be inside socket in the near future, it's not only about machines and NUMA nodes :)
+"
+5,1254157513,sthibaul,">  What's a properly set cpuset for a device? Do you want to add fake OS
+>  numbers to each device when discovering them ?
+
+No, I meant cpu_set being the set of CPUs near the device.
+
+>  Also, on which level would these objects be stored? Are we breaking the
+>  rule that currently puts only objects with same type on the same level?
+
+Well, I've never assumed this in my code actually :)
+
+>  And I guess we'll need a way to return ""not comparable"" from
+>  hwloc_compare_types().
+
+Yes.
+
+>  By the way, GPUs will be inside socket in the near future, it's not only
+>  about machines and NUMA nodes :)
+
+Right, and it's all the more interesting to be able to express that,
+i.e. yes, have not only cache/cores objects in sockets.
+"
+5,1254158534,bgoglin,"> > Also, on which level would these objects be stored? Are we breaking the
+> > rule that currently puts only objects with same type on the same level?
+>
+> Well, I've never assumed this in my code actually :)
+
+I think we should have such a rule, otherwise things may become a huge mess if we ever break it.
+
+And I think we should also document all such rules about somewhere, for instance with the ones about PROC being below, SYSTEM being above, cpusets not intersecting between children, cpusets possibly being empty IIRC (for empty NUMA nodes and devices?), ... Maybe put all this near hwloc_topology_check() and complete what this function actually checks.
+
+> > And I guess we'll need a way to return ""not comparable"" from
+> > hwloc_compare_types().
+>
+> Yes
+
+We need to change hwloc_compare_types() as soon as possible then, it is supposed to return <0, 0 or >0 only for now. Otherwise we'll break the ABI when adding devices in post-1.0.
+"
+5,1254159185,sthibaul,"Oops, reading again:
+
+> Are we breaking the rule that currently puts only objects with same type on the same level?
+
+No, I don't mean that. I mean another level for PCI buses, another
+level for GPUs, another level for Network boards, etc. But without any
+strict inclusion order wrt to the levels enclosing CPUs, i.e. a PCI bus
+could be along sockets in a machine, or along NUMA nodes in a machine.
+A GPU could be along caches+cores in a socket.
+
+> And I think we should also document all such rules
+
+Yes.
+
+> We need to change hwloc_compare_types() as soon as possible then, it is supposed to return <0, 0 or >0 only for now. Otherwise we'll break the ABI when adding devices in post-1.0.
+
+We can use MAX_INT, MAX_INT-1, etc. as special values (#defined to some HWLOC macro of course).
+"
+5,1254202872,bgoglin,"Actually, maybe hwloc_compare_types() could also return 0 for non-comparable types. People would be advised to check if the types values are indeed equal when hwloc_compare_types returns 0."
+5,1256226047,sthibaul,"os devices (e.g. eth0, ide0, hda, sda, etc.) should probably be yet other kinds of
+objects: a RAID PCI device may have several disks, an Ethernet board
+may have several net devices, etc. This can be seen e.g. in 
+
+/sys/bus/pci/devices/*/ide0/*/block/*
+/sys/bus/pci/devices/*/net/*
+/sys/bus/pci/devices/*/host*/target*/*/block/*
+/sys/bus/pci/devices/*/drm/*
+
+(could use glob() to get these)
+"
+5,1256841790,sthibaul,"We could also provide functions like:
+
+hwloc_obj_t hwloc_get_path_obj(hwloc_topology_t topo, const char *path);
+hwloc_obj_t hwloc_get_fd_obj(hwloc_topology_t topo, int fd);
+
+(the latter may return a network device or a disk device, depending on
+whether it's a socket or a file. Mmm and how about nfs-mounted files!)
+"
+5,1301419999,bgoglin,"big TODO update
+"
+5,1302038228,bgoglin,Fixed in r3381.
+5,1302038258,bgoglin,move to v1.3
+6,1254117298,bgoglin,"> ""support levels that do not cover the whole machine? (no L3 above the cores of the second socket above)""
+
+There's currently an implicit rule about every PROC being covered by one object of each level. If it's not the case, we need to rethink some functions. It's clear that some current functions in the helpers need to be their behavior clarified/fixed in this case. I haven't actually tested the code yet, will built a fake topology today.
+"
+6,1254157652,sthibaul,"Yes, I mean the GPU level (i.e. just a list of the available GPUs) would be independent from core/cache levels for instance.
+"
+6,1254225029,bgoglin,"After a deeper look at the code and some tests:
+
+  * There seems to be some breakage in core discovery, causing multiple PROC levels to be created in the heterogeneous linux test.
+
+  * The helper functions actually look ok. I didn't try them for real but reviewing the code makes me feel good about them. They don't seem to rely on having enough objects in a single level to cover any given cpuset (which was my first fear, 2nd point of initial report).
+
+  * I am not sure what hwloc_distribute() should do if children are not at the same level. Maybe it doesn't matter for real cases but we'll probably see some ""missbalanced"" distribution on heterogeneous topologies :)
+
+Once the heterogeneous tests/linux case works as expected, this bug could probably be closed.
+"
+6,1254226643,sthibaul,"linux testcase fixed by r1026 (stupid error while coding the algorithm).
+"
+7,1256886260,bgoglin,"After a look at the PLPA API, here's how we could provide wrappers to reimplement PLPA features on top of hwloc. It could be a hwloc/plpa.h with hwloc_plpa_ function prefix. A couple new helpers will be needed, but most of the stuff is straightforward.
+
+  * init and finalize -> hwloc_topology_init+load and destroy, with topology as an additional parameter
+
+  * api_probe -> do we need this ?
+
+  * sched_set/getaffinity -> might add hwloc_get_cpubind(), but it's not supported by all OSes
+
+  * have_topology_information -> could add a hwloc_topology_known(topology) returning 0 on non-supported OS ?
+
+  * map_to_processor_id, map_to_socket_core -> easy to reimplement
+
+  * get_processor_info -> deprecated, no need to reimplement
+
+  * get_processor_data, get_processor_id, get_core/processor_flags-> require to know how many procs are offlines (and expose it in the API, hwloc_topology_nr_offlines_procs?), and which ones (return both the number and the cpuset of offline procs to the user?)
+
+  * get_socket_info, get_socket_id, get_core_info, get_core_id -> easy
+
+  * set_cache_behavior -> not needed since we add a topology parameter everywhere
+"
+7,1257403482,bgoglin,"I already have some code working here, I will send a proposal once 0.9.1 is released. I am reassigning this ticket to me for now."
+7,1257957212,bgoglin,"(In [1333]) Add PLPA-like API
+
+A new section is added at the end of the documentation, but we
+do not generated manpages since users are encouraged to the native
+hwloc API as soon as possible.
+
+Refs #7."
+7,1257957545,bgoglin,"One problem we have is that we cannot the binding-capability in the PLPA-interface. The reason is that PLPA wants to bind a thread given by a pid (ie do sched_setaffinity). hwloc only has the ability to bind the current thread, or to bind an entire process given by a pid.
+
+Would it make sense to add support for the CPUBIND_THREAD policy in set_proc_cpubind? (and maybe rename it into set_pid_cpubind, or add set_thread_pid_cpubind)."
+7,1257974766,sthibaul,"I am against mixing the notion of thread and pids.  Linux 2.4 did it
+and it's still a mess today.  No application should ever use tids,
+that's an internal Linux thing so applications manipulating tids
+are non-portable already (gettid isn't even defined by glibc). An
+application is only supposed to manage pthread_t-s.
+"
+8,1262625911,sthibaul,"The hwloc_debug warnings have been fixed by r1488, the remainder can't really be fixed and doesn't harm."
+9,1279357548,bgoglin,"(In [2339]) Baby step towards memory binding:
+* add hwloc_set/get_membind
+* add --cpubind/--membind options to hwloc-bind
+* support default, bind, preferred, interleave policies
+* get_membind retrieves the policy as well as the cpuset
+* strict flag not used so far
+
+Many things to do:
+* only implemented on Linux
+* no support for other pids
+* no support for address ranges
+* no support bitmask yet
+* the strict flag and binding policy might be better in different
+  parameters of the functions (the former is always input while
+  the latter is output if get_membind)
+
+Refs #9"
+9,1280422166,sthibaul,"(In [2371]) Activate membind support in hwloc-bind
+Refs #9
+"
+9,1280422349,sthibaul,"See also r2370:
+
+* Add stubs for other pids, address range, allocation, no implementation yet.
+* Replace MEMBIND_BIND/PREFERRED with BIND/STRICT.
+* Add MIGRATE, no implementation yet.
+* Add support bitmask.
+"
+9,1280424296,sthibaul,"(In [2372]) add memory bind test, a few fixes. Refs #9."
+9,1280475407,sthibaul,(In [2374]) * alloc_membind replacement when the OS doesn't have it but has set_area_membind. Refs #9.
+9,1280497496,sthibaul,(In [2391]) Add hwloc_cpuset_from/to_nodeset. Refs #9.
+9,1280501491,sthibaul,(In [2393]) Add alloc_membind for AIX and OSF. Refs #9.
+9,1284652345,sthibaul,"One problem I have is that at least AIX and Solaris provide memory allocation policy functions, but they also set the thread binding at the same time.  I don't have a machine to check, but on Solaris you might even just not be able to have a thread and its allocated memory on different nodes: moving the thread using lgrp_affinity_set after allocating data perhaps just migrates memory.
+"
+9,1284710120,bgoglin,"Do nothing on AIX and Solaris when STRICT is given then?
+"
+9,1284740439,sthibaul,"Well, it's not so easy:
+- hwloc_set_cpubind(STRICT);
+- hwloc_set_proc_membind();
+
+doing binding in membind will override the strict cpubind.
+"
+9,1288276646,bgoglin,"(In [2651]) Merge membind branch into trunk
+
+This commit fixes #9.
+
+"
+9,1301420183,bgoglin,Milestone v1.1 deleted
+10,1255288333,bgoglin,"(In [1156]) Rework the Linux-cpuset management code to handle cgroup as well.
+We look at cgroup-cpuset first and then at plain cpuset.
+
+This commit fixes #10.
+
+We could have an env variable to configure the mount-point of
+cgroup or cpuset filesystem, or search it at configure."
+11,1387215397,bgoglin,"SGI switching IRIX from maintenance mode to retired mode at the end of 2013, we're not going to add IRIX support now.
+http://www.sgi.com/services/support/irix_mips_support.html"
+12,1257403359,bgoglin,"We'll probably want hwloc_get_cpubind() in 1.0 for other reason (PLPA, ...) so I think we can move this ticket to the 1.0 milestone as well."
+12,1266180432,sthibaul,"The get_cpubind function is already in.
+There are several ways I can see
+
+- Add a configuration flag to limit the discovery to the current binding of the process
+- Add a configuration function to limit the discovery to a given cpuset. To get the current binding of the process, one has to run a first discovery, then use get_cpubind, then run a second one with the configuration. This is tedious, the API works this way.
+- Add a function to restrict a discovered topology to a given cpuset. This looks like within the scope of the functions we are thinking about for network use (extract part of a topology, merge topologies).
+
+Do we still want this for 1.0?"
+12,1267361539,bgoglin,"Move this to 1.1 since Ashley doesn't seem to need it.
+"
+12,1287943913,bgoglin,"move this to 1.2, too late to discuss for 1.1"
+12,1296665356,bgoglin,"Copy Samuel's ideas from above into the core of the ticket, and add comments.
+
+I don't understand the third point. Does it refer to when we thought we would have cpusets covering multiple machines at the same time ? It looks like we switched to single-machine cpusets and NULL cpusets for multiple-machine objects now.
+"
+12,1296745256,sthibaul,"> Does it refer to when we thought we would have cpusets covering multiple machines at the same time ?
+
+No, I never thought that, actually :)
+
+I just meant it's the same kind of operation which should probably go to the same documentation part: you have an existing topology object, and you build another one from that. Restricting to a cpuset is just a kind of operation, just like you could want to restrict to a subtree (when you don't have a cpuset to designate the part you want to keep, e.g. network topologies), merge some parts of a machine, or different machines, etc.
+"
+12,1296815074,bgoglin,"(In [3153]) Branch to work on topology restriction
+
+Refs #12
+
+"
+12,1300289301,bgoglin,"(In [3268]) Merge the restrict branch intro trunk
+
+This introduces:
+  hwloc_topology_restrict(topology, cpuset, flags)
+and
+  lstopo --restrict
+
+This commit fixes #12
+
+"
+12,1313824112,bgoglin,Milestone v1.2 deleted
+13,1278350952,bgoglin,"(In [2289]) Add --ignore to hwloc-distrib.
+
+It may be better if we add --among <type> so as to start
+at type objects directly but it requires more work.
+
+Refs #13
+
+Suggested by Jirka Hladky"
+13,1278350971,bgoglin,"(In [2290]) Add --among <type> to hwloc-distrib to distribute starting
+from a lower level than the top object.
+
+Refs #13
+
+Suggested by Jirka Hladky"
+13,1279186908,bgoglin,"(In [2323]) Store PCIVendor and PCIDevice in obj infos
+
+This commit fixes #13.
+(everything is in trunk, except the PCI stuff
+ which is still in the non-yet merged PCI branch)
+
+"
+13,1284645563,bgoglin,"Was closed by mistake, reopen."
+13,1284907836,bgoglin,"Changing this back from 1.1 to future. 1.1 will already have interesting things like --among and --ignore which let you ignore intermediate asymmetric levels. Other features cited above such as GPU support won't make it for 1.1 anyway, so we'll see later."
+13,1289950188,sthibaul,"(In [2792]) - Add ""until"" parameter to hwloc_distribute.
+- Introduce hwloc_distributev, equivalent to hwloc_distribute but takes an array of objects instead of just one root.
+- Make hwloc-distrib use hwloc_distributev instead of inlining its top level.
+- Rename hwloc-distrib's --among option into --from.  Add --to and --at options.
+- Document all this. Also document that unbalanced topologies are not properly balanced yet. Refs #13
+"
+13,1290431318,sthibaul,This is done by r2807 and r2809.
+14,1255286828,bgoglin,"(In [1153]) Move the lstopo XML code back into the XML backend and export it
+in the public API as hwloc_topology_export_xml(topo, filename).
+
+This commit fixes #14."
+15,1264356744,sthibaul,(In [1660]) Add x86-cpuid backend. Refs #15.
+15,1266180744,sthibaul,"AMD64 topology done in r1699, r1700, r1701."
+15,1267361666,bgoglin,fix title
+15,1267384931,bgoglin,distance stuff moved to #32
+15,1267385156,bgoglin,"updates:
+  * AMD magny-cours support is OK
+  * numa distance in XML is in #32
+  * envvar are properly documented (except the ugly debugging one, on purpose)"
+15,1270015309,bgoglin,Use parts of /proc/cpuinfo in the sysfs backend
+15,1272748824,bgoglin,add hwloc-calc TODOs
+15,1274245394,bgoglin,link to taskset support discussion
+15,1274521080,bgoglin,"  * taskset is done
+  * rename hwloc_cpuset_from_string into hwloc_cpuset_sscanf ?"
+15,1274801708,bgoglin,"Author: bgoglin
+Date: 2010-05-25 11:28:20 EDT (Tue, 25 May 2010)
+New Revision: 2142
+URL: https://svn.open-mpi.org/trac/hwloc/changeset/2142
+
+Log:
+When nothing (except options) is given on the hwloc-calc command-line,
+read from stdin and process line-by-line. Multiple objects in the same
+line should be separated by spaces.
+"
+15,1278746677,bgoglin,"* misc ideas from Jirka Hladky (additions to tools)
+* remove some stuff that was implemented (insert misc obj in topo/lstopo)"
+15,1279008788,bgoglin,"hwloc-calc --intersect added in r2307
+"
+15,1284916857,bgoglin,Need to use /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
+15,1285534710,bgoglin,cpuset_from_string renamed into bitmap_sscanf in the bitmap branch
+15,1288450579,bgoglin,"update stuff, remove obsolete/done stuff, ..."
+15,1289951099,sthibaul,Added idea of topology configuration to restrict detection to a portion of the machine.
+15,1294155885,bgoglin,bitmap<->stringlist functions added in trunk@3013
+15,1294156046,bgoglin,misc ideas
+15,1297873800,bgoglin,random ideas probably good for 1.2
+15,1297962599,bgoglin,hwloc-calc --number-of added in 3177
+15,1298024597,bgoglin,HT doc in r3180
+15,1301340444,bgoglin,Relaxed distance-based grouping
+15,1302038287,bgoglin,random remaining stuff for the main I/O ticket (#5 now closed)
+15,1303894316,bgoglin,remove misc stuff that are done or have their own ticket
+15,1313150666,sthibaul,"Use cpuid's apicid to implement get_last_cpu_location(THREAD)
+"
+15,1316807549,bgoglin,"Jeff/Ralph requests binding info in XML and a ""symmetric children"" flag"
+15,1317618111,bgoglin,"(In [3894]) Add a symmetric_subtree object attribute
+
+Refs #15"
+15,1317619688,bgoglin,"symmetric attribute done
+"
+15,1317730393,bgoglin,trunk@3907 can now combine cpuinfo (for cpu model) and sysfs info.
+15,1319349715,bgoglin,misc additions from my todo list
+15,1335183164,bgoglin,"cci interoperability
+"
+15,1342937184,bgoglin,cleanup/update stuff
+15,1353140435,bgoglin,misc updates
+15,1355260547,bgoglin,"misc updates
+"
+15,1358518599,bgoglin,"(In [5249]) hwloc-info: Add --ancestors and --ancestor <type>
+
+They dump one or all ancestors of the given objects.
+
+Refs #15"
+15,1358540692,bgoglin,two requests from the hwloc tutorial at ComPAS last monday
+15,1360964294,bgoglin,"BlueGene is done for real, it's not a random joke anymore."
+15,1378894257,bgoglin,misc updates
+15,1396298244,bgoglin,these lines have their own tickets.
+16,1256083158,jsquyres,"(In [1198]) Refs #16: remove a whole pile of compiler warnings:
+
+ * Ensure variables are declared at the tops of blocks, not in the
+   middle of blocks
+ * Don't have variables named ""string"" or ""index"" (those are function
+   names)
+ * Use ""__inline"", not ""inline""
+ * Removed unused function: hwloc_linux_set_proc_cpubind()
+ * Resolved some ""local shadow"" variable declarations
+"
+16,1256086590,jsquyres,"There's one really pedantic warning left (weird complaining about not finding a prototype for vsnprintf()) that I can't seem to get rid of when using Pavan's build flags.  But I suspect that Pavan's flags are a bit overly pedantic, so I'm going to ignore that for now and close this ticket.  :-)"
+16,1256132383,balaji,"The vsnprintf warnings occur because snprintf and vsnprintf are present only in C99, not C89. There are a few solutions possible:
+
+1. Check in configure to (i) add a prototype for snprintf/vsnprintf where needed and (ii) add an alternative implementation for them for platforms that don't provide them.
+
+2. An alternative (simpler) solution is to include MPL (https://svn.mcs.anl.gov/repos/mpi/mpich2/trunk/src/mpl) into hwloc and just use MPL_snprintf and friends everywhere.
+
+3. Check if snprintf/vsnprintf exist in configure and abort if they don't. Other libraries relying on hwloc can see this error and not build hwloc in those cases.
+
+Not sure if either approach is acceptable for you guys, so I'm leaving this ticket as closed. Please reopen if appropriate.
+
+Btw, there are some other warnings too because the return values of fgets and fscanf are not checked. But those are relatively minor, IMHO."
+17,1259675252,jsquyres,"Chris Samuel pointed out another icc warning of the flavor:
+
+{{{
+icc: command line warning #10121: overriding '-stdc99' with '-stdgnu99'
+icc: command line warning #10156: ignoring option '-W'; no argument required
+}}}
+
+The first one stems from the compile line, which you can see if you {{{make V=1}}}:
+
+{{{
+libtool: compile:  icc -std=c99 -DHAVE_CONFIG_H -I. -I../include/private -I../include/hwloc -I../include -I../include -std=gnu99 -Wall -Wmissing-prototypes -Wundef -Wpointer-arith -Wcast-align -I/usr/include/libxml2 -g -O2 -MT topology.lo -MD -MP -MF .deps/topology.Tpo -c topology.c  -fPIC -DPIC -o .libs/topology.o
+}}}
+
+You can see both ""-std=c99"" ''and'' ""-std=gnu99"", which -- at least at first blush -- doesn't seem right.  Part of the problem ''might'' be in config/hwloc.m4:
+
+{{{
+  if test ""x$GCC"" = ""xyes""; then
+    GCC_CFLAGS=""-std=gnu99 -Wall -Wmissing-prototypes -Wundef""
+}}}
+
+icc lies to impersonate gcc and probably allows the ""are we using GCC?"" test to fill $GCC with ""yes"", which could somehow lead to the repetitive -std option.
+
+As for the -W warnings, I'm not sure specifically which one it is referring to, but it could also stem from the same test in hwloc.m4 (where icc is lying about being GCC).  If it helps, we have a better detection m4 algorithm in Open MPI that ''really'' figures out if the compiler is GCC or not.  Something to check into..."
+17,1262626755,sthibaul,(In [1560]) fix icc's pickyness about parameter ordering (even if all these functions are _marked_ const...); Refs #17
+17,1262626847,sthibaul,(In [1561]) avoid warning about maxwidth/maxheight not being always used. Refs #17
+17,1262627722,sthibaul,(In [1565]) fix icc's pickyness about parameter ordering (even if all these functions are _marked_ const...); Refs #17
+17,1262628096,sthibaul,"first and second types of warning should be fixed by now, except the dtd which could be looked at."
+17,1271798868,bgoglin,"Most of these should be fixed or acceptable now, closing."
+18,1271798942,bgoglin,"Does any of this still apply/matter today?
+"
+18,1271851037,jsquyres,"I don't think we should be targeting C89 -- that's just too old.  C99 has some merit, and there's a few warnings left -- I'll dig a little..."
+18,1271852855,jsquyres,"(In [1986]) Refs #18.  Fix some compiler warnings:
+
+ * Note the change of typeof to !__typeof__ -- I got that from
+   http://gcc.gnu.org/onlinedocs/gcc/Typeof.html.
+ * I fixed a few places where local variables shadowed globals.  On a
+   RHEL 5.4 system, apparently <string.h> declares a global variable
+   named ""index"" (!), and <math.h> declares a global named ""y1"".
+   Who thought that was a good idea?
+
+The compiler flags that I used to test this were (on RHEL 5.4):
+
+{{{
+# With gcc 4.1.2
+./configure CFLAGS=""-std=c99 -Wall -Wmissing-prototypes -Wundef \
+-Wpointer-arith \
+-Wcast-align -O2 -Wall -Wextra -Wno-missing-field-initializers \
+-Wstrict-prototypes -Wmissing-prototypes -DGCC_WALL \
+-Wno-unused-parameter -Wno-unused-label -Wshadow
+-Wmissing-declarations \
+-Wno-long-long -Wfloat-equal -Wdeclaration-after-statement -Wundef \
+-Wno-endif-labels -Wpointer-arith -Wbad-function-cast -Wcast-align \
+-Wwrite-strings -Wno-sign-compare -Waggregate-return \
+-Wold-style-definition -Wno-multichar -Wno-deprecated-declarations \
+-Wpacked -Wnested-externs -Winvalid-pch -Wno-pointer-sign \
+-Wvariadic-macros -Wno-format-zero-length \
+-D_POSIX_C_SOURCE=199506L"" \
+  2>&1 | tee config.out
+}}}
+
+and
+
+{{{
+# With Intel compiler 10.0.0
+./configure CC=icc CFLAGS=""-std=c99 -Wall -Wmissing-prototypes \
+-Wpointer-arith \
+-O2 -Wall \
+-Wstrict-prototypes -Wmissing-prototypes -DGCC_WALL \
+-Wshadow -Wmissing-declarations \
+-Wpointer-arith \
+-Wwrite-strings \
+-Wno-multichar"" \
+  2>&1 | tee config.out
+}}}
+"
+18,1274245422,bgoglin,"1.0 is out, this should be ok now"
+19,1256544468,bgoglin,"Should be fixed in commit r1229:
+
+Author: sthibaul <sthibaul@4b44e086-7f34-40ce-a3bd-00e031736276>
+Date:   Fri Oct 23 11:17:39 2009 +0000
+
+    Fix warnings: check the value returned by fgets and fscanf. Thanks Pavan Balaji for pointing them out
+"
+20,1256160405,sthibaul,"(In [1216]) Tinker GetProcAddress declaration to drop spurious warning, closes #20"
+20,1256160542,sthibaul,"(In [1217]) backport r1216: Tinker GetProcAddress declaration to drop spurious warning, closes #20"
+21,1256225341,sthibaul,"I think it's not available on any other OS than Linux, but we could introduce a configuration function hwloc_topology_set_pid(topology, pid) that calls an OS-specific callback, or returns -1 (ENOSYS) when not supported.
+"
+21,1256227169,sthibaul,"An lstopo option can also be added.
+"
+21,1264863628,bgoglin,"""what cpuset they're bound to"" is just an example.
+A configuration function hwloc_topology_set_pid(topology, pid) would
+mean that the discovery has to be done from the view of the given pid,
+and thus the allowed_cpuset should be according to that view, thus
+administrative restrictions.
+
+Just to give an example: lstopo --pid 1234 would not only show where the
+process is currently bound to, but also its allowed cpuset, which can be
+useful when monitoring applications run by a batch scheduler or such.
+"
+21,1266179981,sthibaul,"(In [1726]) Allow lookup of specific PIDs, fixes #21."
+22,1256219731,bgoglin,Already possible by passing HWLOC_TOPOLOGY_FLAG_WHOLE_SYSTEM to hwloc_topology_set_flags
+23,1258988687,jsquyres,Tightened up the wiki syntax a little.  :-)
+23,1258988961,jsquyres,"Do we really want to add network detection into hwloc?  hwloc as it is is a nice small utility for examining topology '''inside a single server'''. 
+
+Expanding larger than that gets into highly network-specific detection technologies.  Do we want to go there?  Here's some random points that occur to me in no particular order:
+
+ * If we do, perhaps we should use a real plugin framework where there's an established API that plugins adhere to.  Then network makers can add their own plugins without impacting anything else in the code base.
+ * If we don't (e.g., in the ""keep utilities small, simple, and single-purpose"" argument), perhaps a companion library (""netloc""?) could take on this task.
+ * Or perhaps a good compromise is to do both plugins that allow for discovery of ''anything'' and insert them into the hwloc hierarchical data structures (e.g., GPUs, other peripherals, etc.).
+
+Thoughts?  Is this worth a phone call?"
+23,1263258475,sthibaul,"Mailing list discussion seems to converge toward tools (at API or
+shell level) to combine machine topologies into cluster/grid/cloud :)
+topologies. The actual detection/etc. which probably vary a lot can
+thus remain out of hwloc itself.
+
+I'll file a new ticket for the implied requirements for v1.0.
+"
+23,1313562651,bgoglin,add notes from the current discussion
+23,1313824054,bgoglin,"Several people interested, let's work on this for v1.4"
+23,1313824153,bgoglin,oops
+23,1318661064,bgoglin,"(In [3943]) Merge the custom branch into trunk
+
+This adds 3 functions:
+* hwloc_topology_set_custom()
+* hwloc_custom_insert_topology()
+* hwloc_custom_insert_group_object_by_parent()
+and 2 command-line tools:
+* hwloc-assembler and hwloc-assembler-remote.
+
+This commit fixes #23.
+
+"
+24,1262175955,bgoglin,"(In [1543]) (try to) properly use the new whole-process binding facility on Linux:
+* hwloc_linux_set/get_proc_cpubind() now use hwloc_linux_set/get_pid_cpubind()
+  when the THREAD flag isn't set, instead of only when PROC is set
+* hwloc_linux_set/get_cpubind() now uses hwloc_linux_set/get_proc_cpubind()
+* Add hwloc_linux_set/get_thisproc_cpubind() using hwloc_linux_set/get_pid_cpubind()
+
+All binding modes are now supported on Linux.
+
+This commit fixes #24."
+25,1260007491,bgoglin,"The current lstopo output is generated from hwloc_obj_snprintf which wasn't really designed to be flexible.
+
+  hwloc_obj_snprintf(char *string, size_t size, struct hwloc_topology *topology, struct hwloc_obj *l, const char *_indexprefix, int verbose)
+
+It cannot print logical indexes. We could tweak the ABI to replace the verbose parameter with a bitmask of flags but that's ugly.
+
+I'd vote for deprecating hwloc_obj_snprintf and just add a bunch of more basic printing functions:
+  * print the type name (already available as hwloc_obj_type_string)
+  * print an extended type name, for instance L2Cache instead of Cache, with a possible verbose flag switching from L2 to L2Cache
+  * print the list of object attributes with a given separator
+
+And we'd let the application print the actual OS/physical or logical index depending on its needs."
+25,1262082709,bgoglin,"(In [1528]) Add -l/--logical and -p/--physical to lstopo.
+
+Switch to logical index by default in the lstopo output.
+
+This commit fixes #25."
+26,1262109193,bgoglin,"(In [1539]) Add --logical and --physical to hwloc-bind and hwloc-mask.
+Their manpages probably need some updates about all this.
+
+This commit fixes #26."
+27,1262001481,bgoglin,"(In [1525]) Fix hwloc-mask.h to properly check whether a string is a valid cpuset.
+I wonder if this should move to the lib core.
+
+This commit fixes #27.
+
+It also fixes recognition of cpuset strings with a 0x prefix
+in a non-first substring."
+28,1260448771,sthibaul,"or maybe more powerful: return the list of cpusets, and it's easy to wc -l that"
+28,1262095366,bgoglin,"(In [1537]) Add some examples to the lstopo manpage
+
+This commit fixes #28."
+29,1263381995,bgoglin,"(In [1626]) Don't enforce a SYSTEM object at the root of the tree.
+Use MACHINE by default, and change it into SYSTEM if kerrighed is detected
+or if a synthetic topology with machine levels is used.
+
+Update all linux test outputs according.
+
+Update lstopo to not show the index of the top level instead
+of a system level.
+
+Make check passes.
+
+Refs #29."
+29,1263382080,bgoglin,"(In [1628]) Replace get_system_obj with get_root_obj and keep a deprecated wrapper.
+
+Refs #29."
+29,1263403962,sthibaul,"(In [1639]) move {,complete_,online_,allowed_}cpuset to objects, propagate the values after detection. Fix the case of loading an xml file containing several machines Refs #29"
+31,1274564187,bgoglin,"(In [2132]) Add an array of string infos in objects.
+
+Print them in hwloc_obj_attr_snprintf.
+
+Export them as a new element in XML files.
+
+Refs #31."
+31,1274564238,bgoglin,"(In [2133]) Store DMI infos in object infos.
+
+Refs #31."
+31,1274564447,bgoglin,Distinguish between object-specific and topology-wide infos.
+31,1277201802,sthibaul,"Maybe it would be easier to store it as an array of structures containing the name and the property separately, instead of having to parse the '=' sign all the time.
+
+Also, I guess it'd be good to provide a helper to look for some information, so the application programmer can just e.g. vendor = hwloc_object_get_info(object, ""DMIBoardVendor"")."
+31,1277551098,bgoglin,"Done. And indeed, it's better now."
+31,1284645469,bgoglin,Fixed in trunk [2320] when merging the objinfos branch (and applied to the libpci branch as well in [2323]).
+31,1301420183,bgoglin,Milestone v1.1 deleted
+32,1274817944,memoryhole,"Distances between nodes can be represented in several ways. Libnuma uses a normalized approach, where a given CPU's self-distance is 10 and the distance to other CPUs is defined as minimum access latency as a multiple of the self-distance. This makes a lot of sense because it doesn't depend so much on the measuring methodology, and other methods can be easily converted. On the other hand, it's unit-less, which makes it harder to verify. Liblgrp on the other hand uses machine-specific unspecified units, which seems not as useful, and the Tilera tmc interface just gives mesh coordinates, which is even less useful (especially if they stop using a pure mesh). I think it makes sense to use the libnuma approach.
+
+I think the basic requirement for most people would be that they can tell the difference between CPUs that are close and those that are on the other side of the room. Absolute distances are less important, as long as the relative ordering is correct.
+
+Something else to think about is whether the ""distance"" should measure latency or bandwidth. I think most folks tend to think of it in terms of latency, but it should probably be made explicit. It's possible that hwloc should attempt to discover and/or report both latency and bandwidth, though that seems hard.
+
+What would an incomplete distance matrix mean? Is it sufficient to ignore that possibility until it proves to be a necessity?"
+32,1274819851,sthibaul,"I agree with rather exposing a normalized value.
+
+Reporting the bandwidth is often not really useful, since that will not express how you will have interference on the NUMA links, e.g. on the sides of a square, which is what matters as soon as you load the machine a bit. That is why I was rather thinking about reporting the graph of the nodes, which does provide interference information.
+"
+32,1284651222,bgoglin,"Now that sparse numa number support for Linux has landed in trunk, this distance support should be way less memory consuming. I wonder which form the distance reporting functions should have now.
+
+Internally, we don't want to index distance matrices by OS/physical indexes internally because of memory consumption in case of sparse numbers. And indexing by logical indexes would be horrible since logical indexes might change during discovery (when adding groups), so this one should only be computed at the every end of the discovery.
+
+The Linux backend in trunk now stores distance matrices that are indexed by the NUMA node number among the existing one (ordered by OS indexes, but not sparse thus). That's actually practical, I hope other OS will be able to use the same. But I don't think reporting such a matrix to users would be good. We already have OS/physical and logical indexes, let's not expose another type of indexes.
+
+So I think I would do:
+* keep non-sparse-OS-index matrices during discovery and compute the logical-index matrices at the end.
+* hwloc_get_distances reports such a logical-index matrix (instead of physical-index currently)
+* maybe hwloc_get_distance report both distances (both directions) for a given couple of nodes (given by logical indexes)
+
+"
+32,1284651926,sthibaul,"> So I think I would do:
+> * keep non-sparse-OS-index matrices during discovery and compute the logical-index matrices at the end.
+> * hwloc_get_distances reports such a logical-index matrix (instead of physical-index currently)
+
+That was also my conclusion. The non-sparse-OS-index matrices don't need to be in any particular order, the OS backend can probably choose whatever order it prefers, and the core will renumber all this properly afterwards.
+
+> maybe hwloc_get_distance report both distances (both directions) for a given couple of nodes (given by logical indexes)
+
+Agreed.
+"
+32,1291365470,bgoglin,Move this to v1.2
+32,1294244138,bgoglin,big update to what we have in the distances branch right now
+32,1296251427,bgoglin,distances branch merged in trunk in r3136
+32,1313824112,bgoglin,Milestone v1.2 deleted
+33,1267608121,sthibaul,"It is not easy to print %CPU, top uses sampling. We could sample over a
+couple of ms, however.
+"
+33,1267608184,sthibaul,"Another more ""hwlocish"" option would be to add process objects in the
+topology tree, and use lstopo's code to show them in the hierarchy.
+"
+33,1267640842,jsquyres,Have a look at http://htop.sf.net/ -- it currently uses PLPA.  Perhaps we could convince the author to convert it over to hwloc...?
+33,1268232488,bgoglin,"Converting htop to hwloc should be feasible since it only uses plpa_sched_get/setaffinity :) Once hwloc 1.0 is out, I'll contact the author. It doesn't seem to offer any actual topology knowledge so far. It would be nice to add some hierarchical topology support to its interactive affinity interface (flat so far).
+
+I'd still vote for implementing a hwloc-ps (i.e. nothing interactive, just a list of processes and bindings) and work on htop for nice UI things.
+"
+33,1268247329,sthibaul,"In r1822, I have added a way for applications to add misc objects, which we need for other reasons (that is what convinced me to do it). We could now add an option to lstopo."
+33,1270418280,sthibaul,"In r1910, I have added a --top option to lstopo, that adds misc objects representing processes that have some binding."
+33,1270483965,bgoglin,"Should we rename --top into --ps ? Not sure which one is better.
+
+Anyway, this is very nice when your process are very well distributed across the machine. If not, it becomes quite unreadable :)
+
+{{{
+  NUMANode #0 (phys=0 local=8387956KB total=8387956KB)
+    Socket #0 (phys=0)
+      L3Cache #0 (2048KB)
+        10293 sleep
+          10247 sleep
+            L2Cache #0 (512KB)
+              L1Cache #0 (64KB)
+                Core #0 (phys=0)
+                  PU #0 (phys=0)
+            10242 sleep
+              L2Cache #1 (512KB)
+                L1Cache #1 (64KB)
+                  Core #1 (phys=1)
+                    PU #1 (phys=1)
+                      10243 sleep
+              L2Cache #3 (512KB)
+                L1Cache #3 (64KB)
+                  Core #3 (phys=3)
+                    PU #3 (phys=3)
+            L2Cache #2 (512KB)
+              L1Cache #2 (64KB)
+                Core #2 (phys=2)
+                  PU #2 (phys=2)
+                    10296 sleep
+                      10295 sleep
+                        10246 sleep
+                          10245 sleep
+                            10244 sleep
+}}}
+
+And worse: if one process is bound to X,Y while another is bound to X,Z, you get a warning ""object intersection without inclusion!"" and one of the processes is not shown :)
+
+So having a proper hwloc-ps script that just list (and filters) processes and their binding might still be useful for some people, we'll see.
+"
+33,1270484380,sthibaul,"I don't really have an opinion on the option name. Maybe --ps is a bit better since lstopo doesn't sort processes by CPU usage or such, but only topology position."
+33,1270558363,jsquyres,I agree -- having a secondary executable for listing processes and bindings would be better than trying to mush it into lstopo.  Just my $0.02...
+33,1274304244,bgoglin,"(In [2112]) Add a basic hwloc-ps tool which list all processes (only the bound ones by default)
+with their pid, cpuset and cmdline.
+
+Still needs a lot of options, some pretty-printing, a manpage, ...
+
+Refs #33
+
+"
+33,1274537451,bgoglin,"(In [2129]) Document hwloc-ps
+
+* List it in the doxy file
+* Add a manpage
+* Cross-reference it with lstopo --ps
+
+This commit closes #33"
+33,1301420183,bgoglin,Milestone v1.1 deleted
+34,1271801961,sthibaul,"Interesting figures.
+I believe we'll get much better performance when the cpusets become sparse"
+34,1271805166,sthibaul,"Looking more into it, in the proc:1024 case, most time is spent to check whether procs really have different cpusets, i.e. 1024*1024 comparisons, not much simple thing to do about it. I don't think we really need to worry about it anyway, machines are not expected to be just SMP 1024 :)
+
+In the mach:4 node:4 die:4 core:4 proc:4 case, most time is spent in hwloc_cpuset_snprintf, just because print_objects calls it for nothing :) I've commited a fix. On my system, this makes it down to ~70000 µs in the trunk, and ~35000 µs in dyncpusets"
+34,1271835082,bgoglin,Updated the numbers to latest trunk and branches
+34,1271835737,bgoglin,Add numbers up to 16384 PUs
+34,1271917545,bgoglin,"
+
+One thing that bothers me:
+
+I optimized some functions (for instance cpuset_or) by separating the cases where the array index is valid in both cpusets, in only one of them, and in none of them. It makes the code harder to read, and we'll have to rework all this low-level code when switching to sparse cpusets.
+
+I have a patch that reverts to a much more readable code (single case using a generic accessor that always rechecks whether the array index is valid) but it's 10-30% slower. I am keeping that on a local branch for now.
+
+{{{
+                                                 size    trunk     dyncpusets  more-readable dyncpusets
+synthetic mach:4 node:4 die:4 core:4 proc:4      1024    44215     49406       55787
+synthetic proc:1024                              1024    1237049   1442945     1895846
+synthetic m:4 n:4 d:4 cache:4 core:4 4           4096    X         700547      816362
+synthetic m:4 n:4 d:4 cache:4 cache:4 core:4 4   16384   X         11597185    13851455
+}}}
+"
+34,1271950718,jsquyres,"What is the unit of the dyncpusets/more-readable dyncpusets columns in that table -- microseconds?  Instructions?  ...?
+
+(just trying to understand how much this really matters)"
+34,1271950923,bgoglin,"Yes, all these numbers are in microseconds."
+34,1271952219,jsquyres,"Ok, so it's 11.59 seconds vs. 13.85 seconds for the last case.  Does that difference really matter?  All of those are in the ""an eternity"" time range...  For the 1,024 proc case, it's 1.4 vs. 1.8 seconds -- I'm not sure that matters much to a real app, either.
+
+Just my US$0.02...
+
+FWIW: if the sizes are known ahead of time, can the whole operation be streamlined in terms of memory allocations/insertions/etc.?  E.g., do quick scan to figure out what the sizes are, then allocate the data structures once, and then do a deeper re-scan to fill in the data?  (I haven't looked at the load_topology() guts at all, so I could be speaking nonsense)"
+34,1271973043,sthibaul,"It makes sense, but I think you'd get worse results, since by
+allocating as needed, the first processors get small arrays, and thus
+comparisons etc. are fast for them.  When sparse cpusets are
+implemented, that will be the case for all the processors.
+"
+34,1274423435,bgoglin,"(In [2115]) Merge dyncpusets branch into trunk.
+
+Cpusets are now dynamically allocated. They contain a single ulong first,
+and the size is doubled whenever needed.
+
+This commit fixes #34.
+
+"
+34,1301420183,bgoglin,Milestone v1.1 deleted
+35,1274298975,jsquyres,Forgot to add Josh (the initial reporter) to the CC...
+35,1274306120,sthibaul,"./configure CFLAGS=-m32
+
+is not enough to properly set a 32bit build:
+
+€ ./configure CFLAGS=-m32
+
+###
+### Configuring hwloc distribution tarball
+### Startup tests
+###
+checking build system type... x86_64-unknown-linux-gnu
+checking host system type... x86_64-unknown-linux-gnu
+checking target system type... x86_64-unknown-linux-gnu
+
+cross-compilation is not properly detected by autoconf, it believes
+it's building a 64bit version, thus leading to all possible kinds of
+issues, of which here HWLOC_X86_32_ARCH not being defined and thus the
+32bit workaround not being enabled.
+
+You thus also need to pass --host=i686-linux-gnu for instance:
+
+€ ./configure CFLAGS=-m32 --host=i686-linux-gnu        
+checking build system type... x86_64-unknown-linux-gnu
+checking host system type... i686-pc-linux-gnu
+checking target system type... i686-pc-linux-gnu
+
+and then it builds fine.
+"
+35,1274306513,jsquyres,"That seems icky.  
+
+Open MPI builds in 32 bit mode just fine with CFLAGS=-m32.
+
+Why is this a cross-compile in 32 bit mode?  It can build and run 32 bit applications...?"
+35,1274308625,sthibaul,"OpenMPI probably just doesn't use the processor part of the host/target
+triplet for its configuration.
+
+It can be argued that it's not _strictly_ a cross-compilation in that
+you can still run the resulting binaries, but from the toolchain point
+of view it is: compiler/assembler/linker flags, etc. different from the
+build system. If the host/target triplet is not made to match, it can
+only bring issues such as this one, I have already seen this in other
+projects.
+"
+35,1274323323,jsquyres,"It still seems weird -- the sticking point for me is that it is ''not'' a cross-compile.
+
+But isn't the target system type still correct?  The system ''is'' x86_64-unknown-linux-gnu, it just happens to be running a 32 bit binary executable; not a 64 bit one.  That's perfectly valid on an x86_64-* system.
+
+I guess I've never understood why it was a good idea to check $target rather than specific characteristics of the system (e.g., sizeof(void*))...?"
+35,1274336262,sthibaul,"> it is ''not'' a cross-compile.
+
+Well, we seem to disagree on what a cross-compile is, so...
+
+No, the target system is not x86_64-unknown-linux-gnu. For instance,
+the dynamic linker path does not contain /usr/lib/x86_64-linux-gnu
+anymore, but /usr/lib/i686-linux-gnu for instance.
+
+Running a 32bit binary on a 64bit Linux is indeed valid because Linux
+provides system call emulation, but it's not x86_64-unknown-linux-gnu
+any more, it becomes i686-unknown-linux-gnu.
+
+Actually, Linux provides a completely correct way to properly switch
+to a 32bit environment: the linux32 command, which starts a 32bit
+shell with uname -m reporting i686 instead of x86_64. Then ./configure
+CFLAGS=-m32 gives:
+
+checking build system type... i686-pc-linux-gnu
+checking host system type... i686-pc-linux-gnu
+checking target system type... i686-pc-linux-gnu
+"
+35,1274365318,jsquyres,"The ick-ness continues...
+
+ * ./configure --target=i686-pc-linux-gnu results in binaries named ""i686-pc-linux-gnu-lstopo"", etc.  Ouch!
+ * It also doesn't make the executables as 32 bit -- you ''also'' have to add CFLAGS=-m32.
+ * And actually, neither of these work because we rely on pkgconfig for stuff like cairo, which may report 64 bit libraries -- and hwloc's configure doesn't currently check that they really work.
+    * At least this point seems easily fixable -- more below.
+ * I tried configuring/building with linux32, but it seems like you still have to also add CFLAGS=-m32, otherwise you get 64 bit executables.
+
+So it seems like you have to specify '''2''' things to get a 32 bit build: target and compiler/linker flags.
+
+How about a compromise?
+
+ * I'm guessing that only embedding scenarios will care about 32 bit builds -- standalone hwloc will likely always be whatever the ""normal"" compiler output is (who cares about 32 bit standalone hwloc on 64 bit systems?).
+ * Fix anything that uses pkg-config to also check that we can successfully compile/link against what pkg-config tells us (cairo, xml, kerrighard).
+   * Yes, the user could also specify '''HWLOC_<FOO>_CFLAGS''' environment vairables, where <FOO> is KERRIGHED, CAIRO, and XML -- but that's getting a bit crazy.
+ * Have configure check to see if it can run executables that the compiler produces.  
+   * If it can, run an additional test to determine the sizeof(void*) and use it to override the result of where we check $target for x86_64 vs. x86_32 (that should be the only place necessary, I think...?).
+   * If it can't, just trust $target."
+35,1274437028,sthibaul,"> ./configure --target=i686-pc-linux-gnu results in binaries named ""i686-pc-linux-gnu-lstopo"", etc.  Ouch!
+
+Yes, you need to set --host=i686-pc-linux-gnu instead of target (which will then be set according to host): the environment in which the program will be run is 32bit.
+
+target is only really useful for building a compiler: for instance, if on an itanium machine I want to build a compiler that will run on an x86_64 to produce arm binaries, build will be ia64-linux-gnu, host will be x86_64-linux-gnu, and target will be arm-linux-gnu. For usual applications, host should be the same as target.
+
+> It also doesn't make the executables as 32 bit -- you ''also'' have to add CFLAGS=-m32.
+
+Yes.
+
+> And actually, neither of these work because we rely on pkgconfig for stuff like cairo, which may report 64 bit libraries
+
+Yes. That's because Linux distributions are not very clean and don't really distinguish
+between 32bit and 64bit libraries.
+
+>  I tried configuring/building with linux32, but it seems like you still have to also add CFLAGS=-m32, otherwise you get 64 bit executables.
+
+Yes, gcc does not guess that it has been called from a 32bit environment.
+
+The only really proper way to build 32bit packages with current Linux
+distributions is inside a chroot through the linux32 command.
+
+> Fix anything that uses pkg-config to also check that we can successfully compile/link against what pkg-config tells
+
+I hate to do this (this is really about not trusting something you're supposed to trust...), but why not. HWLOC_*_CFLAGS variables are way crazier indeed :)
+
+> Have configure check to see if it can run executables that the compiler produces.
+
+Actually configure does that already, and calls this $cross_compiling (i.e. they use the same wording as you do).
+
+> If it can, run an additional test to determine the sizeof(void*)
+
+Again, I hate to do this when $target is supposed to provide it but it that can help...
+"
+35,1274793831,jsquyres,"I am looking into this.  I'm in a conference for the next 2 days, so I may not get to this until late this week."
+35,1274815731,bgoglin,"Random comment: Last time I talked about this kind of things with somebody possibly knowing what he was doing, he told me I should do CFLAGS=-m32 and LDFLAGS=-m32 to get a proper 32bits build (and maybe something like ASFLAGS is needed for asm too)."
+35,1274820105,memoryhole,"This works for me on a 32-bit Linux virtual machine. The real problem here is the CPU detection in config/hwloc.m4, which is based on $target rather than what the compiler is actually generating. It's probably safer to rely on sizeof(void*) (which has its own problems, of course).
+
+As far as I know, though, the ebx workaround in the hwloc_cpuid() function is only necessary in PIC compiles, so it can probably be simplified to something like the following:
+
+{{{
+# ifdef __PIC__
+    unsigned int eax, ebx, ecx, edx;
+    unsigned int pic_ebx = 0;
+    __asm__ __volatile__(""mov %%ebx, %4\n\t""
+			 ""cpuid\n\t""
+			 ""mov %%ebx, %1\n\t""
+			 ""mov %4, %%ebx""
+			 :""=a""(eax), ""=m""(ebx), ""=c""(ecx),
+			 ""=d""(edx), ""=m""(pic_ebx)
+			 :""a""(op), ""m""(pic_ebx));
+    *eax_ptr = eax;
+    *ebx_ptr = ebx;
+    *ecx_ptr = ecx;
+    *edx_ptr = edx;
+# else
+    __asm__ __volatile__(""cpuid"":""=a""(*eax_ptr), ""=b""(*ebx_ptr), ""=c""(*ecx_ptr), ""=d""(*edx_ptr)
+			 :""a""    (op));
+# endif
+}}}
+
+Speaking of which... you're practically BEGGING for trouble here by not being explicit about the value of %eax when you call cpuid. You really ought to be much more explicit."
+35,1274820993,sthibaul,"Err, this is just the same as the current code, the difference being that you also activate it on 64bit machines (and thus do not need to distinguish between 32 and 64bit builds of course...), while it's not needed there.
+
+> The real problem here is the CPU detection in config/hwloc.m4, which is based on $target rather than what the compiler is actually generating.
+
+Which I do believe is the correct way.  That being said, as I said previously on the devel list we can indeed replace that with sizeof(void*) or whatever test on the actual compilation chain.
+
+> Speaking of which... you're practically BEGGING for trouble here by not being explicit about the value of %eax when you call cpuid. You really ought to be much more explicit.
+
+I do not understand what you are referring to: eax is always set by callers of hwloc_cpuid().
+"
+35,1274821170,sthibaul,"BTW, detecting 32bit build is needed to enable hwloc_have_cpuid anyway, else we'll get SIGILL.
+"
+35,1274823977,memoryhole,"My mistake, I wasn't familiar with the +a notation rather than listing the input and output separately as =a and 0. (That fixes some ugliness in my code - thanks!)
+
+I was under the impression that PIC codes reserved ebx even on 64bit machines; but I learned something new today (PIC code uses %rip on x86_64).
+
+I'd be surprised if --target was the way we're ""supposed"" to specify 32-bit builds, though... clearly autotools doesn't modify $target if it turns out we specified a non-default bitwidth. This becomes more interesting on things like MacOS X where the Apple compilers default to 32bit output even on x86_64 machines, while MacPorts gcc will default to 64bit output on those machines. A sizeof() check may be the only reliable means."
+35,1274990681,jsquyres,"I just noticed that the AC 2.64 docs say the following in the description of AC_CHECK_SIZEOF:
+
+    This macro now works even when cross-compiling.
+
+w00t.  This makes the change fairly easy."
+35,1274994367,jsquyres,"(In [2149]) Refs #35.
+
+ * Check sizeof(void*) and use that to determine whether to use x86_32
+   or x86_64.  Note that AC_CHECK_SIZEOF works even when cross
+   compiling, so checking the sizeof(void*) is always safe.
+ * Adjust the pkg-config macros to take another argument: symbol
+   name.  If pkg-config succeeds, check that we can actually link
+   against the target library and find the specified symbol.
+
+Both of these changes are intended to fix the cases such as compiling
+on a 64 bit native platform, but using compiler flags to specify
+building 32 bit executables (e.g., ""./configure CFLAGS=-m32
+LDFLAGS=-m32"").
+"
+35,1274994416,jsquyres,Anyone have any comments / suggestions about r2149 before I close this ticket and move it over to the v1.0 branch?
+35,1275041024,jsquyres,"(In [2158]) Fixes #35: bring over r2149 from the trunk.
+"
+35,1301420176,bgoglin,Milestone v1.0.1 deleted
+36,1396298453,bgoglin,"likwid has no API for querying topology information, and its cpuid-based detection is still very buggy (wrong on dual-socket Xeon E5 v2, crashes on quad-socket Westmere EX, etc).
+likwid should be ported on top of hwloc instead of this ticket."
+37,1292702524,bgoglin,"(In [2952]) Gather /proc/mounts, /proc/self/cpuset and the entire cpuset/cgroup mount point
+
+Refs #37"
+37,1292702571,bgoglin,"(In [2954]) Revert commit r2927:
+  ""Ignore failures in test-gather-topology.sh.in""
+
+We now gather cpuset/cgroup properly, so test-gather-topology.sh
+should work fine when cpuset/cgroup are enabled/mounted.
+
+This commit fixes #37"
+37,1313824112,bgoglin,Milestone v1.2 deleted
+38,1293994352,sthibaul,"Could you post your config.log? On our sun sparc machine, HAVE_CPUID gets defined to 0.
+"
+38,1294087419,sthibaul,Could you try the attached patch? (you need to re-./autogen.sh before ./configure)
+38,1294167787,taa,"That appears to handle the problem on SPARC. I also checked it on my x86-based Linux system, and that still has HWLOC_HAVE_CPUID set, so I think everything's working.
+"
+38,1294177199,sthibaul,"(In [3018]) bring r3017 from trunk: not only try to compile cpuid, also link it, to discover the missing functions. This fixes #38"
+38,1301420183,bgoglin,Milestone v1.1 deleted
+39,1296804076,bgoglin,"I was actually playing with this yesterday. The implementation on Linux is easy with libproc:
+{{{
+#include <stdio.h>
+#include <readproc.h>
+proc_t **proctab, **proc;
+pid_t mypid = getpid();
+proctab = readproctab(PROC_FILLSTAT);
+if (!proctab)
+  return -1;
+for(proc = proctab; *proc != NULL; proc++) {
+  if ((*proc)->tid == mypid) {
+    printf(""I (pid %d) was on process %d\n"", mypid, (*proc)->processor);
+      break;
+  }
+}
+}}}
+
+I am not even sure we should depend on libproc since reading /proc/<pid>/stat isn't very hard. And the doc seems to say that reading info only for a single pid is deprecated in libproc, but reading all pids' info (like above) is a bit overkill.
+
+Anyway, is this feature available on other OSes?
+"
+39,1296806005,bgoglin,"There's get_proc_stats(mypid, &myproc) in readproc.h, that's what we need."
+39,1297597936,bgoglin,"(In [3172]) Add hwloc_get_lastcpuexec() and hwloc_get_proc_lastcpuexec() to
+retrieve the processors where a process or thread recently ran.
+
+Only implemented on Linux so far.
+We should probably add to ""support"" flag about this too.
+
+This commit fixes #39
+
+"
+39,1313824112,bgoglin,Milestone v1.2 deleted
+40,1298284114,bgoglin,"(In [3198]) Add -H/--hierarchical foo.bar... to hwloc-calc to report
+the output as a list of foo:X.bar:Y
+
+This commit fixes #40"
+40,1313824112,bgoglin,Milestone v1.2 deleted
+41,1302038058,bgoglin,move to 1.3
+41,1313824213,bgoglin,Won't make it to v1.3
+41,1321880545,bgoglin,"update
+"
+41,1331672735,bgoglin,"#50 (instruction caches) should be fixed in trunk soon. I added a cachetypeattr parameter to hwloc_obj_type_sscanf() in hwloc-calc.h there, but that doesn't look very nice to me.
+
+Given that only groups and caches can have multiple depths for now, I am thinking of not adding a generic type->depth conversion routines. A cache-specific helper may be enough when people don't want get_type_depth() to return MULTIPLE. They would have to do something like:
+
+{{{
+depth = hwloc_get_type_depth(topology, type);
+if (depth == MULTIPLE) {
+  if (type == CACHE)
+    depth = hwloc_get_cache_type_depth(topology, cachedepth, cachetype /* -1 if ignored */);
+  else if (type == GROUP)
+    depth = hwloc_get_group_type_depth(topology, groupdepth);
+}
+}}}
+
+The reverse is trivial: get_obj_by_depth(topology, depth, 0) and take ->attr->cache.{type,depth}. No need for a helper here, just document this in the comments above hwloc_get_cache_type_depth()"
+41,1331761093,bgoglin,"(In [4400]) Add hwloc_get_cache_type_depth() to hwloc/helper.h
+It helps working around hwloc_get_type_depth() returning MULTIPLE.
+
+Refs #41"
+41,1331904084,bgoglin,"icache branch merged in trunk in commit r4405, we now have hwloc_get_cache_type_depth() in hwloc/helper.h, I don't think we can anything else generic and nice, closing this bug report."
+42,1303757646,jsquyres,"The problem is apparently the --std=gnu99 flag that hwloc 1.1 is using.  That flag is no longer used in hwloc 1.2.
+
+So I believe we can call this ""case closed"" from the hwloc side; OMPI needs to upgrade to hwloc 1.2 and that will solve the problem."
+43,1309756325,bgoglin,Add 5) and 6) based on Jirka Hladky email
+43,1309881386,bgoglin,"Commits r3541 and r3542 fixed one item
+
+1) Ability to replace an existing matrix with a user-given one (override the default useless OS/BIOS one). Right now, we just ignore a user-given matrix if the OS/BIOS gave one for the same type/depth.
+"
+43,1312873659,bgoglin,"Commit r3598 fixed another item by adding a HWLOC_GROUPING_ACCURACY environment variable.
+
+3) Relaxed distance grouping code (probably with a custom compare function instead of hardcoding latency comparison, could be used to compare both throughput and latency in a generic manner too)
+"
+43,1313824284,bgoglin,"Some items are already in trunk for v1.3, retarget everything else for v1.4"
+43,1314604164,bgoglin,clarify some things about distances
+43,1314608670,bgoglin,"(In [3710]) Support -l/-p when printing distance matrices in lstopo -v
+
+Refs #43"
+43,1314610623,bgoglin,"item (6) done
+6) Support -p/-l when printing distance matrices in lstopo
+"
+43,1314615333,bgoglin,"(In [3716]) Add hwloc_distances tools to print distances
+
+More complete than lstopo which only prints full matrices covering the entire topology.
+Shares a common matrix printing function with lstopo.
+
+Takes -l/-p/-i as usual.
+Still misses manpage and tests.
+
+Requested by Jirka Hladky
+
+Refs #43"
+43,1314620800,bgoglin,"item (5) done
+5) Make tests/hwloc_distances an official utils/hwloc-report-distances with -p/-l support"
+43,1314956912,bgoglin,"(In [3740]) Properly integrate XML distances into the core
+
+* Do not store imported distances straight into their objects,
+  put them on a special list instead
+* At the end of the XML import, transform those distances into
+  usual internal distances structures that can be used for grouping
+  + This requires to connect levels temporarily to make conversion
+    much easier. The final connect is redone later because the levels
+    may have changed because of grouping
+  + This removes the need for an external XML distance check later.
+* Distances are brought back into objects later during the load
+  as usual.
+
+Now we can have distances in a topology without grouping now:
+  HWLOC_GROUPING=0 lstopo foo.xml
+and group later when needed reloading from XML:
+  utils/lstopo -i foo.xml foo-group.xml
+
+Refs #43"
+43,1314959443,bgoglin,"Item (4) done.
+
+4) Better integrate XML-imported distances with the rest of the code. Right now, XML can import many distances but they are ignored for grouping, and they cannot be replaced/removed."
+43,1332410203,bgoglin,"Cleaning up this ticket, there'll be another bigger one about other distance-API related issues."
+43,1336506882,bgoglin,Move this to future since ticket #68 might be enough for people who really want throughput information.
+44,1308076129,jsquyres,Forgot to add George into the CC.
+44,1309945403,bgoglin,"I am not sure I agree here. configure --help only says:
+  --disable-xml           Disable the XML back-end of hwloc's lstopo command
+It doesn't say anything about --enable-xml existing. Are users really supposed to try such non-documented options?
+
+I am a bit too lazy to fix this (and probably --enable-pci and --enable-cairo too) without a good reason :)
+"
+44,1309960373,jsquyres,"IMHO, it's widely known that if --enable-<foo> exists, --disable-<foo> also exists (and vice versa) in Autoconf-generated configure scripts."
+44,1309961314,jsquyres,"(In [3547]) Bring over r3548 from trunk: fixes #44.
+"
+44,1309961363,jsquyres,"Er.. that was ""bring over r3546"" from the trunk (not 3548 -- oops!)."
+44,1313824112,bgoglin,Milestone v1.2 deleted
+45,1309270466,sthibaul,"From the tarball it seems that only PU P#2 is allowed, what processor(s) are in the test cpuset?
+
+Currently, hwloc-ps does not have the --whole-system option, and defaults to not showing the whole system, only what is available. In your case that'd mean not showing the processes which are not within the current cpuset. With a --whole-system option, such processes would be shown. Is that OK in your case?"
+45,1309270685,sthibaul,"Could you check whether the behaviour with the attached patch matches your expectation? (without --whole-system option, adding support for --whole-system is another matter)"
+45,1309285446,cs,"The CPU set information is in the attached hwloc-gather-topology tar file, but here's how
+it was created:
+{{{
+cs@altix-02$ sudo cpuset -c /test
+cpu_exclusive
+mem_exclusive
+cpus 2
+mems 1
+cpuset </test> created.
+}}}
+"
+45,1309286744,cs,"Replying to [comment:3 sthibaul]:
+> Could you check whether the behaviour with the attached patch matches your expectation? (without --whole-system option, adding support for --whole-system is another matter)
+
+The patch appears to simply the code to loop:
+{{{
+(gdb) break 144
+Breakpoint 1 at 0x4000000000002bf2: file hwloc-ps.c, line 144.
+(gdb) run
+Starting program: /usr/local/bin/hwloc-ps 
+
+Breakpoint 1, main (argc=1, argv=0x60000fffffffb1a8) at hwloc-ps.c:144
+144             if (obj) {
+(gdb) next
+145               hwloc_obj_type_snprintf(type, sizeof(type), obj, 1);
+(gdb) 
+146               idx = logical ? obj->logical_index : obj->os_index;
+(gdb) 
+147               if (idx == (unsigned) -1)
+(gdb) 
+150                 printf(""%s%s:%u"", first ? """" : "" "", type, idx);
+(gdb) 
+151               hwloc_bitmap_andnot(remaining, remaining, obj->cpuset);
+(gdb) print type
+$1 = ""Machine\000\000À\002\000\000\000\000 Ð¬ÿÿÿ\017\000`"", '\0' <repeats 24 times>, ""(\f\000\000\000\000\000 ¸ï\003\000\000\000\000 ""
+(gdb) print idx
+$2 = 0
+(gdb) print remaining
+$3 = 0x6000000000009da0
+(gdb) print *remaining
+$4 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x600000000000b120, 
+  infinite = 0}
+(gdb) print obj->cpuset
+$5 = 0x60000000000092f0
+(gdb) print *obj->cpuset
+$6 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x6000000000009310, 
+  infinite = 0}
+(gdb) next
+152               first = 0;
+(gdb) 
+140           while (!hwloc_bitmap_iszero(remaining)) {
+(gdb) print remaining
+$7 = 0x6000000000009da0
+(gdb) print *remaining
+$8 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x600000000000b120, 
+  infinite = 0}
+(gdb) next
+143             hwloc_obj_t obj = hwloc_get_first_largest_obj_inside_cpuset(topology, remaining);
+(gdb) print topology
+$9 = 0x6000000000008010
+(gdb) print *topology
+$10 = {nb_levels = 3, next_group_depth = 0, level_nbobjects = {1, 2, 1, 
+    0 <repeats 125 times>}, levels = {0x60000000000090d0, 0x600000000000ab70, 
+    0x600000000000acc0, 0x0 <repeats 125 times>}, flags = 0, type_depth = {0, 
+    0, 1, -1, -1, -1, 2, -1, -1}, ignored_types = {HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_KEEP_STRUCTURE, HWLOC_IGNORE_TYPE_NEVER}, 
+  is_thissystem = 1, is_loaded = 1, pid = 0, 
+  set_thisproc_cpubind = 0x200000000003ca38 <local+7656>, 
+  get_thisproc_cpubind = 0x200000000003c868 <local+7192>, 
+  set_thisthread_cpubind = 0x200000000003c878 <local+7208>, 
+  get_thisthread_cpubind = 0x200000000003c888 <local+7224>, 
+  set_proc_cpubind = 0x200000000003ca28 <local+7640>, 
+  get_proc_cpubind = 0x200000000003c858 <local+7176>, set_thread_cpubind = 0, 
+  get_thread_cpubind = 0, 
+  get_thisproc_last_cpu_location = 0x200000000003c8a8 <local+7256>, 
+  get_thisthread_last_cpu_location = 0x200000000003c8b8 <local+7272>, 
+  get_proc_last_cpu_location = 0x200000000003ca58 <local+7688>, 
+  set_thisproc_membind = 0, get_thisproc_membind = 0, 
+  set_thisthread_membind = 0x200000000003c8e8 <local+7320>, 
+  get_thisthread_membind = 0x200000000003c8f8 <local+7336>, 
+  set_proc_membind = 0, get_proc_membind = 0, 
+  set_area_membind = 0x200000000003c8c8 <local+7288>, get_area_membind = 0, 
+  alloc = 0x200000000003c828 <local+7128>, 
+  alloc_membind = 0x200000000003c8d8 <local+7304>, 
+  free_membind = 0x200000000003c808 <local+7096>, support = {
+    discovery = 0x6000000000009070, cpubind = 0x6000000000009090, 
+    membind = 0x60000000000090b0}, os_distances = {{nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 2, indexes = 0x6000000000009700, 
+      objs = 0x60000000000096c0, distances = 0x60000000000096e0}, {nbobjs = 0, 
+      indexes = 0x0, objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}}, backend_type = HWLOC_BACKEND_SYSFS, backend_params = {
+    sysfs = {root_path = 0x0, root_fd = -1}, synthetic = {arity = {0, 0, 
+        4294967295, 0 <repeats 125 times>}, type = {
+        HWLOC_OBJ_SYSTEM <repeats 128 times>}, id = {0 <repeats 128 times>}, 
+      depth = {0 <repeats 128 times>}}}}
+(gdb) next
+
+Breakpoint 1, main (argc=1, argv=0x60000fffffffb1a8) at hwloc-ps.c:144
+144             if (obj) {
+(gdb) print obj
+$11 = 0x0
+(gdb) next
+140           while (!hwloc_bitmap_iszero(remaining)) {
+(gdb) print remaining
+$12 = 0x6000000000009da0
+(gdb) print *remaining
+$13 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x600000000000b120, 
+  infinite = 0}
+(gdb) next
+143             hwloc_obj_t obj = hwloc_get_first_largest_obj_inside_cpuset(topology, remaining);
+(gdb) print *topology
+$14 = {nb_levels = 3, next_group_depth = 0, level_nbobjects = {1, 2, 1, 
+    0 <repeats 125 times>}, levels = {0x60000000000090d0, 0x600000000000ab70, 
+    0x600000000000acc0, 0x0 <repeats 125 times>}, flags = 0, type_depth = {0, 
+    0, 1, -1, -1, -1, 2, -1, -1}, ignored_types = {HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, HWLOC_IGNORE_TYPE_NEVER, 
+    HWLOC_IGNORE_TYPE_KEEP_STRUCTURE, HWLOC_IGNORE_TYPE_NEVER}, 
+  is_thissystem = 1, is_loaded = 1, pid = 0, 
+  set_thisproc_cpubind = 0x200000000003ca38 <local+7656>, 
+  get_thisproc_cpubind = 0x200000000003c868 <local+7192>, 
+  set_thisthread_cpubind = 0x200000000003c878 <local+7208>, 
+  get_thisthread_cpubind = 0x200000000003c888 <local+7224>, 
+  set_proc_cpubind = 0x200000000003ca28 <local+7640>, 
+  get_proc_cpubind = 0x200000000003c858 <local+7176>, set_thread_cpubind = 0, 
+  get_thread_cpubind = 0, 
+  get_thisproc_last_cpu_location = 0x200000000003c8a8 <local+7256>, 
+  get_thisthread_last_cpu_location = 0x200000000003c8b8 <local+7272>, 
+  get_proc_last_cpu_location = 0x200000000003ca58 <local+7688>, 
+  set_thisproc_membind = 0, get_thisproc_membind = 0, 
+  set_thisthread_membind = 0x200000000003c8e8 <local+7320>, 
+  get_thisthread_membind = 0x200000000003c8f8 <local+7336>, 
+  set_proc_membind = 0, get_proc_membind = 0, 
+  set_area_membind = 0x200000000003c8c8 <local+7288>, get_area_membind = 0, 
+  alloc = 0x200000000003c828 <local+7128>, 
+  alloc_membind = 0x200000000003c8d8 <local+7304>, 
+  free_membind = 0x200000000003c808 <local+7096>, support = {
+    discovery = 0x6000000000009070, cpubind = 0x6000000000009090, 
+    membind = 0x60000000000090b0}, os_distances = {{nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 2, indexes = 0x6000000000009700, 
+      objs = 0x60000000000096c0, distances = 0x60000000000096e0}, {nbobjs = 0, 
+      indexes = 0x0, objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, 
+      objs = 0x0, distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}, {nbobjs = 0, indexes = 0x0, objs = 0x0, 
+      distances = 0x0}}, backend_type = HWLOC_BACKEND_SYSFS, backend_params = {
+    sysfs = {root_path = 0x0, root_fd = -1}, synthetic = {arity = {0, 0, 
+        4294967295, 0 <repeats 125 times>}, type = {
+        HWLOC_OBJ_SYSTEM <repeats 128 times>}, id = {0 <repeats 128 times>}, 
+      depth = {0 <repeats 128 times>}}}}
+(gdb) print *remaining
+$15 = {ulongs_count = 1, ulongs_allocated = 8, ulongs = 0x600000000000b120, 
+  infinite = 0}
+(gdb) next
+
+Breakpoint 1, main (argc=1, argv=0x60000fffffffb1a8) at hwloc-ps.c:144
+144             if (obj) {
+(gdb) print obj
+$16 = 0x0
+(gdb) next
+140           while (!hwloc_bitmap_iszero(remaining)) {
+(gdb) next
+143             hwloc_obj_t obj = hwloc_get_first_largest_obj_inside_cpuset(topology, remaining);
+...
+}}}
+"
+45,1309327844,bgoglin,"The while loop cannot terminate because this process is bound (at least partially) outside of the cpuset. We need a break when obj is NULL, and we need to decide what to display with these processes. Two solutions:
+* restrict the process binding to its intersection with the current topology before displaying anything and ignore the process if the intersection is NULL
+* when displaying objects (without -c), append a special object string such as ""outside"" when part of the binding is outside of the current topology (could be the case only when -a is given)
+"
+45,1309780698,bgoglin,"(In [3537]) Fix crash in hwloc-ps (and improve lstopo --ps) when running inside a Linux cpuset
+and showing processes from other cpusets.
+
+Restrict the process binding to the currently available topology.
+If people want to see process bindings outside of the current administrative
+restriction, they should use --whole-system.
+
+Thanks to ""cs"" trac user (don't know how to get his real name).
+
+This commit fixes #45
+
+"
+45,1309788501,bgoglin,"(In [3540]) Backport trunk commit r3537 into v1.2 branch:
+* Fix crash in hwloc-ps (and improve lstopo --ps) when running inside a Linux cpuset
+  and showing processes from other cpusets.
+  Restrict the process binding to the currently available topology.
+  If people want to see process bindings outside of the current administrative
+  restriction, they should use --whole-system (available in v1.3+).
+  Thanks to Carl Smith for reporting the problem.
+  This commit fixes #45.
+
+"
+46,1313824232,bgoglin,Won't make it to v1.3
+46,1314090065,bgoglin,"(In [3648]) Implement get_area_membind() on Linux.
+
+It uses get_mempolicy() for each virtual page in the area
+and combines their results, so it may be a bit slow.
+
+Requested Alfredo Buttari.
+
+This commit fixes #46.
+
+"
+48,1332420811,sthibaul,"Mmm, I don't see any ground issue for distance matrices in multinode hierarchies, actually. Provided that distance matrices are recorded at the machine level and not above, cpusets/nodesets have meaning, and are actually preserved on assembly (Of course, people must not use them without taking care of what machine they refer to), so the distance matrices can be relative to these.
+
+That being said, machineset bitmaps can probably be a good idea. People can provide the ID on assembly, and we update machine bitmaps.
+
+Now, we may want distance matrices above machine levels, which would aggregate the inner and outer distances. I'd say we could use two-indirection matrices, e.g.
+
+get_global_latency(topology, logical_machine1, logical_node1, logical_machine2, logical_node2) {
+  struct dist *distance = distances = root->global_distances[...]
+  struct dist *local_distance = distance->latency[logical_machine1*distance->nbobjs+logical_machine2];
+  return local_distance->latency[logical_node1*local_distance->nbobjs+logical_node2];
+}
+
+With a lot of machines, that can however makes very huge tables. There might be potential for the first level to point several times at the same second-level tables, however, for each kind of machine-machine connection."
+48,1332492889,bgoglin,"People *want* matrices *above* the machine level to get network latencies. And they indeed would rather have hierarchical matrices, one between machines, one inside each machines (at the numa level) and distances inside sockets.
+
+The main problem for the ""above machine"" case is the current implementation relying deeply on cpusets/nodesets to (rechecked the code, shouldn't miss anything):
+* find the ""matrix-root"" object where the matrix should be inserted
+* insert this ""matrix-root"" object if it doesn't exist (needed when Linux cgroup make the topology asymmetrical, or when we have partial matrices)
+* insert group objects by cpuset/nodeset while grouping
+
+I think machineset would solve all of these.
+"
+48,1378842540,bgoglin,"(In [5798]) core: don't duplicate distances when duplicating objects
+
+These distances are recreated at the end of the build
+(except in custom topologies because multinode distance
+ matrices are not well supported. Refs #48)."
+49,1319405113,sthibaul,(In [3948]) Draw network lines as soon as the parent does not have a cpuset. This closes #49.
+50,1321880406,bgoglin,update
+50,1326971831,DooMMasteR,(unrelated comment moved to ticket #62)
+50,1326975278,sthibaul,(reply to unrelated comment#3)
+50,1331372231,bgoglin,"(In [4363]) Branch for adding instruction cache support
+
+Refs #50
+
+"
+50,1331407576,bgoglin,"(In [4364]) Add a cache type attribute.
+Make it Unified in most existing cases (with FIXME), and Data when we're sure.
+Don't use Instruction yet.
+When printing verbose attributes, print Lxi or Lxd instead of Lx, except for Unified caches.
+
+Refs #50."
+50,1331407613,bgoglin,"(In [4365]) Add a topology flag to enable instruction caches
+
+This will avoid breaking existing applications (otherwise we'd
+add additional cache levels with same depth but a different type).
+
+Refs #50."
+50,1331407638,bgoglin,"(In [4366]) Enable instruction cache support in Linux sysfs backend
+
+Refs #50."
+50,1331904024,bgoglin,"icache branch merged in trunk in commit r4405, we now have icache support, closing this."
+51,1319431959,bgoglin,"(In [3949]) Set level pointers to NULL in topology_clear() to ease debugging.
+
+This commit fixes #51.
+
+"
+52,1319737555,bgoglin,"Did you try both v1.3 and latest trunk?
+Can you attach your config.log?
+thanks."
+52,1319737764,sthibaul,"Please try the trunk, I have fixed an issue with pkg-config in revision
+3946. It will be in 1.3.1.
+"
+52,1319744755,wkosters,trunk with ./configure works. I would like to be able to run with PCI on Cray Linux Environment (CLE) on both service and compute nodes.
+52,1319746489,bgoglin,"configure works fine, but does everything else works fine as well? Or do you have some problems with CLE ?
+"
+52,1320139705,bgoglin,"I am going to assume that this bug is fixed for you and close this bug. If you have any other problem with CLE, please open another bug or complain on the hwloc-devel mailing list.
+Thanks."
+53,1327754131,bgoglin,There are 5 students working on this in Bordeaux as part of their programming project.
+54,1322646522,eile,"nvidia-settings can query all this information (see GPU panel). Afaik it uses the NV-Control extension.
+"
+54,1322646870,bgoglin,Do you want something nvidia specific ou do you want something for any OpenCL or OpenGL device ?
+54,1322647258,eile,"nVidia-specific is good enough since it is available *now*. I would guess there is a similar extension from AMD.
+
+In an ideal world I want something generic, but by the time we get the XOrg guys to support this and have all distributions updated it will be too late."
+54,1322651106,eile,Sorry - wrong bug :(
+54,1332105765,bgoglin,"Looks like the NVIDIA-specific part of this is being worked on at
+  https://github.com/marwan-abdellah/HWLOC
+I talked to the author, he's willing to contribute some code to hwloc.
+Brice
+"
+54,1362573230,bgoglin,"(In [5358]) Merge the GL branch into trunk
+
+I am not merging with svn merge because the history is horrible.
+
+This adds GPU OS devices such as "":0.0"" for each NVIDIA display,
+using the NVIDIA X-CONTROL X11 extension through the NVCtrl library.
+It may later be extended to windows with WGL_NV_gpu_affinity and
+WGL_AMD_gpu_association, or to OS X with CGL renderer IDs.
+(that's why it's called GL and not just X11 display).
+
+We also have a hwloc/gl.h to convert between :X.Y (string or pair)
+and OS device objects.
+
+This commit fixes #54.
+
+Thanks to Marwan Abdellah and Stefan Eilemann (Blue Brain Project, EPFL)
+for requesting, writing and testing some code."
+55,1323241433,bgoglin,"I don't have anything against your patch but I'd rather have Jeff look at it first.
+
+About the pkg.m4 fork, if I remember correctly:
+* We had to bundle pkg.m4 inside hwloc so that people could run autogen.sh even without pkg-config non-installed (or with an old/non-working pkg-config installed).
+* We had to ""fork"" it because hwloc can be embedded in other software. If this other software also uses pkg-config, its m4 macros would conflict with ours unless we rename ours."
+55,1323244957,bgoglin,"Additionally, we honor PKG_CONFIG_PATH but we don't have any HWLOC_PKG_CONFIG_PATH. This looks inconsistent, we should honor both here too."
+55,1323297125,binki,"In response to your points about having the pkg.m4 fork,
+
+If you make the following change, then pkg.m4 will get shipped with hwloc's dist tarball. This would enable people who patch up hwloc to run ./autogen.sh successfully (assuming they have autoconf and automake installed -- at which point they probably have pkg-config installed anyways). This doesn't help people checking out the subversion repository, but if you're checking out with subversion you might be expected to have pkg-config installed anyways.
+
+{{{
+--- Makefile.am (revision 4020)
++++ Makefile.am (working copy)
+@@ -8 +8 @@
+-ACLOCAL_AMFLAGS = -I ./config
++ACLOCAL_AMFLAGS = -I ./config --install
+}}}
+
+I don't understand how you'd embed hwloc into another project in such a way as to make pkg.m4 macros conflict, so I can't speak to that concern.
+"
+55,1323306316,jsquyres,"Replying to [ticket:55 binki]:
+
+> hwloc should respect PKG_CONFIG so that in build environments where PKG_CONFIG is defined, it will respect that variable definition. hwloc shouldn't be a special case where packagers also need to define HWLOC_PKG_CONFIG.
+
+Agreed - we should respect PKG_CONFIG if it is set.
+
+Many thanks for your patch -- I have a few questions, though:
+
+ 1. Why did you remove the ? on line 35?
+ 1. If we're going to honor PKG_CONFIG, do you think that it should also be a precious variable (i.e., set via AC_ARG_VAR)?
+
+The intent would be that if HWLOC_PKG_CONFIG is set, it overrides PKG_CONFIG (which is exactly as you did it).  This is so that if hwloc is embedded in a larger project (to include hwloc's macros), the developer could set a hwloc-specific value for PKG_CONFIG if they needed to.  As I type that, I'm thinking that the chance of needing this would be exceedingly remote, but...  Shrug.
+
+Brice's reasons are mostly correct: the main reason I embedded it was because we have certified that ''this'' version of the pkg.m4 macros work with our software.  We didn't want to be dependent upon external pkg.m4's on random development machines.  For example, development hwloc instances sometimes get installed on quite esoteric machines with weird non-free OSs that don't necessarily have pkg-config installed.  
+
+It just seemed the easiest route in navigating the compatibility quagmire, but we understand the disadvantages (e.g., not automatically getting new features/functionality) and accept the consequences thereof.
+
+Make sense?"
+55,1323309115,binki,"Replying to [comment:4 jsquyres]:
+>  1. Why did you remove the ? on line 35?
+
+When writing the patch and without that change, autoconf complained about the forbidden pattern `PKG_CONFIG` showing up in the output. But I can't reproduce that now and I don't remember how I caused that problem. New patch coming ;-).
+
+>  1. If we're going to honor PKG_CONFIG, do you think that it should also be a precious variable (i.e., set via AC_ARG_VAR)?
+
+Oh, I assumed that having `HWLOC_PKG_CONFIG` be special would cause the value of `PKG_CONFIG` to be saved into `HWLOC_PKG_CONFIG` which is precious. But that doesn't happen, so making `PKG_CONFIG` precious would be good.
+
+> Brice's reasons are mostly correct: the main reason I embedded it was because we have certified that ''this'' version of the pkg.m4 macros work with our software.
+
+I think that pkg.m4's API is stable enough ;-).
+
+> It just seemed the easiest route in navigating the compatibility quagmire, but we understand the disadvantages (e.g., not automatically getting new features/functionality) and accept the consequences thereof.
+
+Aren't you already using `make dist` to skirt that ""compatibility quagmire""? You even get pkg.m4 distributed with your tarball if you add `--install` to `aclocal`'s arguments. I hope that would be enough to allow someone on a given esoteric architecture the chance to fix a bug specific to that arch.
+
+> Make sense?
+
+I guess.
+"
+55,1323359694,jsquyres,"After sleeping on what I wrote last night, I am thinking it makes little sense to have HWLOC_PKG_CONFIG.  We never documented it, and as I mentioned in the above entry, I think the chance of ''needing'' a different value for $PKG_CONFIG for an embedded hwloc is so small that we just shouldn't do it.  It adds unnecessary complexity.
+
+So I propose we return HWLOC_PKG_PROG_PKG_CONFIG to the following:
+
+{{{
+# HWLOC_PKG_PROG_PKG_CONFIG([MIN-VERSION])
+# ----------------------------------
+AC_DEFUN([HWLOC_PKG_PROG_PKG_CONFIG],
+[m4_pattern_forbid([^_?PKG_[A-Z_]+$])
+m4_pattern_allow([^PKG_CONFIG(_PATH)?$])
+AC_ARG_VAR([PKG_CONFIG], [path to pkg-config utility])dnl
+
+if test ""x$ac_cv_env_PKG_CONFIG_set"" != ""xset""; then
+	AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
+fi
+if test -n ""$PKG_CONFIG""; then
+	HWLOC_pkg_min_version=m4_default([$1], [0.9.0])
+	AC_MSG_CHECKING([pkg-config is at least version $HWLOC_pkg_min_version])
+	if $PKG_CONFIG --atleast-pkgconfig-version $HWLOC_pkg_min_version; then
+		AC_MSG_RESULT([yes])
+	else
+		AC_MSG_RESULT([no])
+		PKG_CONFIG=""""
+	fi
+		
+fi[]dnl
+])# HWLOC_PKG_PROG_PKG_CONFIG
+}}}
+
+Or, expressed as a diff against the trunk:
+
+{{{
+#!patch
+Index: config/hwloc_pkg.m4
+===================================================================
+--- config/hwloc_pkg.m4	(revision 3998)
++++ config/hwloc_pkg.m4	(working copy)
+@@ -33,19 +33,20 @@
+ # ----------------------------------
+ AC_DEFUN([HWLOC_PKG_PROG_PKG_CONFIG],
+ [m4_pattern_forbid([^_?PKG_[A-Z_]+$])
+-m4_pattern_allow([^HWLOC_PKG_CONFIG(_PATH)?$])
+-AC_ARG_VAR([HWLOC_PKG_CONFIG], [path to pkg-config utility])dnl
+-if test ""x$ac_cv_env_HWLOC_PKG_CONFIG_set"" != ""xset""; then
+-	AC_PATH_TOOL([HWLOC_PKG_CONFIG], [pkg-config])
++m4_pattern_allow([^PKG_CONFIG(_PATH)?$])
++AC_ARG_VAR([PKG_CONFIG], [path to pkg-config utility])dnl
++
++if test ""x$ac_cv_env_PKG_CONFIG_set"" != ""xset""; then
++	AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
+ fi
+-if test -n ""$HWLOC_PKG_CONFIG""; then
++if test -n ""$PKG_CONFIG""; then
+ 	HWLOC_pkg_min_version=m4_default([$1], [0.9.0])
+ 	AC_MSG_CHECKING([pkg-config is at least version $HWLOC_pkg_min_version])
+-	if $HWLOC_PKG_CONFIG --atleast-pkgconfig-version $HWLOC_pkg_min_version; then
++	if $PKG_CONFIG --atleast-pkgconfig-version $HWLOC_pkg_min_version; then
+ 		AC_MSG_RESULT([yes])
+ 	else
+ 		AC_MSG_RESULT([no])
+-		HWLOC_PKG_CONFIG=""""
++		PKG_CONFIG=""""
+ 	fi
+ 		
+ fi[]dnl
+}}}"
+55,1323361139,bgoglin,"Ack to Jeff's idea. The patch looks good, but I am not m4-familiar enough to be sure I didn't miss a bug.
+"
+55,1323368702,binki,Look good to me.
+55,1323371968,jsquyres,"(In [4022]) There's no need for $HWLOC_PKG_CONFIG -- revert
+HWLOC_PKG_PROG_PKG_CONFIG to look at $PKG_CONFIG so that hwloc's
+configure script (in both the embedding and standalone cases) is not
+different than the rest of the world.. and don't violate the Law of
+Least Astonishment.
+
+Thanks to Nathan Phillip Brink for raising the issue.
+
+Fixes #55.
+"
+56,1323772273,sthibaul,"(which is due to printf(""%f"") of course)"
+56,1327646641,bgoglin,"Is there any way to solve this without rewriting our own ignoring-locale printf(""%f"") ? Google seems to say that we should either split the number into what's before and after the dot and print them separately, or use printf(""%f"") and replace the localized-separator (returned by localeconv) with a dot."
+56,1327658628,sthibaul,"I've checked again, there is actually uselocale() which permits to change the current thread's locale, which should be just fine to call before printf (and restore after).
+"
+56,1327671089,bgoglin,"(In [4208]) Use {new,use,free}locale() to temporarily switch to the C locale while importing/exporting XML
+
+Unfortunately, these functions are POSIX 2008 only, so they won't work
+on non recent distros. That's why we keep all LANG/LC_ALL changes in
+most test scripts.
+
+Note that this only applies to XML import/export. Other exports
+(lstopo output, hwloc-distances, ...) still use localized
+numbers. Environment variables for overriding distances are still
+localized as well. We'll need to clarify or update those as well.
+
+Fixes #56"
+57,1323796651,jsquyres,"Mmm... I have a dim recollection that we discussed the ""inline"" thing before...
+
+Does anyone remember why we ended up with ""!__inline"" instead of using AC_C_INLINE and ""inline""?"
+57,1323797637,sthibaul,"This is because it can't work for installed headers: we can't know which compiler will be used by applications, so we have to do detection at compile-time.
+"
+57,1323797650,sthibaul,"(In [4043]) backport r4042 from trunk: Fix inline keyword for solaris cc, fixes #57"
+58,1323797444,sthibaul,"Ah, I guess it's because we pass this function as a parameter, and the
+callee can't know whether it's an internal or external function. Could
+you try to prepend HWLOC_DECLSPEC to the declaration in
+include/private/private.h?
+"
+58,1323873762,fx,"I think the fundamental problem is the autoconf test is broken.  With          
+the attached patch, I can pass make check with both cc and gcc with the        
+subversion trunk now.  I didn't check why the grep was failing in the          
+gcc case, but turning warnings into errors seems more robust.  (Sorry I        
+should have tried make check yesterday for the inline change.)                 
+                                                                               
+The Sun cc test still seems wrong because it accepts -xldscope=hidden          
+but barfs on `__attribute__`.  I think this version is too old for that,       
+but I don't know when it came in.  Relevant doc at                             
+http://docs.oracle.com/cd/E18659_01/html/821-1384/gjzke.html                   
+http://docs.oracle.com/cd/E18659_01/html/821-1384/bjabp.html.                  
+"
+58,1324234729,bgoglin,"How bad is this bug? Last time I tried Solaris, hwloc worked fine. How often are things broken? Should we delay 1.3.1 because of this? Or commit the above patches as a quick fix? I am not sure how OK they are."
+58,1327193860,sthibaul,(In [4188]) Be even more conservative with enabling visibility. Fixes #58. Thanks fx for the patch
+58,1327193994,sthibaul,(In [4189]) backport r4188 from trunk: Be even more conservative with enabling visibility. Fixes #58. Thanks fx for the patch
+58,1327193996,sthibaul,(In [4190]) backport r4188 from trunk: Be even more conservative with enabling visibility. Fixes #58. Thanks fx for the patch
+59,1323797161,jsquyres,"Agreed.  I'm on a conf call right now, but I can commit this in a bit (and check v1.3 as well).
+
+Thanks for the patch!"
+59,1323797900,sthibaul,"(In [4045]) backport 4044 from trunk: Fix using HWLOC_HAVE_ATTRIBUTE_*, which are always defined, to 0 or 1, thanks fx for the patch! Fixes #59"
+60,1324154622,sthibaul,"> (or a topology flag saying that it replaces total memory).
+
+I'm strongly against such hack when it can be avoided :)
+
+>  Would need a new field in the memory structure
+
+This is way preferrable.
+"
+61,1324104998,bgoglin,"Actually, we can't. set_mempolicy() only works on the calling thread. AFAIK there's nothing for other threads or processes."
+62,1326980794,bgoglin,"All this buggy information is reported by the Linux kernel, hwloc cannot do much about it. Can you try with a more recent kernel that hopefully has proper Bulldozer processor support ?
+"
+62,1326981054,DooMMasteR,The Kernel was 3.2 so it is more or less bleeding edge build about 1 week ago from the git repo
+62,1326981737,bgoglin,"Sigh. I thought the AMD guys fixed that a while ago. You should open a kernel bug report about this.
+
+1) /sys/devices/system/cpu/cpu*/cache/index2/shared_cpu_list contains a single processor number, there should be two of them there (both cores of the module)
+2) I think the L1 instruction part is shared among the entire dual-core module as well, so same problem with /sys/devices/system/cpu/cpu*/cache/index1/shared_cpu_list
+2) if the L1 data size is 64kB per core, then /sys/devices/system/cpu/cpu*/cache/index0/size should report 64KB instead of 16KB
+
+Please put a link to the kernel bugzilla ticket here so that we can follow it.
+"
+62,1326981959,sthibaul,"The latest git code indeed still has
+
+“This makes some assumptions about the machine: L2 not shared, no SMT etc. that is currently true on AMD CPUs.”
+
+which is not true any more. I have googled a bit and searched on support.amd.com, they don't seem to have published newer cpuid documentation."
+62,1326982213,DooMMasteR,"ahh ok, so should I still post a Kernelbug? or will you?
+
+as long as this has no real effect on scheduling and other stuff it is ok, but assumed that it is we should probably report the issue and not hope for AMD to publish the needed data.
+
+EDIT: https://bugzilla.kernel.org/show_bug.cgi?id=42607"
+62,1326989463,sthibaul,"Since you have the machine to test, it's probably better that you do it."
+62,1327514788,DooMMasteR,the bug has been closed 
+62,1327521211,bgoglin,"which bug are you talking about?
+https://bugzilla.kernel.org/show_bug.cgi?id=42607 is still ""NEW"""
+62,1327534289,DooMMasteR,"oh I got a mail that it was changed to closed
+
+so wait……"
+62,1331326121,bgoglin,"Good news, this is fixed in Linux 3.3 (rc6) !
+"
+63,1328546758,fx,I should have said that's with the hwloc-1.4.1a1r4268 tarball.
+63,1328568393,bgoglin,"The va_start warnings are cases where we have variable number of arguments but we don't use any of them. Nothing bad, mostly debugging functions printing nothing by default.
+
+The ""type cast required"" warning come from
+  condition ? """" : const char *
+pgcc wants us to cast """" into const char * as well.
+
+I'll see tomorrow morning if I am not too lazy."
+63,1328602434,bgoglin,"(In [4272]) 
+Fix some PGI compiler warnings about string casts in a?b:c
+
+pgcc 11.9 is ok now.
+pgcc 10.9 still has some warnings about va_start() not being used but it doesn't matter.
+
+Thanks to Dave Love for the report.
+
+Fixes #63
+
+"
+63,1328603018,bgoglin,"By the way, I don't plan to backport this in v1.4 (neither icc fixes [4273]), it's not worth it."
+64,1329925289,bgoglin,"Fixed in r4287 (on v1.3 branch, later forward-ported to v1.4 and trunk).
+-qhalt=e was only added to CFLAGS during the ""dangerous"" config checks.
+"
+65,1330853105,bgoglin,"Unless I am missing something, your patch just disables the huge ""unsupported"" configure warning, but the lstopo output shouldn't be any better than before, right?
+
+I'd be happy to mark NetBSD as supported but I'd rather have the following:
+* add a src/topology-netbsd.c file that defines a look_netbsd() (just copy topology-freebsd.c and remove useless things)
+* update hwloc_discover() in src/topology.c to call look_netbsd()
+
+It will provide better x86 detection thanks to cpuid.
+
+Also, do you know if/how binding is possible on NetBSD ?
+
+Thanks!
+"
+65,1330883175,sthibaul,"AFAIK, there is no userland binding support on netbsd. So the x86
+detection is not really safe since it can't know how caches are shared.
+I'd rather just keep the current state (with fat warning) than
+providing unsafe support or the same support as the ""unsupported""
+configuration.
+"
+65,1331136388,bgoglin,I am marking this as wontfix then. Thanks anyway Aleksej.
+65,1336743557,bgoglin,"I've been told that the NetBSD hwloc package comes with some actual NetBSD support patches. And Aleksej seems to be involved there. Any plan to submit anything here?
+Thanks
+"
+65,1354818364,bgoglin,"From what I see at
+  http://cvsweb.se.netbsd.org/cgi-bin/bsdweb.cgi/pkgsrc/parallel/hwloc/patches/
+they use sched_set_affinity_np and friends to actually get topology through the x86 backend.
+
+I am reopening and marking as TODO for v1.7"
+65,1354896147,bgoglin,"(In [5125]) Add NetBSD support
+
+Uses the x86 backend, the netbsd backend does nothing for now.
+
+Note that binding isn't available to normal users by default.
+On my NetBSD 6, I needed:
+  sysctl -w security.models.extensions.user_set_cpu_affinity=1
+
+Thanks to Aleksej Saushev for writing the code (with fixes from me)
+even if he didn't actually provide it (I took it in the NetBSD CVS).
+
+This commit fixes #65 (and even more since the support isn't basic anymore)"
+66,1331293662,sthibaul,(reported by Jiri Hladky <hladky.jiri@googlemail.com>)
+66,1331297020,jsquyres,"(In [4361]) Fix #66: add a chmod +x to installed scripts
+"
+67,1332421198,sthibaul,"Along the distance vs bandwidth vs hops distinction, there could indeed be a ""don't care"" type indeed, it's not only about distances, but people might want to store whatever sort of value they want there.
+
+I'm however wondering why people don't want grouping. I understand that logical reordering can pose problem, but that's actually for a good reason: if there is a known structure, the application should not ignore it."
+67,1332492012,bgoglin,"They don't *care* about grouping, they're not saying that they don't want it."
+68,1332421388,sthibaul,"I'd rather do
+
+3) each cache/numa node has an array of latencies from each PU in the system.
+
+which is the converse of 2) avoiding the variety issue."
+68,1332425582,bgoglin,"For the record, the people that want this don't want latency from each PU ""in the system"". They only want ""from each PU inside the cache"" (or numa node), because they have huge systems where full-system matrices could become very large. So they want latencies inside each sockets ou numa-node, then latencies between numa-node, then latencies between machines.
+"
+68,1332426845,sthibaul,"Ok. We should however not hinder ourselves from being able to express for all PUs. For instance, the assembly of several ""core grid + memory chips attached here and there"" modules brings non-hierarchical latencies, which can be important to take into account while optimizing."
+68,1332491881,bgoglin,"I wonder if we should have a generic list of ""array"" attributes in each object, containing:
+* a field saying whether there's a single value, one value for all PUs in the system, one value for the local PUs
+* maybe a type or depth saying which objects this relates to (unless always PUs)
+* maybe a field saying whether values are ordered by logical or physical index
+* the array itself (float?)
+"
+68,1337689342,bgoglin,"(In [4492]) Branch for working on a new object attribute made of random array of values
+
+Refs #68
+
+"
+68,1337689572,bgoglin,"(In [4493]) Add ""valarray"" attribute to object for application-provided array of random values
+
+The ""valarray"" name is really bad. I want something better.
+
+Each object may have an array of valarray structures, each containing:
+* a custom name that the applications use to recognize data they're looking for
+* a number of entries
+* an array of floats (the actual values we are looking for)
+* an array of unsigned indexes
+
+Comparison with existing attributes:
+* obj->userdata is an opaque pointer, cannot be saved to XML across multiple processes.
+* distance matrices are too limited and impact grouping, which causes many problems
+  (see trac tickets) obj infos are only strings.
+* object infos are only strings
+
+This should help people annotate the topology with values obtained from benchmarks,
+export them to XML, and reimport them in other processes later.
+
+With this commit, the only actual way to annotate is to manually modify a XML topology.
+API changes coming soon.
+
+Refs #68"
+68,1337689606,bgoglin,"(In [4494]) valarray: add an API function to add a valarray to an object
+
+If the array of indexes isn't given, we store [0..N-1] instead.
+
+Refs #68"
+68,1346162776,bgoglin,"(In [4781]) Add hwloc_topology_set_userdata_import/export_callback()
+
+And hwloc_export_obj_userdata() to be called from the export callback.
+
+This commit fixes #68
+It supersedes the valarray branch by allowing the export/import
+whatever the application wants."
+69,1332425775,bgoglin,The configure check was only added to bring -lm when needed. I am surprised Paul didn't catch this Solaris 9 issue. I'll add a workaround. Thanks for the report.
+69,1332430534,bgoglin,"Can you try this? Google seems to say that fabs (and math.h) are available on solaris 9 and older, and using it (casting from float to double) shouldn't be too bad."
+69,1332451238,bgoglin,"I managed to find a Solaris 9 to test the patch. There's a tiny change to apply, but it works otherwise, I'll commit that soon.
+
+Note that this only happens when not using gcc. gcc uses a builtin for fabsf, and I couldn't compile with other compilers, so I used CFLAGS=-fno-builtin to reproduce the problem.
+"
+69,1332451307,bgoglin,"(In [4418]) Workaround missing fabsf on Solaris 9 or older.
+
+Use fabs() with a cast to double when fabsf() doesn't exist.
+
+The problem does not occur with gcc because it used a builtin
+for fabsf (unless -fno-builtin is given)
+
+Fixes #69
+
+Thanks to Igor Galic for the report.
+
+"
+70,1335679834,bgoglin,"(In [4460]) Fix support for more than 32 processors on Windows
+
+ulong is always 32bits there, so bitmap manipulations were wrong.
+We use sizeof(void*) to handle the 32/64 cases.
+
+This commit fixes #70.
+
+Thanks a lot to Hartmut Kaiser for reporting this issue and
+testing patches.
+
+I'll backport this to v1.4 after some feedback.
+
+If things work, we should likely add a windows-specific
+hwloc_bitmap_set_ith_ULONG_PTR() to factorize all #if added here.
+
+The 32bit version of the this code may still be broken because
+windows32 affinity support is broken as explained in Remarks on
+  http://msdn.microsoft.com/en-us/library/windows/desktop/dd405488%28v=vs.85%29.aspx
+We may need some workarounds. Hopefully win32 machines with more
+than 32 procs are rare."
+70,1335871905,bgoglin,"For the record, Hartmut confirmed in
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/05/3054.php
+that win64 is OK while win32 is crap. See ticket #73 if anybody wants to look at this.
+"
+70,1335898926,bgoglin,"(In [4461]) Backport trunk commit r4460 into v1.4 branch:
+* Fix support for more than 32 processors on Windows
+  ulong is always 32bits there, so bitmap manipulations were wrong.
+  We use sizeof(void*) to handle the 32/64 cases.
+  This commit fixes #70.
+  Thanks a lot to Hartmut Kaiser for reporting this issue and
+  testing patches.
+  The 32bit version of the this code may still be broken because
+  windows32 affinity support is broken as explained in Remarks on
+    http://msdn.microsoft.com/en-us/library/windows/desktop/dd405488%28v=vs.85%29.aspx
+  We may need some workarounds. Hopefully win32 machines with more
+  than 32 procs are rare.
+
+
+"
+71,1335333023,bgoglin,"Thanks a lot for doing this.
+
+
+By the way, do you think the NVML library should be used instead of CUDA for creating GPU-internals objects in the CUDA branch ?
+
+
+One think to note about your proposed helpers (comes from recent changes in OFED helpers, and may matter to yout grid engine).
+
+1) There are helpers that use the hwloc topology to find things and affinities. Those can work on remote node topologies (XML) as long as they don't directly use any external local-only lib (NVML here). What you just need it to pass a ""device identifier"" as input (I did that with openfabrics device names recently) instead of ""device pointers"" (nvmlUnit_t here).
+
+2) There are helpers that don't need the internal topology to find cpusets. They can use an external lib to get the affinity (myriexpress does that) or sysfs (Linux-only, infiniband does that). However those way to find the affinity only work on the local machine. So you can't use any remote XML topo here. If it's local, the input can be anything, even a device pointer (nvmlUnit_t).
+
+(1) requires PCI and NVML support inside hwloc and works on any topology. This can be get_pcidev(name)
+(2) doesn't require PCI support in hwloc and only works on local topologies. This can be get_cpuset(nvmlUnit_t)
+
+You can look at hwloc/openfabrics-verbs.h in trunk for examples. And you can have more combinations if needed.
+"
+71,1354831839,bgoglin,"Discussed this offline with NVIDIA guys. They think NVML is indeed the way to go... BUT NVML doesn't number devices as CUDA does (CUDA seems to reorder bigget GPUs first). So we need to find a way to translate from one device numbering to the other.
+"
+71,1355344275,bgoglin,"After more private talk with Rolf from NVIDIA, it looks like NVML is good for batch schedulers (or anybody looking at GPU locality outside of the process using CUDA) but not for processes that actually use CUDA. There's no way to translate between CUDA and NVML numbers.
+
+Looks like we'll have a NVML plugin (and inline helpers) and a CUDA plugin then. A NVIDIA GPU PCIDev object may contain two OS devices, one ""cuda1"" and one ""nvml0"".
+"
+71,1355577992,bgoglin,"(In [5138]) Branch to add NVML plugin and inline helpers.
+
+Refs #71
+
+"
+71,1355578652,bgoglin,"(In [5139]) Add a NVML component/plugin
+
+This is useful for batch schedulers that want to get the locality
+of NVIDIA GPUs without actually using CUDA directly.
+
+We add the correponding nvml%d OS devices.
+
+Note that the NVML ordering may be different from the CUDA ordering
+(looks like CUDA reorders based on performance).
+
+Note that libnvidia-ml.so is distributed within CUDA
+while nvml.h is only available in the Tesla Development Kit.
+
+Refs #71"
+71,1355578685,bgoglin,"(In [5140]) nvml: Add hwloc/nvml.h inline helpers
+
+hwloc_nvml_get_device_cpuset() doesn't use PCI/NVML components
+at all. Only returns something useful on Linux.
+
+hwloc_nvml_get_device_osdev() uses PCI/NVML components.
+
+Refs #71
+hwloc_nvml_get_device_pci_ids() isn't hwloc specific,
+so we're not adding it. It's easy to do anyway."
+71,1355578703,bgoglin,"(In [5141]) nvml: Document helpers and OS devices
+
+Refs #71
+Refs #97"
+71,1356125862,bgoglin,"(In [5170]) Merge the nvml branch into trunk
+
+The new nvml plugin adds OS devices such as nvml0 for each
+NVIDIA GPU, and improve stheir PCIe link speed detection.
+
+hwloc/nvml.h offers interoperability conversion routines.
+
+May be disabled with --disable-nvml
+
+Note that libnvidia-ml.so is usually distributed with CUDA while the
+corresponding nvml.h requires the additional Tesla Development Kit.
+
+If lstopo gets slow, check the FAQ (look for nvidia-smi).
+
+This commit closes #71
+
+"
+72,1352632233,bgoglin,"Let's give Kerrighed another release cycle. Surprisingly, it doesn't cause too much headache during componentification.
+"
+75,1336591076,bgoglin,"By the way, when I added the basic XML backend, we talked about only allowing ASCII characters. This would be an easy way to filter things. But we need to find out how useful non-ASCII info attributes could be.
+"
+75,1341604804,bgoglin,"(In [4572]) Filter non-printable characters out during XML export.
+
+Only 32-127 \t \n \r are accepted.
+Other are silently dropped.
+
+Add the relevant test to tests/xmlbuffer.
+
+This commit fixes #75."
+76,1341825358,bgoglin,"(In [4600]) AIX: support retrieving cpubinding that was set with the bindprocessor() system call
+
+Thanks a lot to Hendryk Bockelmann for reporting the issue and testing patches,
+and to Farid Parpia for giving useful explanations about AIX binding.
+
+Refs #76"
+76,1341842306,bgoglin,"(In [4603]) AIX: support cpu/membinding when some threads were bound with bindprocessor()
+
+ra_attachrset() returns EPERM in this case. Call bindprocessor() to unbind
+the entire process, and try ra_attachrset() again.
+
+This commit closes #76"
+77,1362579675,bgoglin,"Won't happen anytime soon, I don't have access to a Windows machine with more than 32 cores."
+78,1360963823,bgoglin,"(In [5317]) Merge bgq branch into trunk
+
+This commit fixes #78.
+
+"
+79,1341134061,bgoglin,"(In [4557]) Clarify colors in lstopo and hwloc-bind.
+
+Refs #79.
+
+"
+79,1352632096,bgoglin,"(In [5033]) lstopo: annotate the (verbose) text output with ""binding"", ""offline"" and ""forbidden""
+
+This commit closes #79"
+80,1341882647,sthibaul,"Well, HANDLE is the type that is mostly used to manage a process, in windows."
+80,1342512489,bgoglin,"Dave, anything to fix? In v1.5?
+"
+80,1343105803,sthibaul,"(In [4661]) On Windows, make tools use integer pids, not handles, as the latter only make sense inside a process. Use OpenProcess to convert from the former to the latter. This closes #80."
+80,1343105879,sthibaul,"So the issue was not in hwloc_pid_t being a HANDLE, but in making tools take integer values from command line as a HANDLE. Commit r4661 fixes it by adding the conversion."
+80,1343106114,sthibaul,(In [4662]) Add news item for tool fix. Refs #80.
+81,1342594209,bgoglin,"(In [4631]) Work-around doxygen 1.8 breaking the README export indentation
+
+Revert r4619
+  doxy: use \verbinclude instead of \include for hwloc-hello
+because it removes syntax colorizing from the doxygen outputs (HTML and PDF).
+
+In doxygen 1.8, \include doesn't put <pre></pre> around hwloc-hello.c.
+The CSS fails to indent it properly in w3m or lynx, making the README ugly.
+
+Use a sed script to detect those non-pre lines (<div class=""line""></div>)
+and replace spaces with &nbsp; there so that the w3m/lynx HTML export
+doesn't ignore spaces.
+
+This script generates a temporary readme.tmp.html in the dox html directory,
+before w3m/lynx exports it to text. The temporary file is then removed so that
+it doesn't get included in the final doc.
+
+The sed script even works on Solaris (and AIX) where sed support is limited.
+
+doxygen bug (may not ever be fixed)
+  https://bugzilla.gnome.org/show_bug.cgi?id=680073
+some details
+  http://www.open-mpi.org/community/lists/hwloc-devel/2012/07/3174.php
+
+This commit fixes #81.
+
+By the way, doxygen 1.8 replaces -- with &ndash; but w3m doesn't export
+it properly, we get a ""?"". Fix that in the sed script too.
+And replace some other characters too (© and é) to avoid other ""?"".
+
+"
+81,1342606631,bgoglin,"(In [4635]) Backport trunk commit r4631 and r4633 into v1.5 branch:
+
+* Work-around doxygen 1.8 breaking the README export indentation
+
+  Revert r4619 (r4620 in v1.5 branch)
+   doxy: use \verbinclude instead of \include for hwloc-hello
+  because it removes syntax colorizing from the doxygen outputs (HTML and PDF).
+
+  In doxygen 1.8, \include doesn't put <pre></pre> around hwloc-hello.c.
+  The CSS fails to indent it properly in w3m or lynx, making the README ugly.
+
+  Use a sed script to detect those non-pre lines (<div class=""line""></div>)
+  and replace spaces with &nbsp; there so that the w3m/lynx HTML export
+  doesn't ignore spaces.
+
+  This script generates a temporary readme.tmp.html in the dox html directory,
+  before w3m/lynx exports it to text. The temporary file is then removed so that
+  it doesn't get included in the final doc.
+
+  The sed script even works on Solaris (and AIX) where sed support is limited.
+
+  doxygen bug (may not ever be fixed)
+    https://bugzilla.gnome.org/show_bug.cgi?id=680073
+  some details
+    http://www.open-mpi.org/community/lists/hwloc-devel/2012/07/3174.php
+
+  This commit fixes #81.
+
+  By the way, doxygen 1.8 replaces -- with &ndash; but w3m doesn't export
+  it properly, we get a ""?"". Fix that in the sed script too.
+  And replace some other characters too (© and é) to avoid other ""?"".
+
+* doxygen.css: add div.line specifications
+
+And update the README now that things work fine.
+
+"
+82,1342624771,pekka,"It seems to break only when using the m4 macros from the target project's configure.ac. It ends up not including the topology-linux.c to the sources list in src/Makefile.am in that case. When building in the standalone mode or with ./configure --enable-embedded-mode it gets included. The configure output from hwloc outputs ""Linux"" as the target in all cases.
+"
+82,1342630941,pekka,"I think this mysteriously went away after several rounds of ""make distclean"" and magic. Sorry for the noise :>"
+82,1342632511,bgoglin,"No problem. Good to know POCL is being ported on hwloc.
+Brice
+"
+83,1346163067,bgoglin,"(In [4784]) Add hwloc-annotate utility
+
+Stolen from the valarray branch, since it can be useful for
+adding info attributes to XML topologies.
+
+Refs #83"
+84,1346271585,bgoglin,"(In [4793]) Add hwloc_export_obj_userdata_base64()
+
+It encodes into base64 and decodes automatically before passing
+the data to the import() callback.
+
+It uses a new src/base64.c taken from OpenBSD (ISC license, BSD-like)
+
+This commit fixes #84"
+85,1351203700,sthibaul,(In [4927]) Add CPUModel support to x86 backend. Refs #85.
+85,1351236765,bgoglin,"(In [4928]) Add CPUModel detection on Darwin
+
+Thanks to Robin Scher for providing ways to implement this.
+(he also helped for the previously committed code for x86/FreeBSD)
+
+Refs #85"
+85,1351784409,bgoglin,"(In [4961]) x86: add CPUModel to sockets created by other backends
+
+We don't create any object if other backends did, but we add
+missing information such as CPUModel info attribute.
+
+This adds x86 CPUModel to all OSes that support x86 cpuid.
+
+Refs #85
+
+By the way, fixup the socket id if unknown (on Windows for instance)"
+85,1351844431,bgoglin,Move the CPUType stuff to ticket #86
+85,1352414861,bgoglin,"(In [5019]) Create a separate x86 component instead of hiding its use inside the FreeBSD component
+
+Its priority is between native components and the no_os component.
+
+It can also now complete/annotate the topology that was previously
+started by native components:
+* adding CPUModel socket attributes
+* adding all kinds of objects if the existing topology contains nothing but PUs
+
+This commit fixes #85.
+
+On FreeBSD, the native component does some very basic discovery
+before x86 completes with a lot of objects.
+On Windows/..., x86 just annotates the topology with socket
+attributes.
+On Linux, x86 does nothing because Linux already found everything.
+
+If the native component is wrong, we can force the x86 component
+to be used first by setting HWLOC_COMPONENTS=x86 in the environment."
+86,1351857485,bgoglin,"Terry says
+""what I needed was the sun4v/sparcv9 specification so the OMPI code could detect that it needed a special replacement memcpy.   I believe in the x86 type detection for Solaris is not used other than knowing we're not running on SPARC.""
+
+So there's no real need to extend the current existing CPUType to other OS. And we may even remove it from Solaris/x86 if it reports buggy strings.
+
+Brice
+"
+86,1352592872,bgoglin,"(In [5031]) Add a new Attributes section the doc
+
+List all string infos that we already use.
+
+This commit closes #86."
+87,1362579792,bgoglin,"The new ci.inria.fr/hwloc continous integration service builds Windows 32bits and 64bits winballs automatically every night, and it can be used to build release winballs very easily too.
+No need to play with cmake very soon."
+88,1354670623,bgoglin,"Looking at the current plugins (libpci, opencl, cuda), they don't need much of the topology internal.
+I am removing the use of topology->next_group_depth in libpci. We'll need a topology_get_flags(). Once this is done, the topology internals can be hidden.
+
+Then we'll need to reorganize headers in:
+* public core functions used by plugins (currently either in private.h or components.h)
+  - could be hwloc/components.h
+* private core functions regarding plugin/component management (currently in components.h)
+  - could be private/components.h
+* private core functions regarding everything else (currently in private.h)
+  - could be private/private.h
+* plugin symbols used by the core when plugin are built statically (currently in components.h)
+  - only needed in components.c, might be possible to have them in static-components.h
+"
+88,1354671133,bgoglin,"(In [5089]) Move component symbols declarations from components.h to static-components.h
+
+We don't want to mix plugins-symbols-for-core and core-symbols-for-plugins
+in the same header file.
+
+The former are only needed when building components statically, and only
+used through the configure-generated array in static-components.h.
+So declare them there too.
+By the way, this avoids declaring all possible components symbols while
+those built as plugins are not actually available.
+
+Refs #88
+
+"
+88,1354685403,bgoglin,"(In [5095]) Add hwloc_topology_get_flags()
+
+Useful for removing direct dereferencing of topology->flags in external plugins.
+The libpci plugin shouldn't need to ever dereference topology structs anymore.
+
+Refs #88"
+88,1354747073,bgoglin,"Available in trunk as of r5112.
+
+"
+92,1353578585,bgoglin,"Broken \ref to \page in PDF is related to SHORT_NAMES=yes, reported at
+  https://bugzilla.gnome.org/show_bug.cgi?id=688858"
+92,1353579323,bgoglin,"And broken links to headers in PDF are related to SHOW_FILES=no, reported at
+  https://bugzilla.gnome.org/show_bug.cgi?id=688861"
+92,1353593211,bgoglin,"For the record, the \page bug can by worked around by using \anchor and adding the page name under parentheses after each corresponding \ref.
+
+The header bug doesn't look that easy. We need to remove the link only in latex mode, while \latexonly/\htmlonly cause verbatim, which makes the html link go away anyway.
+"
+92,1384181302,bgoglin,"Doxygen 1.8.5 fixes bug 688858 so the only remaining bug is broken links to headers.
+Only one line in Makefile.am is needed to workaround it."
+93,1354630783,bgoglin,"This is in the OpenCL branch, see revision [5081]"
+93,1354832117,bgoglin,"One thing that might be good to improve is the startup time. When the OpenCL component gets used lstopo goes from 0.1s to 2.2s on our Xeon E5 server with two Tahiti boards.
+
+NVIDIA lets you enable Persistence mode to dramatically reduce the startup time, I couldn't find anything similar in the AMD drivers (aside from old aticonfi options that are still documented but not supported anymore).
+"
+93,1355921570,bgoglin,"(In [5161]) opencl: add some inline helpers and tests
+
+hwloc_opencl_get_device_cpuset() only to return the locality with OS device
+hwloc_opencl_get_device_osdev() and hwloc_opencl_get_device_osdev_by_index()
+to convert device or indexes into OS devices.
+
+And add the corresponding tests/opencl.c
+
+Refs #93, #97
+
+"
+93,1356159212,bgoglin,"(In [5174]) Merge the OpenCL branch into trunk
+
+The new opencl plugin adds OS devices openclXpY
+for the Xth OpenCL device of the Yth platform.
+
+hwloc/opencl.h offers interoperability conversion routines.
+
+Only enabled on AMD OpenCL since the locality command is an
+extension. May be disabled --disable-opencl
+
+If lstopo gets slow, check the FAQ (look for DISPLAY).
+
+This commit fixes #93
+
+"
+97,1355578703,bgoglin,"(In [5141]) nvml: Document helpers and OS devices
+
+Refs #71
+Refs #97"
+97,1355826471,bgoglin,"(In [5156]) hwloc/openfabrics-verbs.h: Add hwloc_ibv_get_device_osdev() and clarify the doc
+
+Refs #97
+
+"
+97,1355921570,bgoglin,"(In [5161]) opencl: add some inline helpers and tests
+
+hwloc_opencl_get_device_cpuset() only to return the locality with OS device
+hwloc_opencl_get_device_osdev() and hwloc_opencl_get_device_osdev_by_index()
+to convert device or indexes into OS devices.
+
+And add the corresponding tests/opencl.c
+
+Refs #93, #97
+
+"
+97,1356124877,bgoglin,"(In [5168]) nvml: improve inline helpers
+
+Add a by_index() variant that works on fully-remote topologies.
+Cleanup the whole doc to match the trunk/ofed.
+Improve tests/nvml.c
+
+Refs #97"
+97,1356254083,bgoglin,"As of trunk r5187, OFED and MX inline helpers have been cleaned in trunk, and NVML, OpenCL and CUDA helpers have been cleaned and merged into trunk.
+"
+98,1357204788,bgoglin,"forgot to say that the ability to load() multiple times is not documented
+"
+98,1357210491,bgoglin,fix which bugs are regressions.
+98,1357332473,bgoglin,"(In [5218]) Warn when a topology gets reloaded for the first time.
+
+(and when a loaded topology gets modified with set_foo())
+HWLOC_HIDE_DEPRECATED may be used to silence these.
+
+There's not any such use in hwloc anymore.
+
+Refs #98"
+98,1357467660,bgoglin,"(In [5225]) Backport trunk commits r5216,5217,5218,5224 into v1.6 branch:
+* hwloc-calc: stop reloading a single topology multiple times
+* Remove all uses of topology reload in tests
+* Warn when a topology gets reloaded for the first time.
+  (and when a loaded topology gets modified with set_foo())
+  HWLOC_HIDE_DEPRECATED may be used to silence these.
+  There's not any such use in hwloc anymore.
+* Clarify documentation about (not) reloading
+  Tweak the wording a bit to make it clear that reloading
+  isn't allowed (anymore).
+
+Refs #98
+
+"
+98,1366274538,bgoglin,"(In [5546]) Return EBUSY on load() or set_foo() on an already loaded topology
+
+Reloading was deprecated since 1.6.1 because it makes the code horrible.
+
+This commit fixes #98"
+101,1365539684,bgoglin,"Another totally different solution would be to add a basic PCI component in topology-linux.c by reading /sys/bus/pci/devices/*. Won't have bridges, but can get (sub)device/vendor ids (read sysfs files), PCI bus ids (parse dirent name), and locality. That's Linux only but we only have PCI locality on Linux anyway.
+"
+101,1366205183,bgoglin,"(In [5543]) linux: add a ""linuxpci"" component that scans /sys/bus/pci/devices
+
+It cannot find bridges, only devices.
+It cannot find all pcidev attributes (no revision, no link speed, no name).
+But it always works on Linux.
+
+Its priority is lower than the pci component priority,
+and they conflict with each other.
+
+Always built on Linux except if --disable-pci.
+The configure summary shows either ""PCI(basic)"" or ""PCI(full)""
+instead of ""PCI"".
+The ""libpci not enabled by default"" configure warning is improved.
+
+The code is in topology-linux.c because:
+* if we want this component to work on gathered topology,
+  we'll need some code from topology-linux.c
+* there's no need to make this component buildable as a plugin
+  since it has no external dependencies
+
+Refs #101"
+101,1369760144,bgoglin,"Making this ""minor"" because the linuxpci component is now ready for v1.8.
+Only non-Linux OSes make need this ticket, but very few people use CUDA/OpenCL there, and we have no PCI locality there anyway.
+"
+102,1367488758,bgoglin,"(In [5573]) xml: insert objects after adding their attributes
+
+This will let the core check some object internals (namely cpusets)
+during insert_by_parent() insert of inserting things that will be setup later.
+
+XML subtags (userdata, info, page_type, distances and child objects)
+re still added after insert to simplify things.
+
+Refs #102"
+102,1367488776,bgoglin,"(In [5574]) core: warn if insert_by_parent() is out-of-order
+
+Manual modifications of a XML file can lead to topologies that may
+or may not work well. The core assumes children are in order in some places.
+HWLOC_DEBUG_CHECK and --enable-debug assert this.
+
+Check this in insert_by_parent() to warn on invalid XML.
+I don't think any other backend can cause the same problem so far,
+but we'll warn too if it ever occurs.
+
+We cannot easily return an error from there and fix the XML import
+to handle it (ignore children, etc.).
+
+This commit fixes #102"
+103,1369821168,bgoglin,"(In [5652]) Never merge explicitly-custom-inserted groups
+
+If the user inserts one, don't remove it.
+
+This relies on string info attributes (added in previous commits),
+and we try to not look at these and strcmp() their value unless
+all lights are green.
+
+This commit fixes #103"
+105,1393251553,Brice Goglin,"core: clarify/fix the code dealing with horizontal ordering wrt to cpusets
+
+Always order objects on a level based on the complete_cpuset.
+The cpuset can get unordered because of disallowed/offline PUs.
+For instance 0x1111<0x2222 can become 0x1100>0x2220 if 3 PUs
+are disallowed.
+
+When comparing, use complete_cpuset if available (always correct order)
+or fallback to cpuset (should be correctly ordered during early discovery
+when complete_cpuset isn't initialized yet).
+
+This fixed some overzealous debug assertions/warnings added in v1.8.
+
+This commit fixes #105.
+
+Changeset: 28c63b053faf92c9d06e66ca2382a00a11e95528"
+106,1385566271,bgoglin,"That's not a bug, it's a feature... unfortunately. As explained in the lstopo manpage, L# mean logical index, P# mean physical index, and you can switch from one to the other with -l/-p
+The graphical output uses -l by default, textual output uses -p by default. We know it's annoying, but we had to define these (somehow unexpected) defaults for reasons such as avoid breaking backward compatibility.
+
+Brice
+"
+106,1385566661,tedheadster,"I'm confused. There are two physical sockets on this ancient Pentium II Xeon system, each with one core.
+
+When I invoke lstopo with the '-p' (physical) flag, I get ONE socket shown. This does not reflect reality.
+
+Help me with my confusion.
+"
+106,1385566942,bgoglin,"I always see two sockets in your outputs. They have the same physical index (P#0) because the BIOS isn't very well written, but that doesn't mean they are the same socket. If ""Socket ..."" appears twice, it means there are two sockets.
+"
+110,1407330781,bgoglin,Synthetic attributes added in master branch in 3d261449551ddad5ee2d2056ae21e94b2c10d872 and previous commits.
+111,1401793468,Brice Goglin,"gather-topology: also save /proc/self/cgroup
+
+/proc/self/cpuset isn't enough in some cases.
+
+Thanks to Benedikt Morbach for the patch.
+
+This commit fixes #111.
+
+Changeset: b9388df244a63f4f52c49360b52c1f88899034b9"

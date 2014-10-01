@@ -1,0 +1,195 @@
+Metadata-Version: 1.1
+Name: tratihubis
+Version: 0.5
+Summary: convert Trac tickets to Github issues
+Home-page: http://pypi.python.org/pypi/tratihubis/
+Author: Thomas Aglassinger
+Author-email: roskakori@users.sourceforge.net
+License: BSD License
+Description: 
+        Tratihubis converts Trac tickets to Github issues by using the following steps:
+        
+        1. The user manually exports the Trac tickets to convert to a CSV file.
+        2. Tratihubis reads the CSV file and uses the data to create Github issues and milestones.
+        
+        
+        Installation
+        ============
+        
+        To install tratihubis, use ``pip`` or ``easy_install``::
+        
+          $ pip install tratihubis
+        
+        If necessary, this also installs the `PyGithub <http://pypi.python.org/pypi/PyGithub/>`_ package.
+        
+        
+        Usage
+        =====
+        
+        Information about Trac tickets to convert has to be provided in a CSV file. To obtain this CSV file, create a
+        new Trac queries using the SQL statement stored in
+        `query_tickets.sql <https://github.com/roskakori/tratihubis/blob/master/query_tickets.sql>`_  and
+        `query_comments.sql <https://github.com/roskakori/tratihubis/blob/master/query_comments.sql>`_.   Then
+        execute the queries and save the results by clicking "Download in other formats: Comma-delimited Text" and
+        choosing for example ``/Users/me/mytool/tickets.csv`` and ``/Users/me/mytool/comments.csv`` as output files.
+        
+        Next create a config file to describe how to login to Github and what to convert. For example, you could
+        store the following in ``~/mytool/tratihubis.cfg``::
+        
+          [tratihubis]
+          user = someone
+          password = secret
+          repo = mytool
+          tickets = /Users/me/mytool/tickets.csv
+          comments = /Users/me/mytool/comments.csv
+        
+        Then run::
+        
+          $ tratihubis ~/mytool/tratihubis.cfg
+        
+        This tests that the input data and Github information is valid and writes a log to the console describing
+        which operations would be performed.
+        
+        To actually create the Github issues, you need to enable to command line option ``--really``::
+        
+          $ tratihubis --really ~/mytool/tratihubis.cfg
+        
+        Be aware that Github issues and milestones cannot be deleted in case you mess up. Your only remedy is to
+        remove the whole repository and start anew. So make sure that tratihubis does what you want before you
+        enable ``--really``.
+        
+        Mapping users
+        -------------
+        
+        In case the Trac users have different user names on Github, you can specify a mapping. For example::
+        
+           users = johndoe: jdoe78, *: me
+        
+        This would map the Trac user ``johndoe`` to the Github user ``jdoe78`` and everyone else to the user ``me``.
+        The default value is::
+        
+          users = *:*
+        
+        This maps every Trac user to a Github user with the same name.
+        
+        Mapping labels
+        --------------
+        
+        Github labels somewhat mimic the functionality Trac stores in the ``type`` and ``resolution`` field of
+        tickets. By default, Github supports the following labels:
+        
+        * bug
+        * duplicate
+        * enhancement
+        * invalid
+        * question
+        * wontfix
+        
+        Trac on the other hand has a ``type`` field which by default can be:
+        
+        * bug
+        * enhancement
+        * task
+        
+        Furthermore closed Trac tickets have a ``resolution`` which, among others, can be:
+        
+        * duplicate
+        * invalid
+        * wontfix
+        
+        The ``labels`` config option allows to map Trac fields to Github labels. For example::
+        
+          labels = type=defect: bug, type=enhancement: enhancement, resolution=wontfix: wontfix
+        
+        Here, ``labels`` is a comma separated list of mappings taking the form
+        ``<trac-field>=<trac-value>:<github-label>``.
+        
+        In case types or labels contain other characters than ASCII letters, digits and underscore (_), put them
+        between quotes::
+        
+          labels = type="software defect": bug
+        
+        
+        Attachments
+        -----------
+        
+        You can find some notes on this in `issue #19 <https://github.com/roskakori/tratihubis/issues/19>`: Add
+        documentation for ``attachmentsprefix``.
+        
+        
+        Limitations
+        ===========
+        
+        The author of Github issues and comments always is the user specified in the config, even if a different
+        user opened the original Trac ticket or wrote the original Trac comment.
+        
+        Github issues and comments have the current time as time stamp instead if time from Trac.
+        
+        Github issue descriptions contains the raw Trac Wiki markup, there is no translation to Github markdown.
+        
+        The due date of Trac milestones is not migrated to Github milestones, so when the conversion is done, you
+        have to set it manually.
+        
+        Trac Milestone without any tickets are not converted to Github milestone.
+        
+        
+        Support
+        =======
+        
+        In case of questions and problems, open an issue at <https://github.com/roskakori/tratihubis/issues>.
+        
+        To obtain the source code or create your own fork to implement fixes or improvements, visit
+        <https://github.com/roskakori/tratihubis>.
+        
+        
+        License
+        =======
+        
+        Copyright (c) 2012-2013, Thomas Aglassinger. All rights reserved. Distributed under the
+        `BSD License <http://www.opensource.org/licenses/bsd-license.php>`_.
+        
+        
+        Changes
+        =======
+        
+        Version 0.5, 2013-02-13
+        
+        (Contributed by Steven Di Rocco)
+        
+        * Added support for file attachments.
+        * Added work around for information lost due GitHub API limitations:
+          * Added trac commenter and date at the top of each comment.
+          * Added automatic comment to each isseu showing original author, date authored, and last modification date.
+        * Fixed API calls to work with PyGithub 1.8.
+        
+        Version 0.4, 2012-05-04
+        
+        * Added config option ``labels`` to map Trac status and resolution to  Github labels.
+        
+        Version 0.3, 2012-05-03
+        
+        * Added config option ``comments`` to convert Trac ticket comments.
+        * Added closing of issue for which the corresponding Trac ticket has been closed already.
+        * Added validation of users issues are assigned to. They must have an active Github user.
+        
+        Version 0.2, 2012-05-02
+        
+        * Added config option ``users`` to map Trac users to Github users.
+        * Added binary in order to run ``tratihubis`` instead of ``python -m tratihubis``.
+        * Changed supposed issue number in log to take existing issues in account.
+        
+        Version 0.1, 2012-05-01
+        
+        * Initial release.
+        
+Keywords: trac github ticket issue convert migrate
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Topic :: Software Development :: Bug Tracking
