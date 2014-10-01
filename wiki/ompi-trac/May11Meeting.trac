@@ -1,0 +1,152 @@
+== Logistics ==
+
+  * Dates: May 3-5, 2011 (Tuesday - Thursday)
+  * Time: 9 am - 5 pm Eastern each day
+  * Location: ORNL, Oak Ridge, TN
+
+Audio, video, and screen conferencing is available via !WebEx -- see below for details.
+
+== Details on location ==
+
+ * The meeting will be held at [http://www.ornl.gov/ornlhome/visiting.shtml ORNL].
+   * [http://www.ornl.gov/ornlhome/driving_directions.shtml Driving Directions]
+
+
+== Hotels ==
+
+ * [http://www.ornl.gov/ornlhome/hotels.shtml Oak Ridge Hotels]
+ * There are other hotels in the Turkey !Creek/West Knoxville area that are also relatively close to the lab. ([http://maps.google.com/maps?f=q&source=s_q&hl=en&geocode=&q=Hotels+near+Turkey+Creek,+Knoxville,+TN&aq=0&sll=35.921613,-84.085966&sspn=0.028359,0.026565&gl=us&ie=UTF8&hq=Hotels&hnear=Turkey+Creek,+Knoxville,+Tennessee+37934&t=h&z=14 Google Map])
+
+
+== Topics ==
+
+Below are the agenda items that I have gathered so far (in no particular order):
+ * MPI 2.2 implementation tickets
+ * MPI 3.0 implementation planning
+ * ORNL: Hierarchical Collectives discussion
+ * Runtime integration discussion
+ * New Process Affinity functionality
+   * New user interface
+   * Possibly implementation details
+ * Update on ORTE development
+   * State machine overview and discussion
+ * Fault tolerance feature development and integration (C/R, logging, replication, FT-MPI, MPI 3.0, message reliability, ...)
+   * Survey what is: (working, not working, not supported)
+     * Available in the trunk
+     * Available in a current release
+     * In development
+   * Update on the ''sensor'' framework
+   * Create a FAQ entry for each supported FT technique, and how to use it
+   * Is there anything we can share regarding code in development
+ * Threading design discussion
+   * Threading in the point-to-point stack (PML/BML/BTL/MPool)
+   * Other threading problem areas (e.g., Attribute locking issue that emerged with ROMIO)
+   * What level of MPI_THREAD_MULTIPLE do we want to (can we practically) support?
+   * NUMA safety issues (e.g., write/read barriers)
+   * George's work on threading in the TCP BTL
+ * Testing infrastructure (MTT)
+   * Discuss current setup, and state of testing
+   * Review individual MTT setups
+   * Discuss automated testing of command line/MCA options (coverage tracking)
+ * MPI Extensions Update
+ * ORTE Shared Memory Update
+
+Additional topics that folks might want to discuss - Is there anyone that wants to include these and lead their discussions?:
+ * Performance tuning (Point-to-point and/or Collective)
+
+
+== Participants ==
+
+ * Brian Barrett (Sandia)
+ * Wesley Bland (UTK)
+ * Shiqing Fan (HLRS)
+ * Rich Graham (ORNL)
+ * Samuel Gutierrez (LANL)
+ * Nathan Hjelm (LANL)
+ * Josh Hursey (ORNL)
+ * Yevgeny Kliteynik (Mellanox)
+ * Pavel (Pasha) Shamis (ORNL)
+ * Jeff Squyres (Cisco)
+ * Bin Wang (Auburn University)
+
+
+== Agenda ==
+
+Below is a ''sketch'' of the agenda. It will be finalized the week before the meeting, but is always subject to change.
+
+ * '''Tuesday, May 3''' (''Building 5100 Room 262'')[[BR]]
+    * Note: '''We will not be having the Open MPI Teleconference.'''
+    * Webex password: ompi, https://cisco.webex.com/ciscosales/j.php?ED=163632252&UID=0&PW=NMDQxNzE2NjI5&RT=MiMxMQ%3D%3D
+
+|| '''Start''' || '''End''' || '''Leader''' || '''Topic''' ||
+|| 9:00 am ||  9:30 am || All || Logistics, etc ||
+|| 9:30 am ||  Noon    || All || MPI 2.2 and 3.0 Implementation Tickets and Planning ||
+|| Noon    ||  1:00 pm || '''-- Lunch --''' || ||
+|| 1:00 pm ||  2:00 pm || ORNL || Hierarchical Collectives discussion ||
+|| 2:00 pm ||  3:00 pm || !Oracle/Cisco/ORNL || New Process Affinity functionality ||
+|| 3:00 pm ||  3:30 pm || '''-- Break --''' || ||
+|| 3:30 pm ||  5:00 pm || ALL || Testing Infrastructure (MTT) ||
+
+ * '''Wednesday, May 4''' (''Building 5100 Room 262'')
+    * Webex password: ompi, https://cisco.webex.com/ciscosales/j.php?ED=163632262&UID=0&PW=NODhhMzZjZmUy&RT=MiMxMQ%3D%3D
+
+|| '''Start''' || '''End''' || '''Leader''' || '''Topic''' ||
+|| 9:00 am ||  Noon    || IBM/All || Threading Design ||
+|| Noon    ||  1:00 pm || '''-- Lunch --''' || ||
+|| 1:00 pm ||  2:00 pm || NVIDIA || CUDA Support ||
+|| 2:00 pm ||  3:00 pm || Cisco || ORTE Development Update ||
+|| 3:00 pm ||  3:30 pm || '''-- Break --''' || ||
+|| 3:30 pm ||  5:00 pm || ORNL || Runtime integration discussion ||
+
+ * '''Thursday, May 5''' (''Building 5700 Room L202'')
+    * Webex password: ompi, https://cisco.webex.com/ciscosales/j.php?ED=163631762&UID=0&PW=NNjViYWMyMzA2&RT=MiMxMQ%3D%3D
+
+|| '''Start''' || '''End''' || '''Leader''' || '''Topic''' ||
+|| 9:00 am ||  Noon    || IBM/All || Threading Design (as needed) ||
+|| 10:30 am || 11:00 am || ORNL/Cisco || MPI Extensions Update ||
+|| Noon    ||  1:00 pm || '''-- Lunch --''' || ||
+|| 1:00 pm ||  2:00 pm || LANL/Cisco/UTK || ORTE Shared Memory Update ||
+|| 2:00 pm ||  3:00 pm || All || Wrap up and next steps discussion ||
+|| 3:00 pm ||  3:30 pm || '''-- Break --''' || ||
+|| 3:30 pm ||  5:00 pm || ORNL || Fault tolerance feature development and integration ||
+
+
+== Results of Discussions ==
+
+Tuesday:
+ * '''MPI 2.2''' Report: {18}
+   * ~~Need to create a custom report for both 2.2 and 3.0 pending tickets for quick reference.~~ (Done - Josh)
+   * #1368: Projected to be less than a day of work. A summer student at ORNL might be available.
+   * #2221: Algorithm addition for {{{MPI_IN_PLACE}}} in {{{MPI_Exscan}}}. !Rolf/Nvidia might have some cycles to look into this.
+   * #2223: !Jeff/Cisco has it half integrated in a bitbucket branch. 1-2 weeks of work left for someone to finish it off.
+   * #2699: George/UTK thinks it is ready. Jeff to follow-up.
+ * '''MPI 3.0'''  {17}
+   * #2715: Non-blocking collectives work ongoing at ORNL.
+   * #2716: !Brian/Sandia to take a look at re-integration of the tmp branch. For 'ob1' it is just a bit of cleanup. But for 'cm' it may not be able to be implemented until the hardware catches up, so err_not_implemented will likely be returned.
+   * Long term items that could be voted on this year.
+     * New RMA: Needs progress thread support... !Brian/Sandia to lead this effort
+     * Tools: !Jeff/Cisco to look into who might be interested in implementing (talk to HLRS)
+     * Fault Tolerance: ORNL is leading the working group and the Open MPI prototype. More on this on Thursday.
+     * Fortran: Craig/LANL is working on a prototype
+     * MPI_Count: ??
+     * Timers: !Jeff/Cisco to look into this if it passes.
+     * MPI const: !Jeff/Cisco to look into this if it passes.
+ * '''Hierarchical Collectives'''
+   * Lots of good stuff presented from a couple of accepted and out-going papers. I'll leave the rest of the notes for those papers.
+ * '''Affinity'''
+   * Intention is to create a single, flexible mapper then build the common abstraction on top of it. This eases the maintainability burden on ompi developers.
+   * The proposed algorithm is a bit complex.
+   * Slides presented will be made available on demand.
+   * Josh/ORNL, !Jeff/Cisco and !Terry/Oracle are working on writing this up at the moment.
+   * Items to look at:
+     * Ordering as a separate step.
+     * Stride is useful in multithreaded application that does not allocate threads with respect to specific cache levels or hardware boundaries.
+ * '''MTT Testing'''
+   * Introduced a few new members to how to setup and run MTT
+   * Not much outside of that was discussed regarding testing.
+
+Wednesday:
+ * '''TBD'''
+
+Thursday:
+ * '''TBD'''

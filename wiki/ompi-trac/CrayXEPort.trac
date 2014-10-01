@@ -1,0 +1,23 @@
+= Cray XE Port =
+
+== Development branch ==
+
+https://svn.open-mpi.org/svn/ompi/tmp/cray-xe
+
+
+== Run-time ==
+  * Would like to support direct launch using PMI
+  * SNL and LANL are going to refactor the various PMI codes to make more sense
+
+
+== Point-to-point engine (BTL) ==
+  * Manju has sent out protocol performance comparison data
+  * Need to start collecting undocumented pieces of wisdom (what works, what doesn't, performance tuning, etc.)
+  * Design goals: scalability vs. performance, etc.
+
+== Collectives ==
+  * MPICH2 currently uses DMAPP for some collectives to improve performance, do we need to do the same?
+  * Any issues in sharing DMAPP and uGNI in the same process?
+
+== One-sided ==
+  * No plans at this time.

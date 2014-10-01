@@ -1,0 +1,50 @@
+== Should you use Mercurial? ==
+
+'''NOTE:''' Several of us have come to favor [wiki:UsingMercurial using Mercurial] for "temporary" branches away from the main SVN trunk.  Be sure to read the Mercurial wiki page and see which method is right for you.
+
+== Creating a tmp branch ==
+
+First, note that we have two "temporary" areas in the Open MPI Subversion: {{{/tmp}}} and {{{/tmp-public}}}.  The first is private ({{{/tmp}}}), meaning that only those with subversion accounts can read that tree.  Specifically: the public cannot read anything in the {{{/tmp}}} tree.  The {{{/tmp-public}}} is open for anonymous read-only access, meaning that the public can read it.  So first decide whether you want your branch to be private or public.
+
+This example shows how to make a copy of the trunk into {{{/tmp-public}}}:
+
+{{{
+svn cp https://svn.open-mpi.org/svn/ompi/trunk https://svn.open-mpi.org/svn/ompi/tmp-public/<yourtmpbranchname>
+}}}
+
+This example shows how to make a copy of the trunk into {{{/tmp}}} (note that the only difference is "tmp" vs. "tmp-public"):
+
+{{{
+svn cp https://svn.open-mpi.org/svn/ompi/trunk https://svn.open-mpi.org/svn/ompi/tmp/<yourtmpbranchname>
+}}}
+
+== Updating a tmp branch with the trunk ==
+
+  * Commit everything you have. You only update to the trunk in fully committed versions -- i.e., run {{{svn status}}} and ensure you have nothing uncommitted.
+  * Look at the log of the branch, e.g.:
+{{{
+svn log -v --stop-on-copy >& log.txt
+}}}
+  * find the first r number of your branch e.g., tail log.txt
+  * then find the current head r number (e.g., "svn up" in an trunk checkout will update and tell you what the last r number was).  for example r15948
+  * then go into your tdd-dtrace workspace and do the merge: 
+{{{
+svn merge -r FIRST_NUM:15948 https://svn.open-mpi.org/svn/ompi/trunk .
+}}}
+  * This will pull down the delta between {{{FIRST_NUM}}} and 15948 and put it into your branch.  you'll need to commit when it's done.  Put the merge command in the commit message ("svn merge ...") so that you record the last {{{r}}}-number that you merged to. this is important because *next* time you want to merge down from the trunk, you need to merge from 15948 forward -- do *not* merge from {{{FIRST_NUM}}} again (because you've already got the {{{FIRST_NUM:15948}}} delta)
+
+  * commit back to the tmp branch
+
+== Viewing your tmp branch changes ==
+
+  * You can view the changes for a specific tmp branch:
+
+[https://svn.open-mpi.org/trac/ompi/log/tmp-public/<yourtmpbranchname>]
+
+  * This would allow you to all of the tmp branches.
+[https://svn.open-mpi.org/trac/ompi/browser/tmp]
+
+== Getting a Unified Diff from Trac ==
+
+  * After you click on the the diffs, at the bottom, you should be able to get a Unified Diff. This would simplify the process if you decide to brought the changes and apply it elsewhere.
+

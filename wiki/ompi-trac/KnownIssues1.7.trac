@@ -1,0 +1,5 @@
+= Known Issues in the v1.7 Series =
+
+== v1.7.3 ==
+
+ * Compile error if --disable-orte-static-ports included in configuration

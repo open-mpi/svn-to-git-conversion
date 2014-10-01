@@ -1,0 +1,238 @@
+= Notes for the v1.7 = 
+
+== Timeline ==
+* June 22 commit new features to trunk for 1.7.0
+* June 29 trunk branches to 1.7.0
+* Aug 15th 1.7.0 feature complete
+* Oct 1 release of 1.7.0 (tentative)
+
+== Branch point gating ==
+
+* ORTE State Machine (Complete)
+* uGNI / Cray XE support
+* Non-blocking Collectives
+  - Fortran bindings
+  - Implementation of good ones
+  - bring in libnbc for basic
+* grdma mpool
+* June 22nd goal for all gating to be in
+* June 29th goal for branching
+
+== Topics of Focus ==
+
+* [wiki:MPIConformance#MPI2.2 MPI-2.2 Compliance]
+* [wiki:MPIConformance#MPI3.0 MPI-3 Compliance]
+* State-machine based ORTE
+* Thread safety (progress and MPI)
+ - Turn ORTE progress thread on by default for now, see what breaks over next few weeks. If all is okay, then remove option
+* BTL Resiliance
+  - Failover (PML issue?)
+  - Recovery from resource exhaustion
+  - Flow control
+* Process failure notification
+
+== Testing ==
+
+* What do we want to test?
+  - Need to come up with options list
+  - Who can write tests?
+
+== Workshop ==
+
+* Open MPI 1.7 release item
+* PML code-forking issue
+
+== Stale code check ==
+
+||      ||= Framework  =||= Component    =||= Responsible Organization =||
+|| opal || backtrace    || darwin         || SNL ||
+|| opal || backtrace    || execinfo       || SNL ||
+|| opal || backtrace    || none           || SNL ||
+|| opal || backtrace    || printstack     || SNL ||
+|| opal || compress     || bzip           || IU ||
+|| opal || compress     || gzip           || IU ||
+|| opal || crs          || blcr           || UTK ||
+|| opal || crs          || dmtcp          || UTK ||
+|| opal || crs          || none           || UTK ||
+|| opal || crs          || self           || UTK ||
+|| opal || event        || libevent2019   || rhc ||
+|| opal || hwloc        || external       || Cisco ||
+|| opal || hwloc        || hwloc132       || Cisco ||
+|| opal || if           || bsdx_ipv4      || rhc ||
+|| opal || if           || bsdx_ipv6      || rhc ||
+|| opal || if           || linux_ipv6     || rhc ||
+|| opal || if           || posix_ipv4     || rhc ||
+|| opal || if           || solaris_ipv6   || Oracle ||
+|| opal || if           || windows        || HLRS ||
+|| opal || installdirs  || config         || SNL ||
+|| opal || installdirs  || env            || SNL ||
+|| opal || installdirs  || windows        || SNL ||
+|| opal || memchecker   || valgrind       || HLRS ||
+|| opal || memory       || linux          || Mellanox ||
+|| opal || memory       || malloc_solaris || Oracle ||
+|| opal || pstat        || linux          || rhc ||
+|| opal || pstat        || test           || rhc ||
+|| opal || shmem        || mmap           || Oracle/LANL ||
+|| opal || shmem        || posix          || LANL ||
+|| opal || shmem        || sysv           || LANL ||
+|| opal || shmem        || windows        || HLRS ||
+|| opal || timer        || aix            || IBM ||
+|| opal || timer        || altix          || SNL ||
+|| opal || timer        || catamount      || SNL ||
+|| opal || timer        || darwin         || SNL ||
+|| opal || timer        || linux          || SNL ||
+|| opal || timer        || solaris        || Oracle ||
+|| opal || timer        || windows        || HLRS ||
+|| orte || common       || pmi            || LANL ||
+|| orte || errmgr       || default_app    || rhc ||
+|| orte || errmgr       || default_hnp    || rhc ||
+|| orte || errmgr       || default_orted  || rhc ||
+|| orte || ess          || alps           || LANL
+|| orte || ess          || cnos           || Defunct (deleted from trunk) ||
+|| orte || ess          || env            || rhc ||
+|| orte || ess          || generic        || rhc ||
+|| orte || ess          || hnp            || rhc ||
+|| orte || ess          || lsf            || rhc ||
+|| orte || ess          || pmi            || rhc ||
+|| orte || ess          || portals4_shmem || Defunct (deleted from trunk) ||
+|| orte || ess          || singleton      || rhc ||
+|| orte || ess          || slurm          || rhc ||
+|| orte || ess          || tm             || rhc ||
+|| orte || ess          || tool           || rhc ||
+|| orte || filem        || rsh            || IU ||
+|| orte || grpcomm      || bad            || rhc ||
+|| orte || grpcomm      || cnos           || removed from trunk ||
+|| orte || grpcomm      || hier           || rhc ||
+|| orte || grpcomm      || pmi            || rhc ||
+|| orte || grpcomm      || portals4_shmem || removed from trunk ||
+|| orte || iof          || hnp            || rhc ||
+|| orte || iof          || mr_hnp         || rhc ||
+|| orte || iof          || mr_orted       || rhc ||
+|| orte || iof          || orted          || rhc ||
+|| orte || iof          || tool           || rhc ||
+|| orte || notifier     || command        || removed from trunk ||
+|| orte || notifier     || file           || removed from trunk ||
+|| orte || notifier     || ftb            || removed from trunk ||
+|| orte || notifier     || hnp            || removed from trunk ||
+|| orte || notifier     || smtp           || removed from trunk ||
+|| orte || notifier     || syslog         || removed from trunk ||
+|| orte || odls         || default        || rhc ||
+|| orte || odls         || process        || HLRS ||
+|| orte || oob          || tcp            || rhc ||
+|| orte || oob          || ud             || LANL ||
+|| orte || plm          || alps           || rhc ||
+|| orte || plm          || ccp            || HLRS ||
+|| orte || plm          || lsf            || IBM ||
+|| orte || plm          || poe            || removed from trunk ||
+|| orte || plm          || process        || HLRS ||
+|| orte || plm          || rsh            || rhc ||
+|| orte || plm          || slurm          || rhc ||
+|| orte || plm          || tm             || rhc ||
+|| orte || ras          || alps           || rhc ||
+|| orte || ras          || ccp            || HLRS ||
+|| orte || ras          || gridengine     || Oracle ||
+|| orte || ras          || loadleveler    || IBM ||
+|| orte || ras          || lsf            || IBM ||
+|| orte || ras          || simulator      || rhc ||
+|| orte || ras          || slurm          || rhc ||
+|| orte || ras          || tm             || rhc ||
+|| orte || rmaps        || ppr            || rhc ||
+|| orte || rmaps        || rank_file      || rhc ||
+|| orte || rmaps        || resilient      || rhc ||
+|| orte || rmaps        || round_robin    || rhc ||
+|| orte || rmaps        || seq            || rhc ||
+|| orte || rml          || ftrm           || IU ||
+|| orte || rml          || oob            || rhc ||
+|| orte || routed       || binomial       || rhc ||
+|| orte || routed       || debruijn       || LANL ||
+|| orte || routed       || radix          || rhc ||
+|| orte || sensor       || file           || rhc ||
+|| orte || sensor       || ft_tester      || rhc ||
+|| orte || sensor       || heartbeat      || rhc ||
+|| orte || sensor       || resusage       || rhc ||
+|| orte || snapc        || full           || IU ||
+|| orte || sstore       || central        || IU ||
+|| orte || sstore       || stage          || IU ||
+|| orte || state        || app            || rhc ||
+|| orte || state        || hnp            || rhc ||
+|| orte || state        || orted          || rhc ||
+|| ompi || allocator    || basic          || NVIDIA ||
+|| ompi || allocator    || bucket         || NVIDIA ||
+|| ompi || bml          || r2             || SNL ||
+|| ompi || btl          || elan           || removed from trunk ||
+|| ompi || btl          || gm             || removed from trunk ||
+|| ompi || btl          || mx             || removed from 1.7 ||
+|| ompi || btl          || ofud           || removed from 1.7 ||
+|| ompi || btl          || openib         || Mellanox ||
+|| ompi || btl          || portals        || removed from 1.7 ||
+|| ompi || btl          || sctp           || removed from 1.7 ||
+|| ompi || btl          || self           || UTK ||
+|| ompi || btl          || sm             || LANL ||
+|| ompi || btl          || smcuda         || NVIDIA ||
+|| ompi || btl          || tcp            || UTK ||
+|| ompi || btl          || template       || removed from 1.7 ||
+|| ompi || btl          || udapl          || Oracle (removed from 1.7) ||
+|| ompi || btl          || ugni           || LANL ||
+|| ompi || btl          || vader          || LANL ||
+|| ompi || btl          || wv             || HLRS ||
+|| ompi || coll         || basic          || UH ||
+|| ompi || coll         || demo           || removed from 1.7 ||
+|| ompi || coll         || fca            || Mellanox ||
+|| ompi || coll         || hierarch       || UH ||
+|| ompi || coll         || inter          || UH ||
+|| ompi || coll         || self           || Cisco ||
+|| ompi || coll         || sm             || LANL ||
+|| ompi || coll         || sync           || removed from trunk ||
+|| ompi || coll         || tuned          || UTK ||
+|| ompi || coll         || libnbc         || SNL ||
+|| ompi || common       || cuda           || NVIDIA ||
+|| ompi || common       || mx             || SNL ||
+|| ompi || common       || portals        || removed from 1.7 ||
+|| ompi || common       || sm             || LANL ||
+|| ompi || common       || ugni           || LANL ||
+|| ompi || crcp         || bkmrk          || IU ||
+|| ompi || dpm          || orte           || rhc ||
+|| ompi || fbtl         || posix          || UH ||
+|| ompi || fbtl         || pvfs2          || UH ||
+|| ompi || fcache       || ux             || UH '''(probably remove before 1.7)''' ||
+|| ompi || fcoll        || dynamic        || UH ||
+|| ompi || fcoll        || individual     || UH ||
+|| ompi || fcoll        || static         || UH ||
+|| ompi || fcoll        || two_phase      || UH ||
+|| ompi || fcoll        || ylib           || UH '''(no 1.7)''' ||
+|| ompi || fs           || lustre         || UH ||
+|| ompi || fs           || pvfs2          || UH ||
+|| ompi || fs           || ufs            || UH ||
+|| ompi || io           || ompio          || UH ||
+|| ompi || io           || romio          || Cisco ||
+|| ompi || mpool        || fake           || removed from 1.7 ||
+|| ompi || mpool        || gpusm          || NVIDIA ||
+|| ompi || mpool        || grdma          || LANL ||
+|| ompi || mpool        || rdma           || Mellanox '''(likely removed for grdma)''' ||
+|| ompi || mpool        || rgpusm         || NVIDIA ||
+|| ompi || mpool        || sm             || LANL ||
+|| ompi || mtl          || mx             || SNL ||
+|| ompi || mtl          || mxm            || Mellanox ||
+|| ompi || mtl          || portals        || removed from 1.7 ||
+|| ompi || mtl          || portals4       || SNL ||
+|| ompi || mtl          || psm            || SNL/Intel ||
+|| ompi || op           || example        || Cisco (removed from 1.7) ||
+|| ompi || op           || x86            || Cisco (removed from 1.7) ||
+|| ompi || osc          || pt2pt          || '''remove from 1.7''' ||
+|| ompi || osc          || rdma           || SNL ||
+|| ompi || pml          || bfo            || Oracle ||
+|| ompi || pml          || cm             || SNL ||
+|| ompi || pml          || crcpw          || IU ||
+|| ompi || pml          || csum           || removed from 1.7 '''(remove from trunk?)''' ||
+|| ompi || pml          || dr             || removed from 1.7 '''(remove from trunk?)''' ||
+|| ompi || pml          || example        || removed from 1.7 ||
+|| ompi || pml          || ob1            || LANL ||
+|| ompi || pml          || v              || UTK ||
+|| ompi || pubsub       || orte           || rhc ||
+|| ompi || pubsub       || pmi            || rhc ||
+|| ompi || rcache       || rb             || NVIDIA ||
+|| ompi || rcache       || vma            || LANL ||
+|| ompi || sharedfp     || dummy          || UH ||
+|| ompi || topo         || unity          || Cisco ||
+|| ompi || vprotocol    || example        || UTK ||
+|| ompi || vprotocol    || pessimist      || UTK ||

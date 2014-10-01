@@ -1,0 +1,23 @@
+The following is a rough outline of how bugs are managed in a given release series:
+
+ * Working assumptions
+   * Bugs with Priorities of blocker, critical or major
+     are needed to be fixed for the official release of 1.2.  
+   * Bugs with Priorities of minor and below may be fixed but
+     will not be driven to be fixed by the RMs.
+   * An Open MPI member (owner of bug or otherwise) may request 
+     that a bug's priority be raised or lowered.  Such requests
+     should be sent to the RMs and they will make sure a decision
+     is made on the request.  
+
+In order to make sure the bugs that progress is being made on the appropriate bugs the RMs will review the bugs weekly and do the following:
+
+ * Assign owners to unowned bugs of priority (Blocker, Critical, Major)
+ * Request owners to update bugs that have not been updated in 2 weeks.  
+   * Technical Background
+   * Projected timeline as to when a fix might be available.
+ * Engage owners of bugs in a discussion as to whether certain bugs are
+   prioritized correctly.
+ * Review requests to reprioritize bugs.
+
+Near the time a release is to be officially released the RMs will review the current set of Blocker, Critical and Major bugs to determine if any should be postponed.

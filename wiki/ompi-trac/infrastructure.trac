@@ -1,0 +1,203 @@
+[[PageOutline]]
+
+= Open MPI project infrastructure =
+
+== Hosting organizations ==
+
+Open MPI's hosting infrastructure spans three main locations:
+
+* !GoDaddy
+* Indiana University ("IU")
+* Github
+
+The following sections describe various pieces of infrastructure that are used by the Open MPI project.
+
+=== !GoDaddy ===
+
+We purchased several domain names from !GoDaddy.  There might be slightly cheaper name registrars these days, but we've never bothered to move them elsewhere:
+
+* open-mpi.org
+* open-mpi.com
+* open-mpi.net
+* openmpi.org
+* openmpi.com
+* openmpi.net
+
+The first one (open-mpi.org) is the main domain that we use for everything.  The rest are mainly for web redirects to open-mpi.org.
+
+=== Indiana University ===
+
+!DongInn Kim (sysadmin@crest.iu.edu)  is our main contact with IU.  He handles all the sysadmin kinds of things that Open MPI needs.  He is quite responsive and has been very good to the Open MPI project over the years.  Please do not abuse him!
+
+=== Github ===
+
+All Github hosting is done under the Open MPI community (https://github.com/open-mpi/).
+
+== DNS hosting ==
+
+All DNS hosting for all domains is hosted at IU.
+
+To be honest, I'm not sure why we're using IU for DNS hosting instead of !GoDaddy.  It's not really important, to be honest; the only real advantage to using !GoDaddy is that the Open MPI community would be able to directly login to a !GoDaddy web page to update DNS entries vs. sending an email to !DongInn.  OTOH, IU has made some IP address changes recently; having the DNS hosted at IU means that the DNS changes were seamless from our perspective.
+
+The need to change DNS entries is so infrequent that it's probably not worth changing.
+
+== Web hosting ==
+
+The web server for all Open MPI web sites is run in a VM at IU: lion.crest.iu.edu.  You cannot ssh to this machine from outside iu.edu.
+
+=== Main web site ===
+
+The main web site is http://www.open-mpi.org/.  The docroot for the web site on both lion.crest.iu.edu (aka www.open-mpi.org) and jaguar.crest.iu.edu (aka mtt.open-mpi.org) is /l/osl/www/www.open-mpi.org/.
+
+* The bulk of the content for this web site is maintained in a github git repository (https://github.com/open-mpi/ompi-www).
+* Some content comes from scripts at IU that archive all mails sent to Open MPI mailing lists.  These files are not in the github repo, and do not appear on the mirror sites.  See the "Mailing list hosting" section, below, for more details.  The mailing list archive section of the web site has some CGI scripts for searching the web archives, too. That was setup by IU/!DongInn; I don't know the details of how it works.
+* Other content comes from the nightly snapshot tarballs that are generated locally, and do not appear on the mirror sites.  See the "Official tarball generation" section, below, for more details.
+
+Other than that, it's a pretty straight-up PHP web site.  The PHP is written very much as C coders write PHP -- it doesn't use any fancy schmancy modern PHP frameworks or jquery or anything like that.  It's pretty plain vanilla stuff, but with a bunch of helper PHP subroutines for mundane / common / repeated stuff (like the papers section and the FAQ and the tarball listings and ...).
+
+=== Redirecting web sites ===
+
+Visitors to any of the domain name variants (e.g., http://www.openmpi.com/) will be automatically redirected to the main web site.
+
+== Web mirroring ==
+
+Open MPI's web mirrors keep in sync with the upstream web site via git (i.e., they "git pull" from github via cron) or rsync.  IU enables rsync on lion.crest.iu.edu (i.e., www.open-mpi.org) with the following configuration:
+
+{{{
+-bash-4.1$ hostname
+lion.crest.iu.edu
+-bash-4.1$ cat /etc/rsyncd.conf 
+motd file = /etc/rsyncd.motd
+log file = /var/log/rsyncd.log
+pid file = /var/run/rsyncd.pid
+lock file = /var/run/rsyncd.lck
+
+[ompi_web]
+path = /l/osl/www/www.open-mpi.org
+exclude = . .svn svn-commit* *~ community/lists/*/ mtt/vis/ /members/ .git
+use chroot = no
+uid = apache
+gid = apache
+read only = yes
+list = yes
+}}}
+
+As noted above, the archiving of mails from the Open MPI mailing lists and the nightly snapshot tarballs are not in the github repo, and therefore do not appear on the mirrors.
+
+== SVN hosting ==
+
+IU hosts Open MPI's SVN repositories.  The following active repositories are currently managed/hosted:
+
+* ompi: Main Open MPI code repository
+* ompi-docs: Papers, BOFs, logos, etc. used by the Open MPI developers
+* ompi-tests: Private repo containing tests for Open MPI. 
+* otpo: Optimization tool
+* plpa: (defunct) Portable Linux Processor Affinity (has been wholly replaced by hwloc)
+
+The following repositories have been moved to github, but still exist as read-only SVN repositories (and probably can be deleted):
+
+* mtt (outdated): Main MTT code repository
+* hwloc: (outdated) Main hwloc code repository
+* ompi-www: (outdated) Open MPI web site
+* ompi-user-docs: (outdated) Effort to create user-level documentation for Open MPI
+* orcm: (outdated -- just about to be re-created at github/April 2014) Run time infrastructure
+
+The following defunct repositories exist at IU, but the efforts are defunct, and the repositories can probably be deleted:
+
+* ompi-cc: (defunct) A project to support Open MPI cross-compilation
+* ompi-design: (defunct) Effort to create design documentation for Open MPI.
+* orte-www: (defunct) There used to be talk of splitting ORTE off into a separate project; this was the web site for it.
+
+There is a web site named "SVNManager" that is used to manage these repositories, and control both who has access and who has write access (i.e., fine-grained directory permissions in each SVN repo).  The login page for SVNManager is https://svn.osl.iu.edu/svnmanager/index.php?page=Main:StartPage.
+
+SVNManager supposedly synchronizes SVN and Trac passwords, but sometimes they get out of sync, and you need to mail !DongInn to re-sync them properly.
+
+IU has setup SVN commit hooks to review SVN commit messages and look for specific tokens.  These tokens can be used to create/close Trac messages, etc.  These are very handy, and have taken a long time to get exactly the way we wanted them.  See [wiki:TracSVNCommitMessages] for more details on how they work.  How they are implemented on the back-end is somewhat hidden from us; !DongInn set it all up.
+
+Likewise, IU sends full-diff emails upon SVN commits.  The setup for these mails is also handled internally at IU.  Note that these mails are ''not'' archived as part of the web site (like other mailing list mails are archived).  They would be redundant with SVN commit logs -- so what would be the point?
+
+== Git hosting ==
+
+Current repos at github:
+
+* https://github.com/open-mpi/hwloc (plus Trac integration with https://git.open-mpi.org/trac/hwloc/timeline): Main hwloc code repository
+* https://github.com/open-mpi/hwloc-debian: Debian packaging for hwloc
+* https://github.com/open-mpi/mtt (plus Trac integration with https://git.open-mpi.org/trac/mtt/timeline): Main MTT code repository
+* https://github.com/open-mpi/netloc (plus Trac integration with https://git.open-mpi.org/trac/netloc/timeline): Main netloc code repository
+* https://github.com/open-mpi/docs: User-level documentation project (low activity)
+* https://github.com/open-mpi/ompi-www: Open MPI web site
+* https://github.com/open-mpi/ompi-svn-mirror: Read-only mirror of the Open MPI SVN repository.  This repository is maintained by Mellanox, and will likely disappear if/when the main Open MPI repository is migrated to git
+* https://github.com/open-mpi/orcm: Main Open Resilient Cluster Manager (ORCM) repository
+* https://github.com/open-mpi/scon: Main Scalable Overlay Network (SCON) repository (April 2014: pending proposal/approval by Open MPI community)
+
+We use the github webhooks to integrate with the IU-hosted Trac instances (https://github.com/aaugustin/trac-github).  !DongInn helped set that up.
+
+Git diff commit emails are currently sent from jaguar.crest.iu.edu for all of the above repos, except for the ompi-svn-mirror.  See the following for more information:
+
+* [source:trunk/contrib/infrastructure/README-setup-github-diff-emails.txt]
+* [source:trunk/contrib/infrastructure/github-send-commit-mails.pl]
+
+== Mercurial hosting ==
+
+Bitbucket SVN mirror: https://bitbucket.org/ompiteam/ompi-svn-mirror
+
+This mirror is updated by a cron job running on lion.crest.iu.edu: [source:trunk/contrib/infrastructure/openmpi-update-hg-svn.sh]
+
+This mirror will likely disappear if/when the main OMPI SVN repo moves to git.
+
+== Trac hosting ==
+
+IU has setup Trac instances for the following:
+
+* hwloc (git)
+* mtt (git)
+* netloc (git)
+* ompi (SVN)
+
+Trac hosts both tickets (e.g., bug reports) and wiki data.
+
+SVNManager supposedly synchronizes SVN and Trac passwords, but sometimes they get out of sync, and you need to mail !DongInn to re-sync them properly.
+
+IU has also setup custom commit hook scripts -- for both SVN and git -- that look for special tokens in commit messages and take Trac actions.  See the SVN section, above, for details.
+
+There is quite a lot of historical data in these Trac instances.
+
+== Mailing list hosting ==
+
+IU has setup mailman for many Open MPI mailing lists.  Each mailman is ''similarly'' configured, but they're all slightly different.  Some lists are "broadcast only" (e.g., announce, and svn-full), while others are discussion lists (i.e., any subscribed member can post).
+
+No lists allow posting from unsubscribed members.  Periodically, someone complains about this, but we have never changed this policy, and it has effectively eliminated spam from the lists.
+
+IU has setup custom hooks in mailman (I don't know the exact details) for web archiving of all relevant lists (e.g., OMPI users and devel lists).  The web archiving does ''not'' use the Mailman built-in pipermail web archiver (which is horrible).  Instead, the mails are funneled to some kind of custom hook scripts that archive the mails in attractive web pages that are integrated nicely into the overall Open MPI web site.  This took quite a bit of work to do.
+
+Note that many, many URLs of web-archived messages -- from the users/devel lists, in particular -- have been used in SVN commit messages, Trac messages, FAQ entries, and other random places around the web.  '''DO NOT CHANGE THE URLS OF WEB ARCHIVED MESSAGES IF AT ALL POSSIBLE!'''
+
+== Official tarball generation ==
+
+Two types of tarballs are created on jaguar.crest.iu.edu (aka mtt.open-mpi.org):
+
+1. Automated nightly snapshot tarballs (via cron).
+1. Manual release tarballs.
+
+Both types of tarballs require specific tuples of the GNU Autotools (see http://www.open-mpi.org/svn/building.php for specific details).  On jaguar, there are installations for all the relevant tuple combinations.  Environment modulefiles are used to select the right tuple for a given build (e.g., "module load autotools/ompi-v1.8" will load the Right Autotools tuple to build Open MPI 1.8.x tarballs).
+
+The "mpiteam" user on jaguar is used to make both types of tarballs.
+
+Note that the "make dist" process is used to make both types of tarballs, and is highly influenced by the VERSION file in the SVN branch that is being built (e.g., [source:trunk/VERSION]).  The VERSION file will affect the version number of the tarball and all the shared library version numbers.
+
+The [source:trunk/contrib/nightly/openmpi-nightly-tarball.sh] script is fired under the mpiteam users via cron to generate nightly tarballs.  It assumes a specific directory structure and environment module setup (e.g., the ability to module load autotools/ompi-VERSION).  It also assumes a specific output directory format -- the output tarballs are placed in the docroot of the www.open-mpi.org web site in the directory for the nightly snapshot tarballs of the relevant series (e.g., /l/osl/www/www.open-mpi.org/nightly/v1.8).
+
+Manual tarballs are created for Open MPI formal releases via the [source:trunk/contrib/nightly/openmpi-release.sh] script.  This is almost always run interactively by a human.  It deposits the tarballs that it creates in {{{$HOME/openmpi/release/}}}.
+
+== MTT hosting ==
+
+The MPI Testing Tool (MTT) is comprised of 2 hosted portions, both of which are hosted by IU:
+
+1. Postgres database containing all the MTT data.
+1. Web submission / reporter
+
+The database is in Postgres because, at the time, MySQL did not support table partitioning, which is ''absolutely essential'' to MTT reporter performance.  MySQL now supports such features, so we may be able to move back to MySQL someday (if someone wants to migrate the code away from Postgres-flavored-SQL to MySQL-flavored-SQL).
+
+The web submission / reporter piece is basically PHP code along with a cron job to slurp in new submission data into the Postgres database.
+
+There was work in the 2013-2014 school year at U. New Mexico to re-write the MTT reporter from scratch and use a much more modern and extensible interface.  This work was completed, but needs additional integration and scale testing before it can replace the current reporter.  Hopefully, that can occur over the next 12 months (it's mainly an issue of finding someone to actually do this work).

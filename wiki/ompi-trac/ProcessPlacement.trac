@@ -1,0 +1,85 @@
+Many (if not most) applications will perform adequately with default process placement options. In some cases, however, more advanced placement patterns are desired. Accordingly, OMPI provides detailed control as well as simplified options - so don't get overwhelmed by the complex advanced options! More than likely, you will never need to use them.
+
+== Terminology ==
+A few simple terms that sometimes cause confusion, even among OMPI developers!
+
+  * slot - a reserved spot for an application process on a node. Note that "slot" does not in any way correspond to a hardware resource such as a core - e.g., a user could be allocated 8 slots on a 4-cpu node, although this would be unusual. More commonly, users may be allocated a number of slots less than the number of cpus on a node - this typically occurs on systems where nodes are allocated for shared use.
+  * cpu - a logical processor on a node. By default, OMPI considers "cores" to be "cpus", regardless of how many hardware threads they may incorporate. However, when running in systems that have hardware threads enabled, some applications prefer to treat each hardware thread as an independent "cpu". OMPI provides a control for this purpose.
+  * oversubscribe - the number of processes on a node (nprocs) is typically limited by the number of allocated slots (nslots) on that node. When nprocs exceeds nslots on a node, then the node is declared to be "oversubscribed". By default, OMPI allows a user to oversubscribe nodes that are allocated via a user-specified hostfile, but not to oversubscribe nodes allocated by a resource manager. Controls are provided for overriding this behavior, but users in managed environments are cautioned to first check local policies - e.g., if nodes are allocated for shared use, then oversubscribing could impact other users.
+  * overload - when binding processes to a resource, that resource will be considered "overloaded" if the number of processes bound to it exceeds the number of cpus (as defined above) in it. Even though the processes may not be bound to any specific cpu, this situation is considered to be non-optimal as some processes will be idled due to context switching. Overloading will generate an error unless you specifically direct OMPI to allow it.
+
+== Basic Placement Options ==
+A limited set of simplified options should be adequate to support most applications, and are intended for use by the general user community without unduly complicated command lines. All of these can be achieved as well using the advanced placement controls described below - the options given here include typical combinations of advanced options to support common behaviors. Note that some of these can also be combined with advanced options - conflicting requests will generate an error warning of the conflict.
+
+Of all the options, the most critical for performance are the two binding options. Good arguments are made regarding the relative merits of bind-to-core vs bind-to-socket vs more advanced binding options. OMPI provides full control over binding so that users can decide the best option for their application and environment, and we encourage you to explore the benefits of binding in your application. Note that all published benchmarks are measured with processes bound at an appropriate level, and that binding requires that OMPI be configured with the HWLOC support library (the default configuration).
+
+==== --nolocal ====
+ Do not place application processes on the node where mpirun is executing. By default, mpirun will utilize its own node in addition to those specified, except in resource managed environments - in this latter case, only those nodes that are directly allocated to OMPI will be used.
+
+==== --nooversubscribe/oversubscribe ====
+By default, OMPI allows a user to oversubscribe nodes that are allocated via a user-specified hostfile, but does not allow nodes allocated by a resource manager to be oversubscribed. These options override this behavior to either generate an error whenever more processes than allocated slots are mapped to a node (nooversubscribe), regardless of the source of the allocation, or to allow oversubscription for all scenarios.
+
+==== --bynode ====
+Map one process on each node, wrapping around the list of available nodes until all processes have been mapped. Essentially, this instructs OMPI to balance the load across the available nodes. In addition, this option causes the processes to be ranked in the order in which they were mapped - i.e., ranking is done by-node. This option is equivalent to advanced placement options ''--map-by node --rank-by node''.
+
+==== --npernode N ====
+Place N processes on each allocated node, up to the number of specified processes (np) - if no np is given, then the number of processes will be automatically determined by N times the number of nodes.  The number of processes is subject to oversubscribe limits. This option is equivalent to the advanced placement option ''--ppr N:node''.
+
+[[BR]]
+The following options are only available with HWLOC support and will not even appear if OMPI is configured --without-hwloc:
+
+==== --npersocket N ====
+Place N processes on each socket on each allocated node up to the number of specified processes (np) - if no np is given, then the number of processes will be automatically determined by N times the number of sockets on each node. In the absence of any further binding directive, processes will be bound to their socket. This option is equivalent to the advanced placement options ''--ppr N:socket --bind-to socket''.
+
+==== --bind-to-core ====
+Bind each process to a core. Assuming use of basic placement options, cores will be assigned to processes on a node using a round-robin basis. An error will be generated if the number of processes exceeds the number of cores on a node. If advanced mapping patterns (e.g., map-by socket) were specified, then the processes will be assigned on a round-robin basis to cores within the resource to which they were mapped. As before, an error will be generated if the number of processes exceeds the number of cores on that resource. Equivalent to the advanced placement option ''--bind-to core''.
+
+==== --bind-to-socket ====
+Bind each process to a socket. Assuming use of basic placement options, sockets will be assigned to processes on a node using a round-robin basis. An error will be generated if the number of processes exceeds the number of cores within any socket on the node. If advanced mapping patterns (e.g., map-by numa) were specified, then the processes will be assigned on a round-robin basis to sockets within the resource to which they were mapped if the resource is higher than socket in the topology, and will be bound to the socket upon which they were mapped if the resource is lower than socket in the topology. As before, an error will be generated if the number of processes exceeds the number of cores within any socket. Equivalent to the advanced placement option ''--bind-to socket''.
+
+== Advanced Placement Patterns ==
+If you have an application that can benefit from rather customized process placement patterns, or you are a researcher that wants to push the frontier of MPI-land, or you are masochistic, or you live in a nerd-cave and have nothing better to do than chase likely small performance gains via obscure placement patterns, then read on! Otherwise, you may want to save yourself the brain-pain and skip the remainder of this page.
+
+OpenMPI supports a very broad range of process placements by splitting the placement process into three distinct and independent phases:
+
+  * mapping - By default, OMPI maps processes by ''slot'' - i.e., processes are placed on each node up to the number of allocated slots on that node before moving to the next node.
+  * ranking - define the MPI rank of each process according to a specified ordering pattern. Note that the ranking pattern has no required relation to the mapping pattern - e.g., you can map processes by node, but rank them by socket. By default, OMPI ranks processes by ''slot'' - i.e., processes are ranked in a round-robin fashion on each node, with all processes on a node being ranked before moving to the next node.
+  * binding - constrain a process to execute on specific resources on a node. Processes can be ''bound'' to any resource on a node, including NUMA regions, sockets, and caches. By default, OMPI does not bind processes unless directed to do so.
+
+=== Mapping ===
+
+==== Mapping Policies ====
+
+===== --map-by <foo> =====
+
+===== --ppr <foo> =====
+
+==== Mapping Modifiers ====
+Several advanced mapping directives are supported as a means of allowing you to obtain an even broader range of placement patterns. In general, directives allow you to modify the mapping policy (where modifications make sense), to direct exclusion of the node where mpirun is executing, and to control 
+
+  * fill: 
+  * span: Treat all nodes in the allocation as a single entity by mapping processes to resources, stepping across the nodes before wrapping around. For example, if the mapping policy is ''socket'', then ''span'' will cause OMPI to map one process to each socket on each node before wrapping around and mapping another process onto the first socket of the first node. In other words, OMPI will balance the load across the specified resource type.
+  * nolocal: Do not place application processes on the node where mpirun is executing. By default, mpirun will utilize its own node in addition to those specified, except in resource managed environments - in this latter case, only those nodes that are directly allocated to OMPI will be used. Specifying ''nolocal'' will override this behavior regardless of the local node being included in the allocation.
+  * oversubscribe/nooversubscribe: These two directives are obviously related, and you will receive an error message if you set both. By default, OMPI allows a user to oversubscribe nodes that are allocated via a user-specified hostfile, but not to oversubscribe nodes allocated by a resource manager. The ''oversubscribe'' modifier instructs OMPI to override these defaults and allow oversubscription. Likewise, the ''nooversubscribe'' modifier instructs OMPI to error out when oversubscription is detected.
+
+
+=== Ranking ===
+
+==== Ranking Modifiers ====
+Only one modifier is currently available for ranking policies:
+
+  * span: Treat all nodes in the allocation as a single entity by ranking processes by resource, stepping across the nodes before wrapping around. For example, if the ranking policy is ''socket'', then ''span'' will cause OMPI to rank one process to each socket on each node before wrapping around and ranking another process onto the first socket of the first node. In other words, OMPI will place successive ranks on successive sockets, regardless of node boundaries.
+
+
+=== Binding ===
+
+==== Binding Policies ====
+
+
+==== Binding Modifiers ====
+
+  * if-supported: bind processes as directed if cpu binding is supported. If not, silently do not bind (i.e., do not issue a warning and run the job unbound).
+  * overload-allowed: if more processes are bound to a resource than the number of cpus on that resource, then the resource is considered ''overloaded''. By default, OMPI will abort when this condition is detected. Adding this modifier instructs OMPI to ignore resource overloads and continue to run the job with processes bound as instructed.
+
+
+=== Process Locality ===

@@ -1,0 +1,264 @@
+= June 2013 OMPI Developer's Meeting =
+
+This meeting immediately precedes the [http://meetings.mpi-forum.org/Jun_2013_logistics.php June 2013 MPI Forum meeting].
+
+== Logistics ==
+
+ * Dates: '''Jun 3-4, 2013'''
+ * Location: '''Cisco, San Jose, CA, USA'''
+   * Free wifi will be provided.
+   * Mon, June 3, 2013: 2-6pm US Pacific time,  [http://goo.gl/maps/O3rt Cisco building 2, 3800 Zanker Rd, San Jose, CA 95134] [[BR]]
+     There is a receptionist in Cisco building 2. He will notify Jeff when you arrive.
+   * Tue, June 4, 2012: 8am-1pm US Pacific time, [http://goo.gl/maps/I9T1z Cisco building C, 150 W. Tasman Dr, San Jose, CA, 95134] [[BR]]
+     There is a receptionist in Cisco building C. She will notify Jeff when you arrive.
+
+== Attendees ==
+
+ * Jeff Squyres
+ * Ralph Castain
+ * Brian Barrett
+ * Nathan Hjelm
+ * Pavel Shamis
+ * Aurelien Bouteiller
+
+== Topics ==
+
+ * [https://cisco.webex.com/ciscosales/j.php?ED=228127932&UID=0&PW=NMzIxYTQ5ZDlh&RT=MiM0 Monday webex], pw: ompi
+ * [https://cisco.webex.com/ciscosales/j.php?ED=228128127&UID=0&PW=NZTQ0ZmJkODk3&RT=MiM0 Tuesday webex], pw: ompi
+
+== Monday discussions ==
+
+=== Jeff: Intel Phi appears as an !OpenFabrics device, causing warnings from openib BTL (at least in 1.6) ===
+
+ * Jeff: followup: ticket #3626
+ * Jeff: followup: 1.6 release in immediate future due to Intel Phi / segv's from customers
+ * big discussion understanding the problem
+ * we can definitely add settings for this device in the .ini file
+ * but choosing to use/not use it...
+ * brian is checking into what scif_0 verbs device is for -- more
+   discussion tomorrow
+
+=== Ralph: MPI_Abort behavior ===
+
+ * discussion of what Mellanox is proposing
+ * Consensus: 
+   * Mellanox can get their desired behavior with a new ORTE
+     API/flag/whatever
+   * Mellanox is proposing a similar change to SLURM / PMI API
+   * We decided we don't like this change; Ralph will reply to SLURM list -- specifically about the return status from PMI_Abort:
+     * we oppose making a change to the current behavior of returning first non-zero status, and returning a non-zero status if all procs call abort with zero status. The latter is important so the user/script knows that abort was called.
+   * We want more info from Mellanox about why they want this change --
+     we don't see anything in OpenSHMEM that requires this behavior
+
+=== Nathan: Performance variable (MPI_T_pvar) internal API discussion ===
+
+ * see attached slides
+ * looks pretty good, noted that the variables will be unique to OMPI (vs MPICH)
+ * Nathan will send a proposal to the devel list when ready with his
+   prototype
+ * will decide about porting to 1.7 when proposed
+ * will leave peruse in-place until external users make the transition
+
+=== Jeff: Mellanox On Demand Paging ===
+
+ * Jeff brings this up out of curiosity
+ * [https://www.openfabrics.org/resources/document-downloads/presentations/doc_download/568-on-demand-paging-for-user-space-networking.html see Mellanox ODP slides]
+ * might be interesting, don't know the tradeoffs at this time, some skepticism
+ * Concerned about the RNR NAK behavior when page is not in HCA TLB
+   cache -- concerned that this will generally happen for large messages
+ * how does this fix the intercept-when-memory-leaves-the-process
+   problem?  Is the idea that you register [NULL, 2^64]?
+ * or is registration supposed to be cheap?
+ * Jeff asked linux-rdma list; we'll see what they say.
+
+=== Aurelien: BTL, mpool, rcache, allocator moved down to the OPAL layer ===
+
+ * Followup on the meeting from Tennessee
+ * George has a build that seem to work (all frameworks moved to opal), but he's not quite done yet
+ * SM, TCP, and SELF have been migrated
+   * have a FAQ on how to upgrade the reaminder of the BTLs
+   * openib BTL compiles, but hasn't been testing
+ * What to do with openib BTL?
+   * discussion about openib + (udcm and xudcm)
+   * remove oob cm as udcm replaces it
+   * we can move udcm and be enough for now
+ * targeting 1.9
+
+=== Aurelien: multithreaded TCP BTL experiment status ===
+
+ * architecture: TCP BTL has hidden progress threads for receives (and
+   possibly sends, but Auri wasn't completely sure)
+   * all receives go into a progress thread
+   * no support from PML (hidden threading)
+ * latency gets a 15% increase (and BW slightly worse)
+   * not as good as he expected :-(
+   * but non-blocking operations actually occur
+ * ack/rendezvous definitely still goes through PML, so it only
+   has background progress once PML progresses past eager (remember
+   that TCP BTL emulates RDMA, so it does a giant PUT once eager is
+   done)
+ * this was a good experiment to show that the idea is not good :-)
+
+=== Nathan: Git vs. Subversion for central Open MPI repository ===
+
+ * Long discussion
+ * Major consensus:
+   * Strong resistance to going to a DVCS
+   * Less resistance going to hg vs. git, but still strong resistance
+   * Big worries about:
+     * Needing a central Linus-like figure to control what goes in the
+       code base
+     * Repo getting wedged and needing an admin to fix it
+   * Consensus: get hwloc and/or MTT to switch (including trac, etc.)
+     and see how it goes for them for 6-12 months
+
+=== Nathan: MTT ===
+
+ * He has a MS student working on reporter
+ * Jeff will recommend some technologies to look at for a new reporter
+ * Step 0: re-do the feature set we have now in a maintainable /
+   extendable way
+ * Step 1: talk to Jeff about 100 more features that can be added to
+   the reporter :)
+ * Bonus points for re-doing/improving the MTT submission step.
+   Probably not totally necessary, but it could also probably benefit
+   from a refresh.
+
+=== Jeff: New Fortran with Python generators: during autogen vs. make ===
+
+ * Consensus: 
+   * We're ok with scripts running during "make"
+   * Python vs. Perl: the Big Concern is that python has had major API
+     and syntax breakages between 2.3 and 2.4, and then again from 2.x
+     to 3.0.  Would feel much better if it was done in perl.
+ * Jeff will take this feedback to Craig
+
+=== Ralph: OOB Rewrite ===
+
+ * gave an overview of new design
+ * much discussion of how to handle failures
+
+== Tuesday discussions ==
+
+=== !Jeff/Josh: Early async progress results discussion ===
+
+ * See slides that were presented (not linked here on the wiki because
+   we might well publish a paper about this stuff) and Josh's notes
+
+=== Jeff: kill ofud and dr ===
+
+ * Basically: no one cared
+ * Jeff will send RFC about OFUD (done)
+ * Asked George if he cared about DR; he didn't.  So we killed it.
+
+=== Pasha: should we have a common place for unreliable messaging? ===
+
+ * From Jeff:
+   * Cisco USNIC BTL will come upstream "soon" (1-3 months?)
+   * opal_hotel is a good piece that was separated out already (for
+     timers and retransmission)
+   * The usnic BTL has a lot more retrans stuff than just opal_hotel,
+     but I don't know how much of it is specific to usnic vs. what can be
+     generalized. 
+   * Current plan is to bring usnic btl upstream first and then think
+     about / see what can be generalized.
+ * Turns out that Pasha was specifically asking about the common/ofacm stuff
+
+=== All: Asynchronous progress approaches ===
+
+ * Brian proposal...
+ * Add PML flag: ring doorbell on receiver (i.e., wake them up, even if
+   they're not in MPI)
+ * Step 0: add the flag and don't do anything with it :-)
+ * Step 1: make the PML and one-sided and (etc.) use the flag
+   * Brian thinks new one sided will be able to do this fairly easily
+   * Will need to devote some effort to make this do-able in OB1
+   * Traditional knowledge: short messages go through normal/today's
+     kind of mechanisms; long messages go through doorbell mechanisms.
+   * Might want one-sided to do different kinds of things with the
+     doorbell, because it needs real async progress (e.g., Brian cited
+     send 10 packets the normal way and then send the 11th packet with
+     the doorbell flag).
+ * On the sending side, if ring-doorbell is set, the BTL is responsible
+   for sending in a way that wakes up the receiver (e.g., a different
+   QP on the receiver that is blocking on an fd).
+ * For BTLs with fd-based blocking progress, we should provide some
+   infrastrcutre so that each BTL doesn't need its own progress thread:
+   * e.g., an event base in the BTL base
+   * BTL's can register an fd with this event base and a callback to
+     invoke when something happend on that fd
+ * Aurelien makes the comment that they have run some tests where they let
+   progress threads float -- i.e., don't bind them -- and they get good
+   performance improvements because the progress thread can take
+   advantage of idle times on processors (e.g., if some process is
+   blocking for some reason)
+
+ * Moving forward
+   * Turn on mpi-thread-multiple by default on trunk
+   * Today we have the following configure options:
+{{{
+  --enable-orte-progress-threads
+    ^^ This is going away because it's going to always be on
+    ^^ Will let Ralph delete this one (he says after oob2 merge)
+
+  --enable-opal-multi-threads
+    ^^ Similar to orte, this will always be enabled, and will go away
+    ^^ Don't delete any C code -- just the configure option
+    ^^ Jeff will do this
+  --enable-ompi-progress-threads
+    ^^ This model is broken, so let's remove all this code
+    ^^ Removal of C code and configure option
+    ^^ Happy dance
+    ^^ Brian will do this
+  --enable-mpi-thread-multiple
+    ^^ Change orientation to be enabled by default, and help message
+       shows --disable-mpi-thread-multiple
+    ^^ Enables the AC_DEFINE that opal-multi-threads used to enable
+    ^^ Enables the AC_DEFINE for MPI thread multiple (same as now)
+    ^^ Jeff will do this
+}}}
+   * Ralph notes that it will be easier to do the above if we wait for oob2 to come in to the trunk
+   * Jeff cites --enable-mpi-thread-multiple + THREAD_MULTIPLE hangs
+     in WAITALL; Nathan volunteers to fix the WAITALL bug
+   * Jeff volunteers to do:
+     * De-snaggle attribute locks
+     * Make an mpi_not_important lock for all "non-sexy" stuff (info,
+       attributes, etc.)
+   * Nathan will add BTL doorbell flags (_SIGNALED / _SIGNAL):
+     * BTL can say that doorbell is supported
+     * individual descriptor flag in a send to say "ring doorbell on
+       remote side"
+   * Nathan to make a progress thread in ugi and call up to ob1 -- which
+     will turn up lots of bugs :-)
+     * This upcall will be valid to do even --enable-mpi-thread-multiple
+       was not specified -- because this is for async progress, not
+       (strictly) thread multiple
+   * Nathan will make ob1 send the BTL flags down for a doorbell send
+   * Nathan will add an ob1 opal_output_verbose() for "huh, I seem to
+     have no async BTLs" so that you can see if you have no async
+     progress transports
+   * OPAL OBJ will be left as thread safe (via atomics)
+   * resolution: all opal and orte (and possibly ompi) classes need to
+     have a thread safe and thread-free interface
+     * {{{_st}}} suffix: single thread (i.e., not thread safe variant)
+     * {{{_mt}}} suffix: multi thread (i.e., thread safe variant)
+       * for functions that have both st/mt, they will *both* have suffixes
+       * other functions (that do not have st/mt versions) will be naked names
+     * need to rename all classes that have locking enabled already
+       (e.g., opal_free_list)
+     * so today, we go rename all the functions (e.g., opal_free_list
+       functions get {{{_mt}}} suffix) throughout the code base
+     * as someone needs the {{{_st}}} version, they go create it and
+       use it as they want to
+     * Ralph will do the orte classes
+     * Aurelien will do this for the ompi classes
+
+=== Side notes ===
+ * Pending affinity requests:
+   * MCA param to say: bind the thread that calls MPI_INIT, don't bind
+     the entire process
+   * Skip mapping on some (specific) set of cores
+     * Bonus points for automatically figuring out which core(s) to skip :-)
+   * Coalesce progress thread(s) to some (specific) set of cores
+   * Might want an affinity option for Aure's comment, above (i.e., let
+     progress threads float)

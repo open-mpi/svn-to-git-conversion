@@ -1,0 +1,90 @@
+= Major Release Philosophies =
+
+There have been two major philosophies used to create Open MPI releases:
+
+ 1. The v1.0, v1.1, and v1.2 series of Open MPI all used a "single release" philosophy, where the version number was broken into three parts: major.minor.release.  Changes in the minor number generally indicated "large" changes; changes in the release number generally indicated "small(er)" changes.  Release number changes also ''generally'' focused on bug fixes, although "small" new features were sometimes slipped in.
+ 1. Starting with the v1.3 series, a new philosophy was used that modeled off the "odd/even" ideas from other open source projects: odd minor numbers are "feature" releases, while "even" minor numbers are "super stable" releases.  This philosophy is described in detail below.
+
+== Feature / Super Stable Release Philosophy ==
+
+'''NOTE:''' This philosophy was initially proposed to be first used in the v1.4 series (i.e., the Feature series would be v1.4 and the Super Stable series would be v1.5).  After much discussion, it was decided that bootstrapping this philosophy to the Open MPI project would be better if applied to the (just recently released) v1.3 series.  Specifically, v1.3 was released after a ''very'' long wait, but it was discovered after release that we really needed a few more important features.  Hence, it made sense to call the v1.3 series what it is -- a Feature series (although it is quite stable).  Hence, the v1.3 Feature series is expected to have only a few releases before transitioning to the v1.4 / Super Stable series.
+
+=== Background ===
+
+We have [at least] 2 competing forces in Open MPI:
+
+ 1. desire to release new features quickly.  Fast is good.
+ 1. desire to release based on production quality.  Slow is good.
+
+The competition between these two forces has both created some tension in the Open MPI community as well as created a Very Long release cycle for OMPI v1.3 (yes, it was our specific and deliberate choice to be feature driven -- but it was still verrrrry loooong).  Prior to the v1.3 series, we did not manage these competing forces well.  We have come to realize that we should embrace ''both'' of these forces simultaneously, drawing inspiration from other well-established software release paradigms, such as:
+
+ * Linux kernel "odd/even" version number release methodology
+ * Red Hat/Fedora stable vs. feature releases
+ * Agile development models
+
+=== Philosophy ===
+
+Starting with v1.3 (although it wasn't formally decided until after v1.3.0 was released), Open MPI will have two concurrent release series:
+   1. "Super stable": for production users who care about stability above all else.  They're willing to wait long periods of time before updating to a new version of Open MPI.  Super Stable release series will have an even minor version number.
+   1. "Feature driven": for users who are willing to take a few chances to get new OMPI features -- but cannot endure the chaos of nightly trunk tarballs.  Feature release series will have an odd minor version number.
+
+The general idea is that Release Managers will create a plan for a pair of Feature and Super Stable series.  The Feature Series essentially represents the development phase of the Super Stable series.  Feature releases are regular and not-infrequent (probably no more often than once a month; no less often than once every three months).  The Feature release branch is still RM-regulated (more on this below), but in a more-or-less agile development style.  When specific criteria are met (e.g., feature complete, schedule driven, etc.), the Feature release series is morphed/renamed into a Super Stable state and released with a new version number.  At this point, all development stops on that release series; only bug fixes are allowed.  
+
+To be clear: RM's are therefore responsible for ''two'' release series: a Feature driven series and the corresponding Super 
+Stable series that emerges from it.
+
+'''KEY POINT:''' This "two release" methodology allows for the release (and real-world testing) of new features in a much more timely fashion than our current release methodology.
+
+Here's a crude ASCII art representation of how branches will work using this proposal in SVN:
+
+{{{
+       v1.3 series/feature driven                                             v1.7 series/feature
+           v1.3.0  v1.3.2   ...     v1.4.0     v1.4.1     v1.4.2                    v1.7.0
+;
+trunk  /       v1.3.1  v1.3.3       now becomes v1.4/super stable               /       v1.7.1
+------------------------------------------------------------------------------------------------->
+                                     \   v1.5.0  v1.5.2  v1.5.4  ...            v1.6.0   v1.6.1
+                                      \--|---|---|---|---|---|---|---|---|------|--------|------>
+                                             v1.5.1  v1.5.3      ...            now becomes
+                                         v1.5/feature driven                    v1.6/super stable
+}}}
+
+Note that each new Feature series is a new branch from the trunk, but Super Stable series are simply renaming of its corresponding Feature branch.
+
+Also note that a Super Stable series is likely to "drift" farther and farther away from the trunk / current Feature release series.  It is therefore worth noting that making bug fixes for Super Stable series may likely mean ''creating patching specifically for the Super Stable series'' (vs. making a patch on the trunk and merging it over to the Super Stable series.  This is not necessarily a huge deal, but it is worth noting to the developer community.
+
+=== Example ===
+
+Here's how a typical release cycle works:
+
+ 1. Assume that a Super Stable series exists; a release series that has an even minor number: v1.2, v1.4, v1.8, ...etc.
+   * For this example, let's assume that the Super Stable series is v1.4.
+   * Only bug fixes go into the Super Stable series.
+ 1. Plans for the next Super Stable are drawn up (v1.6 in this example), including a list of goals, new features, a timeline, etc.
+ 1. A new Feature release series is created shortly after the first Super Stable release with a minor version number that is even (e.g., v1.3, v1.5, v1.7, ...etc.).
+   * In this example, the Feature release series will be v1.5.
+   * The Feature branch is taken to a known degree of stability (more on this below) and released as v1.5.0.
+ 1. Development on the SVN trunk continues.
+ 1. According to a public schedule (probably tied to our teleconference schedule), the RM's will approve the moving of features and bug fixes to the Feature release series.
+ 1. Rather than submitting CMRs for the Gatekeeper to move, the "owner" of a particular feature/bug fix will be assigned a specific time to move the item to the feature branch.
+ 1. For example, George will have from Tues-Fri to move his cool new feature X to the v1.5 branch.
+   * Friday night, new 1.5 tarballs are cut and everyone's MTT tries them out.
+   * Iterate for the next week or so to get the v1.5 branch stable.
+ 1. Rinse, repeat.
+
+As discussed above, once the Feature series meets certain criteria (e.g., feature complete, timeline is met, etc.), it undergoes a period of intense testing and debugging to achieve Super Stable status.  Once Super Stable status has been reached, the branch is renamed to be "v1.6" and we start the whole cycle again (with v1.7/v1.8).
+
+Note that in this model, CMRs and Gatekeepers are generally used on Super Stable series. The plan is to only support one Super Stable series at a time; when a new Super Stable series is released, the older Super Stable series is unsupported / deprecated / "less supported".
+
+Some '''KEY POINTS:'''
+
+ * Feature releases must be pretty stable.  We cannot get a reputation for releasing "junk" under the nomenclature of "Feature releases."  Specifically, the key distinction point between Feature Releases and Super Stable Releases is ''not'' the degree of stability of running MPI applications.  The key difference is that the amount of change between Feature Releases may be very large while the amount of change between Stable Releases will hopefully be very small (bug fixes only).  Indeed, Feature release series reserve the right to add and remove features at will; there is no guarantee that a specific feature in a given Feature release will be included in any other release.
+ * The schedule of moving features and bug fixes to the release branch is somewhat fluid.  If George doesn't have time to move feature X in his appointed week, the RMs shuffle him back further in the schedule and take the next item off the list.  This shuffling allows for rapid response to dynamic resource availability at each organization.
+ * One of the goals of this philosophy is to remove the stigma of not getting a specific feature into a given release.  A developer can always get the feature in the next Feature release (since Feature releases will be "somewhat frequent").  Hence, we want to try to avoid the tendency of OMPI developers to pack in a million features right before a release, fearing that if feature X is not included in this release, it'll sit on the SVN trunk for a year before release.
+
+=== Bootstrapping Feature / Super Stable into Open MPI ===
+
+ 1. After the v1.3 series was released, it was declared a Feature release series.
+   * A small number of important features will be developed for the v1.3 series in subsequent v1.3.x releases.
+   * The v1.3 series will then morph into its Super Stable counterpart (v1.4) and only accept bug fixes
+ 1. When v1.4 is released, v1.5 will branch from the development trunk and start working towards a v1.5.0 Feature release and eventual v1.6.0 Super Stable release.

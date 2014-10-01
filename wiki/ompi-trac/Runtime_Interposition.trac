@@ -1,0 +1,188 @@
+= Description =
+
+Operation Pineapple: A runtime interposition project
+
+See the attached slides for more details. attachment:Pineapple-Teleconf.pdf
+
+!BitBucket Branch:[[BR]]
+  https://bitbucket.org/jjhursey/ompi-pineapple
+
+
+== Build Options ==
+
+=== Commonly Used Configurations ===
+
+The most commonly used options will be the ''vanilla'' builds. But the other options listed below are supported. The table below shows which layer in the software tree is built, and, in the case of Pineapple, what it expected to use as a RTE.
+
+{{{
+autogen flags  | configure flags  | OMPI Layer | Pineapple      | ORTE Layer | OPAL |
+---------------+------------------+------------+----------------+------------+------+
+{vanilla}      | {vanilla}        |     X      | Internal ORTE  |     X      |  X   |
+---------------+------------------+------------+----------------+------------+------+
+--no-ompi      | {vanilla}        |            | Internal ORTE  |     X      |  X   |
+---------------+------------------+------------+----------------+------------+------+
+--no-orte      | {vanilla}        |     X      | External RTE   |            |  X   |
+---------------+------------------+------------+----------------+------------+------+
+--no-ompi \    |                  |            |                |            |      |
+--no-orte      | {vanilla}        |            | External RTE   |            |  X   |
+---------------+------------------+------------+----------------+------------+------+
+--no-pineapple |                  |            |                |            |      |
+  -- OR --     |                  |            |                |            |      |
+--no-ompi \    |                  |            |                |            |      |
+--no-pineapple | {vanilla}        |            |                |     X      |  X   |
+---------------+------------------+------------+----------------+------------+------+
+--no-ompi \    |                  |            |                |            |      |
+--no-orte \    |                  |            |                |            |      |
+--no-pineapple | {vanilla}        |            |                |            |  X   |
+---------------+------------------+------------+----------------+------------+------+
+}}}
+
+A few other configuration options:
+{{{
+autogen flags  | configure flags  | OMPI Layer | Pineapple      | ORTE Layer | OPAL |
+---------------+------------------+------------+----------------+------------+------+
+--no-orte      | --with-orte      |     X      | External ORTE  |            |  X   |
+--no-orte      | --with-orte=PATH |     X      | External ORTE  |            |  X   |
+--no-orte      | --without-orte   |     X      | No ORTE        |            |  X   |
+---------------+------------------+------------+----------------+------------+------+
+}}}
+
+=== Configuration Warnings ===
+
+Currently the {{{--with-orte}}} option will display a warning before checking for the External ORTE build. The reason for this is that I am still working through some (really fun) linking issues. So display a warning discouraging folks from using this option. If I cannot get it right before it goes into the trunk, I will just comment out the lines so that users do not see the option.
+
+=== Configuration Errors ===
+
+The reason that these are errors is that the user is building an Internal ORTE (in the tree), but trying to link against an External ORTE. This is likely to lead to some confusion for the user, and the user should be notified. Throwing an error at this stage prevents users from thinking that they need to pass {{{--with-orte}}} to get the default build of Open MPI with an Internal ORTE.
+
+{{{
+autogen flags  | configure flags  | OMPI Layer | Pineapple      | ORTE Layer | OPAL |
+---------------+------------------+------------+----------------+------------+------+
+{vanilla}      | --with-orte      |     X      | External ORTE  |     X      |  X   |
+{vanilla}      | --with-orte=PATH |     X      | External ORTE  |     X      |  X   |
+}}}
+
+The reason for the error below is that the user requested a build of Open MPI without ORTE. Open MPI can build and install ORTE and not use ORTE in that build. However, this is probably not what the user intended. So print an error and stop. 
+{{{
+autogen flags  | configure flags  | OMPI Layer | Pineapple      | ORTE Layer | OPAL |
+---------------+------------------+------------+----------------+------------+------+
+{vanilla}      | --without-orte   |     X      | No ORTE        |     X      |  X   |
+}}}
+
+=== Autogen Flags ===
+
+These flags can be passed to {{{autogen.pl}}}, and used in combination.
+
+* '''Default''': Vanilla Build (default if you specify nothing on the command line)[[BR]]
+ Builds the OMPI/Pinapple/ORTE/OPAL stack from the Open MPI tree.
+
+* '''{{{--no-ompi}}}'''[[BR]]
+ Build Open MPI without the OMPI layer. Stack to be built: Pineapple, ORTE, OPAL
+
+* '''{{{--no-orte}}}'''[[BR]]
+ Builds Open MPI without the Internal ORTE layer in the tree. An External ORTE ''may'' still be linked in as an externally built library. Stack to be built: OMPI, Pineapple, OPAL
+
+* '''{{{--no-pineapple}}}''' (Note: this implies {{{--no-ompi}}})[[BR]]
+ Build Open MPI without the Pineapple and OMPI layers. Stack to be built: ORTE, OPAL
+
+=== Configure Flags ===
+
+These flags can be passed to {{{configure}}}.
+
+* Vanilla (default if you specify nothing on the command line)
+ Builds the OMPI/Pinapple/ORTE/OPAL stack from the Open MPI tree.
+
+* {{{--without-rte-support}}}[[BR]]
+  This option build the Internal ORTE in a ''minimal'' mode for specialized environments. It would be nice if we could eliminate this option by extending the Pineapple layer as necessary. This would allow the ORTE project to remove this logic, but that is future work.
+  * If autogen '''was''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will ignore this option (it is defined by ORTE config)
+  * If autogen '''was not''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will build the Internal ORTE in 'minimal' support mode - as it does today.
+
+* {{{--with-orte}}}[[BR]]
+  Build with External ORTE support. If the External ORTE is not found, then the configuration will fail.
+  * If autogen '''was''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will look for an External ORTE in the default search path. If not found, then error out.
+  * If autogen '''was not''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will error out and print a message.
+
+* {{{--with-orte=PATH}}} and {{{--with-orte-libdir=LIBPATH}}}[[BR]]
+  Build with External ORTE support from a pre-installed location specified as PATH. If the External ORTE is not found, then the configuration will fail.
+  * If autogen '''was''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will look for an External ORTE in the default search path. If not found, then error out.
+  * If autogen '''was not''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will error out and print a message.
+
+* {{{--without-orte}}}[[BR]]
+  Build without ORTE support. Should be used with {{{autogen.pl --no-orte}}} 
+  * If autogen '''was''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will build Open MPI without ORTE.
+  * If autogen '''was not''' passed the {{{--no-orte}}} option: [[BR]]
+    Then the configure script will error out and print a message.
+
+
+== External RTE Support ==
+
+'''This feature is currently in development''' (ironing out the bugs still), but the way it should/will work is as follows.
+
+(1) Create a component in {{{pineapple/mca/stems/}}} (called '''myrte''' for this example)
+{{{
+shell$ cp -R pineapple/mca/stems/none pineapple/mca/stems/myrte
+}}}
+
+(2) Create a {pineapple/mca/stems/myrte/configure.m4}}}
+{{{
+shell$ $EDITOR pineapple/mca/stems/myrte/configure.m4
+}}}
+
+(2.a) In your configure.m4 define a configure flag so that we know how to link to your RTE into the system. Something like {{{--with-myrte}}}.
+
+{{{
+autogen flags  | configure flags  | OMPI Layer | Pineapple      | ORTE Layer | OPAL |
+---------------+------------------+------------+----------------+------------+------+
+--no-orte      | --with-myrte     |     X      | External MYRTE |            |  X   |
+}}}
+
+(3) Fill out the necessary functionality to support the stems.h interface
+
+(4) Build and install your RTE somewhere on the system. Say in $PATH_TO_MYRTE.
+
+(5) Configure Open MPI with your 
+{{{
+./autogen.sh --no-orte && \
+./configure --prefix=$INSTALLDIR --with-myrte=$PATH_TO_MYRTE && \
+make -j 4 > /dev/null && \
+make -j 4 install> /dev/null
+}}}
+
+Notes:
+ * You will not have any of the OMPI level tools (these are only enabled for Internal ORTE builds at the moment). So you may want to create some of your own tools for launching to mimic the desired behavior of mpirun, for example.
+
+
+== To Do ==
+
+ * Testing...
+
+=== Known broken: ===
+ * Windows Build::[[BR]]
+   It should not be too bad to cleanup, but I don't know anything about that build system to confidently make the changes needed.
+ * C/R functionality:[[BR]]
+   I tried to convert some of the functionality, but could not get to all functionality. In some places the ORTE API used was already a version behind. So this code path needs updating.
+
+=== Might need work: ===
+ * Java bindings:[[BR]]
+   This should be ok, but someone should check it.
+ * Vampir trace support:[[BR]]
+   This needs to be checked.
+
+
+== Future Work ==
+
+ * '''Rework {{{ompi_info}}}''':[[BR]]
+   Fix {{{ompi_info}}} to work more generally. So that we do not have to list all frameworks in the file. autogen.pl should be able to help here. This will reduce its dependance on the ORTE and OMPI layers - really could just be an OPAL tool. The component init/finalize routines will get tricky.
+ * '''External ORTE Builds''':[[BR]]
+   Fix and cleanup the external build of ORTE ({{{--with-orte=PATH}}}) capability.
+ * '''{{{--without-rte-support}}}''':[[BR]]
+   For the environments that rely on the {{{--without-rte-support}}} option, we should look at providing a pineapple component to support that environment.
+ * '''Hide {{{pineapple_process_info}}}''':[[BR]]
+   Consider hiding the {{{pineapple_process_info}}} structure part of the component interface. This reduces the number of global variables exposed out of the Pineapple layer.

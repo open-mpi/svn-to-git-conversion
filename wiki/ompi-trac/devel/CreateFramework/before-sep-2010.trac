@@ -1,0 +1,273 @@
+[[PageOutline]]
+
+= Create a new MCA framework (prior to September 2010) =
+
+This wiki page goes through the basics of creating a new Open MPI
+Modular Component Architecture (MCA) framework.  It is assumed that
+the reader already has at least some familiarity with the internals of
+Open MPI.  
+
+>> '''NOTE:''' This page is relevant to versions of Open MPI prior to September 2010 (e.g., version 1.4.x and prior).  Newer versions of the Open MPI source base (e.g., the SVN trunk and possibly later versions of the 1.5.x series) are probably more relevant to the most recent version of this wiki page, [wiki:devel/CreateFramework which can be found here].
+
+== Related wiki pages ==
+
+ * Note that OMPI's top-level "autogen.sh" is pivotal to the discovery, configuration, and building of components in the Open MPI source code tree.  Be sure to see the [wiki:devel/Autogen autogen.sh] wiki page for details about the role of autogen.sh.
+ * [wiki:devel/CreateComponent How to create a new MCA component].
+
+== Removing a framework ==
+
+As you'll see below, a framework is solely contained within a single
+directory tree.  As such, removing a framework (''and'' all of its
+components) is accomplished via "rm -rf" of the framework directory
+tree and re-running autogen.sh and configure.
+
+This assumes that you have also removed all references to the
+framework from the rest of the OMPI code base, of course!
+
+== Creating the framework ==
+
+There are a few different kinds of frameworks that can be created;
+this document walks through creating the simplest (and most common): a
+framework that builds all of its components statically and/or
+dynamically and chooses which one (or more) to load/use at run-time.
+
+ 1. Pick a framework name.  It must obey the following guidelines:
+    1. Be valid as a C variable name (no spaces/punctuation other than
+       "_", start with a letter, etc.)
+    1. Be all lower case
+    1. Be unique across all other MCA frameworks (even those
+       frameworks in different Open MPI architecture levels -- e.g.,
+       you can't have a "foo" framework in both the OPAL and ORTE
+       layers)
+    1. Is at least somewhat descriptive (be friendly to your fellow
+       developers!)
+ 1. Create a directory with the framework name in <project>/mca/.  For
+    the purposes of this document, we'll assume that your framework
+    name is "foo".
+ 1. In the <project>/mca/foo directory, create a file named "foo.h".
+    1. This file defines the public interface for all components and
+       modules the foo framework.  Specifically, all components should
+       be able to #include "<project>/mca/foo/foo.h" and have all the
+       types declared for all component and module interfaces.
+    1. Use standard protect-against-multiple-include stuff, such as
+{{{
+#ifndef MCA_FOO_H
+#define MCA_FOO_H
+/* ...body of the file... */
+#endif
+}}}
+ 1. In the <project>/mca/foo directory, create a file named
+    Makefile.am.  It is usually easiest to copy a Makefile.am from
+    another framework directory and then change every instance of
+    "that_framework_name" in the Makefile.am to "foo".  For the
+    purposes of this document, let's assume that you copied
+    [source:trunk/opal/mca/paffinity/Makefile.am] and changed all
+    instances of "paffinity" to "foo".
+
+== The framework configure.m4 file ==
+
+A framework may optionally have a text file named configure.m4 in its
+top-level directory (e.g., "<project>/mca/foo/configure.m4").
+Currently, only two actions are possible in this file:
+
+ 1. Set the configure mode for all components in the framework
+ 1. Define some shell code that will be executed in OMPI's top-level
+    configure before evaluating each component in the framework to see
+    if they want to be built.
+
+One or both of the actions can be specified.
+
+=== Setting the configure mode ===
+
+The default configure mode for frameworks is to evaluate each
+component that is found and query to see if it wants to build (no
+ordering guarantees are provided; Open MPI will evaluate each
+component in some random order).  If it does, the component's
+directory is added to the list of directories to traverse when
+building Open MPI.  If the component does not want to be built, it is
+ignored/skipped in the build process.
+
+This default behavior can be changed to one of two other modes if
+desired, but ''only'' if ''all'' components in the framework use the
+configure.m4 method for configuring (see [wiki:devel/CreateComponent]
+for details):
+
+ * STOP_AT_FIRST: When evaluating components to see if they want to
+   build, the first component that returns "yes, build me!" will cause
+   OMPI's top-level configure to ignore all the rest of the components
+   in that framework.  As such, a framework that specifies
+   STOP_AT_FIRST will have either 0 or 1 components to build.
+
+ * STOP_AT_FIRST_PRIORITY: When this mode is used, all components
+   ''must'' set PARAM_CONFIG_PRIORITY in their configure.params file.
+   '''.........................NEED MORE HERE (NEED TO FIGURE OUT WHAT
+   THIS DOES!!)'''
+
+Changing the mode is accomplished by setting the m4 macro named
+{{{MCA_<framework>_COMPILE_MODE}}}.  For example:
+
+{{{
+m4_define(MCA_foo_CONFIGURE_MODE, STOP_AT_FIRST)
+}}}
+
+=== Running framework code in configure ===
+
+If the framework's configure.m4 file defines an m4 macro named
+{{{MCA_<framework>_CONFIG}}}, this macro is executed instead of
+the OMPI configure main "engine" for evaluating all the components in
+the framework.
+
+The {{{MCA_<framework>_CONFIG}}} macro is passed two parameters:
+
+ * $1 is the name of the project
+ * $2 is the name of the framework
+
+The {{{MCA_<framework>_CONFIG}}} macro can generally contain any valid
+Autoconf / Automake Bourne shell code and macros, but it '''must'''
+invoke MCA_CONFIGURE_FRAMEWORK($1, $2, allow_succeed), where
+"allow_succeed" must be either 0 or 1:
+
+ * 0: evaluate all the components, but don't allow any of them to be
+   compiled.  This is useful when a framework wants to disable itself,
+   but still needs to go through the motion of calling
+   MCA_CONFIGURE_FRAMEWORK.
+ * 1: evaluate all the components normally (i.e., some may succeed,
+   some may fail).
+
+== The framework "base" ==
+
+In the <project>/mca/foo directory, create a directory named
+"base".  This directory is not a component, but rather all the
+"glue" code for the framework itself.  Note that this code will be
+compiled into the main library itself (e.g., libopen-pal.so,
+libopen-rte.so, or libmpi.so).  As such, the base directory must
+create a Libtool convenience library named "libmca_<framework>.la"
+(libmca_foo.la, in this example) that will be included in the
+upper-level project library.
+
+ 1. It is customary to have a "base.h" file in
+    <project>/mca/foo/base that contains the "public" functions,
+    types, etc., for that framework (i.e., "public" meaning "things
+    that code outside of this framework is allowed to invoke and
+    use").
+ 1. You need a Makefile.am in the <project>/mca/foo/base directory as
+    well.  Again, it may be easiest to copy this file from another
+    framework (e.g.,
+    [source:trunk/opal/mca/paffinity/base/Makefile.am]) and replace
+    all instances of that framework's name with "foo" (e.g., replace
+    "paffinity" with "foo") as a starting template.
+ 1. '''NOTE:''' The base/Makefile.am file is ''not'' a standalone
+    Makefile.am file; it is included by <project>/mca/foo/Makefile.am.
+    Although most frameworks have historically named their base file
+    "Makefile.am", the more "modern" naming methodology is to name the
+    file "Makefile.include".  You may need to adjust
+    <project>/mca/foo/Makefile.am to include "Makefile.include"
+    instead of "Makefile.am".
+ 1. Edit the Makefile.include to list the source files that you put in
+    the base directory.  All .c source files must follow the prefix
+    rule (i.e,. be named "foo_base_<something>.c") so that there will
+    not be .o filename collisions within libraries.  Also, since
+    Makefile.include is included, you need to list all the source
+    files relative to the framework top directory.  For example, you
+    need to list "foo/base.h" and "foo/foo_base_open.c" (vs. "base.h"
+    and "foo_base_open.c").
+ 1. Frameworks need, at a minimum, "open" and "close" functions.  
+    1. The framework's "open" function finds and opens components of
+       that framework type; see
+       [source:trunk/opal/mca/paffinity/base/paffinity_base_open.c]
+       for an example.
+    1. The framework's "close" function closes all components that
+       were previously opened in that framework; see
+       [source:trunk/opal/mca/paffinity/base/paffinity_base_close.c]
+       for an example.
+ 1. Frameworks usually need some type of "select" function as
+    well-- choosing which (if any) of the components that were
+    successfully opened will be used at run-time.  Sometimes a
+    framework will only allow one component to be used during a run
+    (e.g., OPAL's paffinity framework); sometimes a framework will
+    allow multiple components to be used during a run (e.g., OMPI's
+    BTL framework).  It is up to the framework to decide what its
+    selection policies are.  As an example, several frameworks that
+    choose only one component at run-time use "priority"-based
+    selection policy; each component that is able to be
+    successfully opened and accessed returns a numeric priority
+    from 0 to 100.  The component with the highest priority "wins"
+    and is used in the job.  The others are all closed.
+ 1. A framework may choose to put other functionality in the base
+    as well.  The general rule of thumb is that if more than one
+    component in that framework will need functionality X, then put
+    a function that performs X in the framework's base.
+ 1. Remember that all symbols in the base -- global variables and
+    functions -- must obey the prefix rule.  Hence, they all must
+    be prefixed with either "mca_foo_" or "<project>_foo" (where
+    "<project>" is usually "opal", "orte", or "ompi") both are
+    acceptable, although the latter has become more popular
+    recently).
+ 1. Some decisions that a framework needs to make:
+    1. What will its component selection policies be?  (see above)
+    1. How will the selected components be invoked by the rest of
+       the code base?  The two most common approaches are:
+       1. For frameworks that only select one component at
+          run-time, put all the function pointers to the module in
+          a global struct named "<project>_foo" that contains a
+          function pointer for every module method.  The rest of
+          the OMPI code base then invokes the selected module's
+          methods via "<project>_foo.method_name(...)."
+       1. For frameworks that select multiple components to use at
+          runtime, provide public "wrapper" functions in the
+          framework base that dispatch off to the selected modules
+          at runtime, and typically exposes these functions through
+          its "base.h" header file.  In this way, the framework
+          hides its components and modules from the rest of the
+          code base (which is good for preserving abstraction
+          barriers).
+ 1. Remember that components do '''not''' share code with each
+    other.  The only way for multiple components to interact is to
+    use common code in their framework's base or elsewhere in the
+    library.  Failure to obey this rule will be swiftly and
+    unmercifully punished by the linker.
+
+== Components ==
+
+Once the base is complete, you need to make one or more components.
+See the [wiki:devel/CreateComponent] wiki page for more details.
+
+== Using the framework ==
+
+ 1. You need to call your framework's open, close, and select
+    functions from the appropriate project startup and shutdown
+    functions (these functions should be located in the framework
+    base/ directory).  Depending on which project your framework is
+    in, the appropriate .c files you'll need to edit are listed below.
+    Insert the call to <project>_foo_open() and <project>_foo_close()
+    in the appropriate location in these files.  Be sure to obey
+    framework open / close order dependencies (the close sequence
+    should likely be the opposite of the open sequence): 
+    * [source:trunk/opal/runtime/opal_init.c],
+      [source:trunk/opal/runtime/opal_finalize.c]
+    * [source:trunk/orte/runtime/orte_init.c],
+      [source:trunk/orte/runtime/orte_finalize.c]
+    * [source:trunk/ompi/runtime/ompi_mpi_init.c],
+      [source:trunk/ompi/runtime/ompi_mpi_finalize.c]
+ 1. Finally, you need to tell ompi_info about your framework.  Work is
+    in progress to make this automatic, but for now, you need to
+    hand-edit the ompi_info source code as follows (all in the
+    [source:trunk/ompi/tools/ompi_info] directory):
+    * In [source:trunk/ompi/tools/ompi_info/ompi_info.cc, add a
+      "push_back" call for your framework name (look for all the other
+      "push_back" calls with framework names; it's fairly obvious).
+      Please insert your framework with all the other frameworks in
+      your project.
+    * Add the appropriate framework header files to
+      [source:trunk/ompi/tools/ompi_info/components.cc].
+    * In
+      [source:trunk/ompi/tools/ompi_info/components.cc] ompi_info::open_components(),
+      add call to <project>_foo_open() and save the public list of
+      components that was opened (this list should be maintained by a
+      public symbol in your framework's base).  Be sure to obey
+      framework open order dependencies.
+    * In
+      [source:trunk/ompi/tools/ompi_info/components.cc] ompi_info::close_components(),
+      add call to <project>_foo_close().  Be sure to obey framework
+      close order dependencies (it should typically be the opposite
+      order of open).

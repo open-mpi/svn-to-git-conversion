@@ -1,0 +1,80 @@
+= Open MPI Port to the Cray XT-3 / Cray XT-4 / Sandia Red Storm platform =
+
+This page describes the Open MPI port to the Cray XT-3 / XT-4 machines.  The initial work was done for the Sandia Red Storm machine, but it should work for any XT-3/XT-4 machine.  This is still a work in progress and some issues should be expected.  The platform is not officially supported by the Open MPI development team. 
+
+----
+
+== What works ==
+
+  * Portals BTL has been tested on small scale
+  * C language cross-compiling (Fortran works, but may be out of date)
+
+----
+
+== What is broken ==
+
+There are still a number of pieces that are not implemented.  This is a list, as best I can remember.
+
+=== Wrapper compilers ===
+
+There are no wrapper compilers.
+
+=== File I/O ===
+
+The ROMIO build in Open MPI will not include native support for the Lustre filesystem on the nodes.  This will need to be fixed before we can call the port "production quality"
+
+=== Out of Band Messaging ===
+
+There is no OOB implementation and the CNOS RML implements only the barrier (using the OS-level barrier).  This means no GPR, basic attibute information, and no BTLs other than Portals
+
+=== Portals MTL ===
+
+The Portals MTL has never been tested on real hardware.
+
+=== Specifying MCA parameters ===
+
+At last check, the only way to specify MCA parameters is to set environment variables before calling yod.
+
+----
+
+== Building Open MPI ==
+
+First, make sure the wrapper compilers are in your path. For reasons that escape me, there is no wrapper compiler for g++, so for now we're going to build with the PGI compilers. The configure command I'm currently using is:
+
+{{{
+./configure  CC=qk-gcc CXX=qk-pgCC F77=qk-pgf77 FC=qk-pgf90 \
+  --build=x86_64-unknown-linux-gnu --host=x86_64-cray-linux-gnu \
+  --with-platform=cray_xt3
+}}}
+
+In case you're wondering, yes, the --host flag is a bit of a lie. The target OS certainly isn't linux. But it's glibc and the linker and compiler look like linux, so that made the most things happy. And changing the vendor from "unknown" (the default on linux) to "cray" is enough to make configure think we're cross compiling.  It is *extremely* important to not use the PGI C compiler to compile Open MPI.  The PGI compiler will mis-compile some Portals structures and result in a non-operational build.  The PGI and GNU C compilers are compatible, so it's possible to compile user applications with the PGI compiler.
+
+=== Building MPI applications ===
+
+=== Running Open MPI jobs ===
+
+Open MPI jobs use yod to start the application, just like the Cray MPI.
+
+----
+
+== Sandia specific notes ==
+
+=== Subversion Access ===
+
+You must use the sandia proxy to reach IU's SVN server from reddish. You can find information on setting up Subversion to use proxy access in the Subversion FAQ. What I did is documented below.
+
+Subversion is already installed on reddish, you just need to load the subversion module:
+
+{{{
+module load subversion
+}}}
+
+Unfortunately, Subversion doesn't use the http_proxy environment variable like most http-based applications, so we'll have to edit the configuration file directly to set the proxy information to reach IU's servers. You need to modify ~/.subversion/servers, adding something like:
+
+{{{
+  [groups]
+  ompi = *.open-mpi.org
+  [ompi]
+  http-proxy-host = wwwproxy.sandia.gov
+  http-proxy-port = 80
+}}}

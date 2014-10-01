@@ -1,0 +1,119 @@
+= Design Goals =
+
+In keeping with the general deisgn goals of the [wiki:MultiLib multlib] support in Open MPI, extending the wrapper compilers to be multi-lib aware should be done with the following points in mind:
+
+  * Any multi-lib implementation should be able to cope with not just 32/64 bit builds but different processor architectures and (one day...) 128 bit builds.
+  * The configure / build system should have no knowledge of multi-lib building (with the exception of cross-compilation to a target that can not execute on the build host, such as building x86 code on a PowerPC processor)
+  * The configure / build system / source code should have no knowledge of which platforms are going to be built in the multi-lib (ie, a given build for x86 shouldn't know that it will also be having x86_64, ppc, and ppc64 also associated with it), or even if the current build is multi-lib
+  * Multilib support should be invisible to the user (with the exception of potentially having to specify the target architecture if it is not the default for the compiler).
+  * It's ok to assume that there's a master build script that is calling ./configure and make and that is capable of doing some processing of text files after the configure has been completed
+
+= Implementation =
+
+The implementation was done by extending the wrapper data file format (details below) to allow for multiple blocks of configuration data.  Based on some decision function (currently, a pattern search on user-specified options to pass to the underlying compiler), one block of configuration data will be chosen.  From there, the behavior of the wrapper compiler is *identical* to the previous behavior, with the exception of the -showme option (see use cases below).
+
+== Code changes ==
+
+As the code changes are unintersting and well documented in code, they are not covered here.
+
+== Wrapper data file changes ==
+
+There are three new fields in the wrapper compiler data file:
+
+  `compiler_args`::
+    semi-colon separated list of args describing this section
+  `includedir`::
+    full path to include dir.  This used to be hard coded into the binary, but is moved into the data file so that each data block can have its own include directory.
+  `libdir`::
+    full path to libdir.  Same reason as `includedir`
+
+The `compiler_args` field is optional -- if not specified and a block of data is found, that block will be used as the "default" section, used when no block of data matches the selection logic.  It is not recomended to have such an "unnamed" data block in a multi-lib build, but the data files produced in a single build are always "unnamed".  An example data file for `opalcc` that could be used for a Sparc v9 32/64 bit build is below.  If no default section is given and the compiler arguments do not specify a section, the wrapper compiler will return an error.
+
+{{{
+compiler_args=                                                                                
+project=Open Portable Access Layer (OPAL)                                                     
+project_short=OPAL                                                                            
+version=1.2
+language=C                                                                                    
+compiler_env=CC                                                                               
+compiler_flags_env=CFLAGS                                                                     
+compiler=cc                                                                                  
+extra_includes=                                                                               
+preprocessor_flags=                                                                           
+compiler_flags=-mt                                                                      
+linker_flags=                                                                                 
+libs=-lopal    -lsocket -lnsl -lrt -lm -ldl
+required_file=                                                                                
+includedir=/home/bbarrett/local/include/32
+libdir=/home/bbarrett/local/lib/32
+
+compiler_args=-xarch=v8;-xarch=v8plus
+project=Open Portable Access Layer (OPAL)                                                     
+project_short=OPAL                                                                            
+version=1.2
+language=C                                                                                    
+compiler_env=CC                                                                               
+compiler_flags_env=CFLAGS                                                                     
+compiler=cc                                                                                  
+extra_includes=                                                                               
+preprocessor_flags=                                                                           
+compiler_flags=-mt                                                                      
+linker_flags=                                                                                 
+libs=-lopal    -lsocket -lnsl -lrt -lm -ldl
+required_file=                                                                                
+includedir=/home/bbarrett/local/include/32
+libdir=/home/bbarrett/local/lib/32
+
+compiler_args=-xarch=v9*                                     
+project=Open Portable Access Layer (OPAL)                                                     
+project_short=OPAL                                                                            
+version=1.2
+language=C                                                                                    
+compiler_env=CC                                                                               
+compiler_flags_env=CFLAGS                                                                     
+compiler=cc                                                                                  
+extra_includes=                                                                               
+preprocessor_flags=                                                                           
+compiler_flags=-mt                                                                      
+linker_flags=                                                                                 
+libs=-lopal    -lsocket -lnsl -lrt -lm -ldl
+required_file=                                                                                
+includedir=/home/bbarrett/local/include/64
+libdir=/home/bbarrett/local/lib/64
+}}}
+
+== Examples ==
+
+The following examples use the data file above:
+
+  `opalcc -c foo.c`::
+    The first block is used, since none of the compiler options match any of the arguments in any of the `compiler_args` fields
+  `opalcc -xarch=v8 -c foo.c`::
+    The second block is used, since `-xarch=v8` is contained in the `compiler_args` field of the second block.
+  `opalcc -xarch=v9 -c foo.c`::
+    The third block is used, for the same reason as the `-xarch=v8` case.
+  `opalcc -xarch=v8 -xarch=v9 -c foo.c`::
+    The second block is used as it is matched first.  We then hope that the underlying compiler detects this as an error and aborts.
+
+-showme has also been made multi-lib aware, so that it does not consider an argument that selects a block of text as an option that should be used to determine the behavior of -showme.  For example:
+
+{{{
+% opalcc -weird-option -showme
+cc -weird-option
+% opalcc -xarch=v9 -showme
+cc -I/home/bbarrett/local/include/64 -mt -L/home/bbarrett/local/lib/64 -lopal -lsocket -lnsl -lrt -lm -ldl
+}}}
+
+= Future Work =
+
+  Compiler Specification::
+    With some future enhancements, it should be possible to change the logic a bit to support something Edgar has been asking for, which is the ability to, say, link in a different libmpi.so if the user specified -g.  We could also probably extend the logic to allow one mpicc, regardless of which underlying compiler is used (say, add an option "-compiler=gnu"  or something like that).  This would require extending find_options_index() a bit, and probably some logic to keep the wrapper from passing those options to the underlying compiler.  But it should be doable.      
+
+= Building the data file =
+
+This section briefly outlines a process the author believes to be the simplest path towards implementing a multlib aware data file:
+
+  1. Build all the targets desired, as described in [wiki:MultiLib multlib]
+  2. Determine which target is the "default" target for the compiler and which compiler options specify a target
+  3. Read in the opalcc-wrapper-data.txt file in each destdir installation, prepending a `compiler_args=` line for each target, as determined by step 2
+  4. add the default target's data block again, this time with a line that reads only `compiler_args=` to specify the default block.

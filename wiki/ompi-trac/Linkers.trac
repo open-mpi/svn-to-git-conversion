@@ -1,0 +1,108 @@
+= How OMPI Interacts with Linkers =
+
+Taken from http://www.open-mpi.org/community/lists/users/2007/10/4220.php.
+
+This first table represents what happens in the following scenarios:
+
+ * compile an application against Open MPI's libmpi, or
+ * compile an "application" DSO that is dlopen'ed with RTLD_GLOBAL, or
+ * explicitly dlopen Open MPI's libmpi with RTLD_GLOBAL
+
+{{{
+                                            OMPI DSO
+                 libmpi        OMPI DSO     components
+    App linked   includes      components   depend on
+    against      components?   available?   libmpi.so?   Result
+    ----------   -----------   ----------   ----------   ----------
+1.  libmpi.so        no           no            NA       won't run
+2.  libmpi.so        no           yes           no       yes
+3.  libmpi.so        no           yes           yes      yes (*1*)
+4.  libmpi.so        yes          no            NA       yes
+5.  libmpi.so        yes          yes           no       maybe (*2*)
+6.  libmpi.so        yes          yes           yes      maybe (*3*)
+    ----------  ------------  ----------  ------------   ----------
+7.  libmpi.a         no           no            NA       won't run
+8.  libmpi.a         no           yes           no       yes (*4*)
+9.  libmpi.a         no           yes           yes      no (*5*)
+10. libmpi.a         yes          no            NA       yes
+11. libmpi.a         yes          yes           no       maybe (*6*)
+12. libmpi.a         yes          yes           yes      no (*7*)
+    ----------  ------------  ----------  ------------   --------
+}}}
+
+All libmpi.a scenarios assume that libmpi.so is also available.
+
+In the OMPI v1.2 series, most components link against libmpi.so, but some do not (it's our mistake for not being uniform).
+
+(*1*) As far as we know, this works on all platforms that have dlopen (i.e., almost everywhere).  But we've only tested (recently) Linux, OSX, and Solaris.  These 3 dynamic loaders are smart enough to realize that they only need to load libmpi.so once (i.e., that the implicit dependency of libmpi.so brought in by the components is the same libmpi.so that is already loaded), so everything works fine.
+
+(*2*) If the *same* component is both in libmpi and available as a DSO, the same symbols will be defined twice when the component is dlopen'ed and Badness will ensure.  If the components are different, all platforms should be ok.
+
+(*3*) Same caveat as (*2*) about if a components is both in libmpi and available as a DSO.  Same as (*1*) for whether libmpi.so is loaded multiple times by the dynamic loader or not.
+
+(*4*) Only works if the application was compiled with the equivalent of the GNU linker's --whole-archive flag.
+
+(*5*) This does not work because libmpi.a will be loaded and libmpi.so will also be pulled in as a dependency of the components.  As such, all the data structures in libmpi will [attempt to] be in the process twice: the "main libmpi" will have one set and the libmpi pulled in by the component dependencies will have a different set.  Nothing good will come of that: possibly dynamic linker run-time symbol conflicts or possibly two separate copies of the symbols.  Both possibilities are Bad.
+
+(*6*) Same caveat as (*2*) about if a components is both in libmpi and available as a DSO.
+
+(*7*) Same problem as (*5*).
+
+-----
+
+This second table represents what happens in the following scenarios:
+
+ * compile an "application" DSO that is dlopen'ed with RTLD_LOCAL, or
+ * explicitly dlopen Open MPI's libmpi with RTLD_LOCAL
+
+{{{
+                                            OMPI DSO
+    App          libmpi        OMPI DSO     components
+    DSO linked   includes      components   depend on
+    against      components?   available?   libmpi.so?   Result
+    ----------   -----------   ----------   ----------   ----------
+13. libmpi.so        no           no            NA       won't run
+14. libmpi.so        no           yes           no       no (*8*)
+15. libmpi.so        no           yes           yes      maybe (*9*)
+16. libmpi.so        yes          no            NA       ok
+17. libmpi.so        yes          yes           no       no (*10*)
+18. libmpi.so        yes          yes           yes      maybe (*11*)
+    ----------  ------------  ----------  ------------   ----------
+19. libmpi.a         no           no            NA       won't run
+20. libmpi.a         no           yes           no       no (*12*)
+21. libmpi.a         no           yes           yes      no (*13*)
+22. libmpi.a         yes          no            NA       ok
+23. libmpi.a         yes          yes           no       no (*14*)
+24. libmpi.a         yes          yes           yes      no (*15*)
+    ----------  ------------  ----------  ------------   --------
+}}}
+
+All libmpi.a scenarios assume that libmpi.so is also available.
+
+(*8*) This does not work because the OMPI DSOs require symbols in libmpi that will not be able to be found because libmpi.so was not loaded in the global scope.
+
+(*9*) This is a fun case: the Linux dynamic linker is smart enough to make it work, but others likely will not.  What happens is that libmpi.so is loaded in a LOCAL scope, but then OMPI dlopens its own DSOs that require symbols from libmpi.  The Linux linker figures this out and resolves the required symbols from the already-loaded LOCAL libmpi.so.  Other linkers will fail to figure out that there is a libmpi.so already loaded in the process and will therefore load a 2nd copy.  This results in the problems cited in (*5*).
+
+(*10*) This does not work either a) because of the caveat stated in (*2*) or b) because the unresolved symbol issue stated in (*8*).
+
+(*11*) This may not work either because of the caveat stated in (*2*) or because the duplicate libmpi.so issue cited in (*9*).  If you are using the Linux linker, then (*9*) is not an issue, and it should work.
+
+(*12*) Essentially the same as the unresolved symbol issue cited in (*8*), but with libmpi.a instead of libmpi.so.
+
+(*13*) Worse than (*9*); the Linux linker will not figure this one out because the libmpi.so symbols are not part of "libmpi" -- they are simply part of the application DSO and therefore there's no way for the linker to know that by loading libmpi.so, it's going to be loading a 2nd set of the same symbols that are already in the process.  Hence, we devolve down to the duplicate symbol issue cited in (*5*).
+
+(*14*) This does not work either a) because of the caveat stated in (*2*) or b) because the unresolved symbols issue stated in (*8*).
+
+(*15*) This may not work either because of the caveat stated in (*2*) or because the duplicate libmpi.so issue cited in (*13*).
+
+-----
+
+In the OMPI v1.2 series, most OMPI configurations fall into scenarios 2 and 3 (as I mentioned above, we have some components that link against libmpi and others that don't -- our mistake for not being consistent). 
+
+The problematic scenario that the R and Python MPI plugins are running into is 14 because the osc_pt2pt component does *not* link against libmpi. Most of the rest of our components do link against libmpi, and therefore fall into scenario 15, and therefore work on Linux (but possibly not elsewhere). 
+
+With all this being said, if you are looking for a general solution for the Python and R plugins, dlopen() of libmpi with RTLD_GLOBAL before MPI_INIT seems to be the way to go. Specifically, even if we updated osc_pt2pt to link against libmpi, that will work on Linux, but not elsewhere. dlopen'ing libmpi with GLOBAL seems to be the most portable solution. 
+
+Indeed, table 1 also suggests that we should change our components (as Brian suggests) to all *not* link against libmpi, because then we'll gain the ability to work properly with a static libmpi.a, putting OMPI's common usage into scenarios 2 and 8 (which is better than the 2, 3, 8, and 9 scenarios that are used today, which means we don't work with libmpi.a). 
+
+...but I think that this would break the current R and Python plugins until they put in the explicit call to dlopen(). 

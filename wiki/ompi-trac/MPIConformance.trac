@@ -1,0 +1,68 @@
+= MPI Conformance =
+
+== MPI 2.2 ==
+
+Open MPI is MPI-2.2 conformant as of v1.7.3.
+ 
+== MPI 3.0 ==
+
+Open MPI is MPI-3.0 conformant as of v1.7.5.
+
+Note: N/A means that the Forum ticket was for a text change with no impact on an implementation.
+
+Completed:
+  ||= Forum Ticket                                                =||= Ticket =||= Summary                                                         =||= Status  =||= Owner =||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/38 38]     ||  Completed || matched probe/receive                                             || Completed || Brian   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/109 109] ||  Completed || Nonblocking collective operations                                 || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/125 125] ||  Completed || Use of [] in output arrays                                        || Completed ||  rhc    ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/126 126] ||  Completed || Consistent use of [] for input arrays                             || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/140 140] ||  Completed || Add const keyword to the C bindings                               || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/204 204] ||  Completed || Query minor/implementation specific versions                      || Completed ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/162 162] ||  Completed || MPI_CART_MAP with num_dims=0                                      || Completed ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/168 168] ||  Completed || Nonblocking communicator duplication                              || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/229 229] ||  Completed || New MPI-3 Fortran Support                                         || Completed (1.7.0) || jsquyres        ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/256 256] ||  Completed || MPI_PROC_NULL behavior for MPI_PROBE and MPI_IPROBE               || Completed (1.7.0) ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/258 258] ||  Completed || Sparse collectives on process topologies                          || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/265 265] ||  Completed || Support for large counts using derived datatypes                  || Completed (1.7.3) ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/266 266] ||  Completed || MPIT Tool Interface                                               || Completed (1.7.2) ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/270 270] ||  Completed || Updated RMA Chapter                                               || Completed (1.7.5) || Nathan   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/271 271] ||  Completed || Functions to query MPI_Info object attached to windows and communicators  || Completed ||    ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/274 274] ||  Completed || Matched probe language bindings                                   || Completed || Brian   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/284 284] ||  Completed || Allocate a shared memory window                                   || Completed (1.7.5) || Nathan   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/280 280] ||  Completed || Add a new datatype creation routine - MPI_TYPE_CREATE_HINDEXED_BLOCK || Completed ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/286 286] ||  Completed || Noncollective communicator creation                               || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/287 287] ||  Completed || MPI_COMM_SPLIT_TYPE functionality                                 || Completed || Brian   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/299 299] ||  Completed || Change displs argument in neighborhood w collectives to MPI_Aint  || Completed (1.7.4) || hjelmn ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/309 309] ||  Completed || RMA - Clarify usage of status for request-based RMA operations    || Completed (1.7.5) || Nathan   ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/313 313] ||  Completed || MPI_INIT & MPI_FINALIZE (and init info)                           || Completed ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/328 328] ||  Completed || fix MPI_PROC_NULL behavior for mprobe/improbe/mrecv/imrecv        || Completed ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/388 388] ||  Completed || Fortran: Remove BIND(C) from mpi_f08 bindings                           || Completed (1.7.4) || jsquyres ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/390 390] ||  Completed || Fortran: Add new memory allocation interfaces                           || Completed (1.7.4) || jsquyres ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/158 158] ||  N/A       || Clarification that MPI_CART_MAP and MPI_GRAPH_MAP are local calls || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/182 182] ||  N/A       || Use of word 'legal'                                               || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/185 185] ||  N/A       || Mention C++ typedef deprecations                                  || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/187 187] ||  N/A       || Grouping MPI_AINT, MPI_OFFSET, MPI_COUNT as Multi-language types  || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/192 192] ||  N/A       || C++ binding for Dist_graph_neighbors_count is badly broken        || No C++ bindings in 3.0 (this is 2.2 errata) ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/207 207] ||  N/A       || MPI_COMM_GET_NAME + MPI_GET_PROCESSOR_NAME                        || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/215 215] ||  N/A       || Missing parenthesis                                               || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/219 219] ||  N/A       || MPI_MAX_OBJECT_NAME and MPI_TYPE/WIN_GET_NAME                     || Looks ok in 1.7.x and trunk already ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/228 228] ||  N/A       || MPIR Specification                                                || Technically, not part of MPI-3, but it's done anyway :-) ||     ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/254 254] ||  N/A       || Typo in description of MPI_GROUP_INCL                             || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/255 255] ||  N/A       || Headline for MPI_GET_PROCESSOR_NAME                               || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/262 262] ||  N/A       || Typos in pt2pt chapter                                            || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/263 263] ||  N/A       || Wrong formula for the upper bound                                 || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/272 272] ||  N/A       || Remove non-blocking collective C++ bindings                       || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/278 278] ||  N/A       || Update examples to not use deprecated constructs                  || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/279 279] ||  N/A       || Make C++ bindings optional                                        || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/281 281] ||  N/A       || Remove C++ bindings                                               || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/293 293] ||  N/A       || K&R style on 6.7.6                                                || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/294 294] ||  N/A       || MPI_UNWEIGHTED should not be NULL                                 || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/298 298] ||  N/A       || Adding clarification to MPI_WIN_LOCK_ALL                          || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/300 300] ||  N/A       || Fix issue with definition of nonblocking in One Sided Chapter     || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/303 303] ||  N/A       || Move MPI-1 deprecated functions to "Removed Interfaces"           || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/305 305] ||  N/A       || Update MPI_INTERCOMM_CREATE to use collective tag space           || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/308 308] ||  N/A       || RMA - Remove sentence on offset in datatypes                      || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/312 312] ||  N/A       || Typo-correction in ALLTOALLV                                      || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/317 317] ||  N/A       || correct error related to MPI_REQUEST_FREE                         || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/321 321] ||  N/A       || MPI_WAIT/TEST language unclear about non-pt2pt requests           || N/A       ||         ||
+  || [https://svn.mpi-forum.org/trac/mpi-forum-web/ticket/322 322] ||  N/A       || Attribute copy functions: FLAG values in Fortran                  || Completed ||         ||

@@ -1,0 +1,90 @@
+= Description =
+
+The Fault Tolerant Framework provides a generic framework for automatic Checkpoint/Restart process fault tolerance. The framework is shipped in a special "vampire" PML (the PML-V) which overloads the regular selected PML with a selected implementation of a particular fault tolerant protocol (a VProtocol). A pessimistic sender-based message logging fault tolerant protocol is provided with the framework. 
+
+= Current Status =
+
+It has been integrated into the development trunk of Open MPI in r15539. At time of r15783 it is still considered experimental work. 
+Currently working on the development trunk. Scheduled for release in Open MPI v1.3. In active development by Open MPI members at University of Tennessee Knoxville. 
+
+By default checkpoint/restart fault tolerance is compiled in only for UTK Open MPI members. 
+
+== Currently Supported ==
+
+=== Fault Tolerant Protocols ===
+
+ * Example - A simple example of the FT framework usage (prints a message in each hook).
+ * Pessimist - Pessimistic sender based message logging protocol.
+
+=== Interconnects (BTLs) ===
+
+All BTLs. The following ones have been tested and are known to work.
+ * SELF - Loopback interface.
+ * SM - Shared Memory.
+ * TCP.
+ * MX - Myrinet NICs.
+ * OpenIB - Infiniband NICs.
+
+=== MPI PT-2-PT Modules (PMLs/MTLs) ===
+
+All PMLs. The following ones have been tested and are known to work.
+ * OB1.
+ * DR.
+ * CM - barely tested; if you experience troubles, please fallback to OB1 over MX.
+
+MTLs are not supported. 
+
+=== Collective Components ===
+
+Any collective component layered over point-to-point operations.
+
+ * basic.
+ * tuned.
+ * hierarch.
+ * libnbc.
+ * self.
+
+== Todo ==
+
+=== Before v1.3 Release ===
+
+ * Add support for Berkeley Lab Checkpoint/Restart (BLCR).
+ * Improve bandwidth of Sender-Based message logging. 
+ * Improve error messages and documentation. 
+ * Support Windows OS. 
+
+=== Post-v1.3 Release ===
+
+ * Add support for progress threads.
+ * Causal message logging protocol. 
+ * Coordinated Checkpoint/Restart protocol.
+ * Clique coordinated Checkpoint/Restart protocol.
+
+= Using the Fault Tolerant Framework =
+
+== Enabling the Compilation of the PML-V and Vprotocols ==
+
+By default, the PML-V and Vprotocols are compiled only for the UTK Open MPI team members. You'll need to remove the compilation restriction for yourself to use it. 
+
+ * Edit you local copy of trunk/ompi/mca/pml/v/.ompi_unignore to add your username - OR - remove trunk/ompi/mca/pml/v/.ompi_ignore. 
+ * Run autogen.sh in the root of the trunk.
+ * Run configure with usual parameters.
+ * Run make, make install as usual. 
+
+The PML-V and the VProtocols are standard MCA components, which means that it can be enabled or disabled at runtime. You do not need to compile it in and out of the MPI library to enable or disable it. The framework itself is a regular PML component; so when it is not enabled, it is just unloaded as any regular PML is when not selected. No performance overhead can be observed with PML-V disabled at runtime compared to a regular build of Open MPI. If you want anyway to get rid of the PML-V, just remove $PREFIX/lib/openmpi/mca_pml_v.* (or $PREFIX/lib/openmpi/libmca_pml_v.* depending on your architecture); there is no modification elsewhere.
+
+When the PML-V is compiled in, by default the Vprotocol pessimist is also compiled in. The Vprotocol example is disabled by default; follow the same procedure to compile it in. 
+
+== Running an Application Under Supervision of the VProtocol Pessimist ==
+
+The PML-V is always loaded by the MPI library. As it is not a real PML, it returns a priority low enough to make sure it is never selected (and a regular PML such as OB1 is selected instead). Once the regular PML have been initialized, the PML-V is requested to close. Instead of closing, the PML-V loads all available VProtocols. If no VProtocol have a positive (>0) priority, the PML-V closes just like any regular unselected PML. Otherwise the VProtocol with the highest priority is selected. 
+
+By default all VProtocol should have a priority of -1. You can override this default by adding --mca vprotocol_myftprotocol_priority n to the mpirun parameters (where n is positive). As an example to enable pessimistic message logging just type: 
+ * mpirun -np 10 -mca vprotocol_pessimist_priority 10 hellompi
+
+You can make these changes permanent by editing ~/.openmpi/mca-params.conf and adding the line vprotocol_pessimist_priority=10
+
+
+= Writting Your Own Fault Tolerant Protocol =
+
+To be completed. 

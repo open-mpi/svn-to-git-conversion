@@ -1,0 +1,7 @@
+Procedures to Release Open MPI
+
+...Ralph fills in here...
+
+Release managers must update library versions just prior to release.  The new version numbers follow a very specific set of conventions and rules.  The Open MPI README file describes the versioning scheme rules; it is mirrored on this public web page: http://www.open-mpi.org/software/ompi/versions/
+
+...Ralph fills in more here...

@@ -1,0 +1,79 @@
+= Modex-less Launches =
+[[PageOutline]]
+
+Getting MPI jobs started typically requires not only that the individual processes get spawned on the various nodes, but also that each process "discover" the relevant interconnect contact information for all other processes in the job. The default launch mechanism for accomplishing this latter step is known as the "modex" and involves several steps:
+
+ * at startup, each process opens each interface driver to query the local node for available interfaces
+ * those drivers that have interfaces register a modex entry that includes their interface contact information
+ * the processes in the job execute a collective operation to exchange their individual contact information. This is a blocking operation that occurs during MPI_Init.
+
+Although we do our best to use scalable algorithms for the collective exchange, this proves to be the longest part of the MPI_Init operation. It is therefore pertinent to attempt to remove this exchange.
+
+Note that some interconnects and environments do not require this exchange, usually because the underlying environment allocates and/or assigns interfaces to the job prior to launch. Thus, in these environments, every process is provided with all required contact information at time of spawn.
+
+This is the model we followed in developing the modex-less launch capability within OMPI's RTE (ORTE), as described in the remainder of this wiki page.
+
+'''NOTE''': the methods described below remove the requirement for a modex during startup, but do not actually cause connections to be made. Thus, use of mpi_preconnect_all can still lead to significant startup time due to the need to establish point-to-point connections.
+
+== Pre-profiling a Cluster ==
+
+In many clusters, the interconnect itself is actually associated with the local node as opposed to a specific process. For example:
+
+ * Infiniband interfaces have the same contact information for all processes on a node. Although the interface contact information is usually dynamically assigned, this assignment occurs during startup of the subnet manager or when a new interface appears on the subnet. For most installations, the subnet manager is only restarted when the cluster undergoes a restart - and thus, the interface contact information can be considered ''static'' for purposes of an MPI job.
+ * TCP interconnect contact info is generally a property of a specific process. However, it can be configured to support modex-less launch by assigning static ports for use by each process. If we provide enough static ports on each node for all the processes on that node, and if the processes pick their static port using an appropriate algorithm, then it is possible for any process to compute the IP:port contact info for any other process in the job.
+
+ORTE provides a tool to automatically gather the interconnect contact information across a cluster and store it in a file for later use. This tool, called ''ompi-profiler'', is included in all OMPI releases beginning with the 1.5 series and in the developer trunk since mid-2007. The tool is executed by:
+
+ * obtain an allocation to cover whatever portion of the cluster you wish to profile
+ * invoke ''ompi-profiler -profile file'' - this will store the profile results in the specified file
+
+There are several options supported by ''ompi-profiler'', including:
+
+ * -config - outputs a summary report of the frameworks and components used by the various processes. This can be helpful when trying to determine configuration settings for the cluster (e.g., which components don't need to be built, thus saving memory) and verifying that the auto-detect features of OMPI are detecting the cluster's hardware/software.
+ * -report - instead of generating a profile, this option causes the provided profile file to be read and printed out for review. Note that the profile file is stored in a binary format, so this option provides the only mechanism for viewing its contents.
+
+The ''ompi-profiler'' program creates an appropriate command line that launches an MPI job, one process/node, across the given allocation. The job utilizes the ''ompi-probe'' application also included with the OMPI release - ''ompi-probe'' simply executes MPI_Init, reports back the discovered interconnect information, and calls MPI_Finalize. ''ompi-profiler'' collects the resulting info, formats it, and stores it in the specified filename.
+
+Note that proper operation of ''ompi-profiler'' depends upon the grpcomm basic module - thus, this component ''must'' be built during installation of OMPI (it is built by default).
+
+== Using a Profile ==
+
+ORTE supports two methods for using a profile file to eliminate the modex:
+
+ * the profile information can be provided to each process at time of spawn. This is the preferred mode of operation as it most closely mimics that of other modex-less interconnect environments. In this scenario, mpirun reads the specified profile file and includes that information in the launch command sent to each remote daemon, which subsequently transfers it to each MPI process during orte_init. The MPI process then stores the information in its local modex database and proceeds as normal.
+ * the name of the profile file can be given to each MPI process at time of spawn, and each process can then read the file to obtain the modex information. While this works, it is not recommended as:
+  * the profile file must be available on each node. This typically requires an NFS mount, and results in NFS network bottlenecks as every node will pull the file across the network
+  * file access contention on high-ppn jobs causes a significant slowdown
+
+In both cases, the grpcomm basic module '''must''' be invoked. This module can only be invoked by setting the grpcomm MCA parameter - it will ''not'' be selected by default. Invoking the module can be done:
+
+ * on the command line: -mca grpcomm basic
+ * in the environment: OMPI_MCA_grpcomm=basic
+ * in the MCA param file: grpcomm = basic
+
+The name of the profile file must also be provided via an MCA param ''opal_profile_file'' using any of the above methods.
+
+
+== Updating a Profile ==
+
+Unfortunately, there currently are no tools provided for updating a profile (e.g., after replacement of a node that changes the configuration, or restart of the subnet manager). The only available method is to re-run ''ompi-profiler'' across the entire cluster. Fortunately, this isn't required very often, and ''ompi-profiler'' executes very quickly.
+
+Creating update tools is relatively simple. We envision two tools in particular:
+
+ * ''ompi-profiler'' could check for the existence of the specified profile file, launch across the allocation, and then only update the information for those nodes that report back. Thus, updates could be done across sub-allocations of the cluster while other jobs continue to run.
+ * a command-line editor could be created to allow manual editing of the profile file.
+
+As modex-less launch becomes more utilized, appropriate update tools will hopefully be developed.
+
+
+== Known Issues ==
+
+It is important to remember that OMPI mandates an ORTE barrier operation prior to exiting MPI_Init. The barrier operation flows across the same communication channels used for the modex operation. Thus, while eliminating the modex can significantly reduce startup time, the time spent in the barrier operation will remain.
+
+This is particularly important when using launch methods that do not wireup the OOB communication links between ORTE daemons prior to the barrier being executed. In such cases, the time required to open the TCP sockets used by the OOB can dominate the barrier execution time - and thus, can reduce or even eliminate any advantage gained by eliminating the modex.
+
+Overcoming this issue requires that the job be launched using the ssh launcher and ''tree-launch'' capability. In this method, mpirun launches a set of daemons that in turn launch another wave of daemons, continuing in a tree-like manner until all daemons are launched. This results in daemon-to-daemon connections being formed as the daemon launched is conducted. Thus, when the barrier in MPI_Init is executed, the connections have already been established and the barrier executes quickly.
+
+Similar approaches are possible in other launch environments. Methods for doing this are currently provided by using the non-default routed modules (e.g., linear or direct) that establish the daemon-to-daemon connections at time of launch instead of during the barrier. This significantly improves launch time, though it can create issues with scalability and reliability. Improved methods for reducing the impact on startup time caused by establishing connections have been discussed - see the design meeting notes from Dec and Feb meetings.
+
+Also note that the ''ompi-profiler'' capability described above is lightly tested. As of summer 2009, it was working, but I can't make any assurances as to its current state. Updates would always be appreciated!

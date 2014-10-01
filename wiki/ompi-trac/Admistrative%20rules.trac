@@ -1,0 +1,111 @@
+= Open MPI administrative rules =
+
+August 26, 2008.
+
+Revision 1.5
+
+
+= Open MPI Membership =
+
+The following defines the membership rules for the Open MPI open source group.
+
+ 1. Participation in the Open MPI project is both formal and informal.  Formal participation is divided into three classes: Contributors, Members, and Partners (each of which are defined below).  Informal participation is encouraged by working with the Open MPI team in an ad hoc manner, such as (but not limited to) engaging in discussions on the mailing lists, reporting testing results, providing feature requests and bug reports, etc.
+     * Contributors are individuals or organizations who sign the Open MPI third party contribution agreement.
+     * Members are Contributors that contribute one or more of the following:
+       * Money.  This will go to fund additional research, technical support, equipment, etc.
+       * Engineers.  Any number of engineers working part time on enhancing the Open MPI code base or adding new functionality.
+       * Testing. The ability to provide the means to run frequent QA and/or regression tests.  This can be done on donated resources or the Member’s internal cluster.  All results must be given back to the group.
+       * Support.  Any number of engineers working on supporting the Open MPI code base.  This can include answering user e-mails and/or bug fixes.
+       * Non-human resources.  This will include things such as equipment, hosting, etc.
+       * Business activities that support the project.  This can include marketing, advertising, or distribution.
+     * Partners contribute any of the same items as active Members, but do not necessarily have to be Contributors.  Specifically, Partners do not need to sign the Open MPI 3rd Party Contribution Agreement unless they are going to contribute intellectual property to the project.
+ 1. All new Members and Partners must be nominated by a current Member of the Open MPI group and voted by the administrative group.  Membership / Partner votes occur on a quarterly basis:
+     * 2nd week of January
+     * 2nd week of April
+     * 2nd week of July
+     * 2nd week of October
+ 1. Each calendar year a review of all current Members and Partners will take place.  Any Member or Partner of the group not fulfilling any of the contributions listed in item 1 can be moved to an "inactive" status.  Additionally, a review is conducted of all individual contributors who have commit access in the Open MPI source code repositories to identify and remove those who are no longer active in the project.  These annual reviews occur in the 2nd week of July.
+ 1. Being an active Member of the Open MPI project will afford you the following benefits:
+     * The possibility of having write permissions in the Open MPI code base repositories.
+     * Influence the administrative and technical direction of the project.
+     * Each Member will have access to other Members within the group as well as the resources currently managed by the group and its Members.
+     * Allowed to attend all group meetings and the ability to vote on outstanding issues.
+     * PR for the entity as being a Member of Open MPI project.
+ 1. Being an active Partner of the Open MPI project will afford you the following benefits:
+     * PR for the entity as being a Partner of Open MPI project.
+     * Each Partner will have access to other Members within the group as well as the resources currently managed by the group and its Members.
+
+= Administrative Steering Committee =
+
+The Administrative Steering Committee (ASC) shall consist of one representative from each Member organization.  The ASC shall perform the following functions:
+
+  * Define the purpose of the Open MPI organization.
+  * Plan release timelines based on available resources, target features, and target goals of the Member organizations.
+  * Vote on all issues requiring group consensus, one vote per Member organization.
+  * Assemble technical steering committees.
+  * Nominate and approve the appointment of individuals to fill the roles of Release Manager (per release), Gatekeeper (per release), and Meeting Organizer.
+
+= General voting rules =
+
+  1. The philosophy and goal of the Open MPI community is to reach consensus on all, if not most, issues.  In the event that full consensus cannot be reached, the ASC will use the following rules.
+  1. On all issues requiring a group consensus all active Open MPI Members eligible to vote (see Rule 3 below) will receive one vote.  All votes are required to pass with 2/3 majority.  A quorum (>50%) of Members must vote.  Abstentions will not be counted in the total votes when calculating whether there is a 2/3 majority.
+  1. In order to participate in a vote a Member must have attended two of the last three quarterly Open MPI administrative meetings.
+  1. A Member may send a proxy vote, but each physical person can only cast one vote.  This prevents a Member for voting on behalf of its own entity and acting as a proxy.
+  1. A periodic administrative voting cycle will be held quarterly.  The purpose of this voting cycle is to approve new Members to the Open MPI group, as well as vote on any additional administrative issues.  A voting agenda should be distributed to all current Members of the group in advance.
+  1. In the event a consensus cannot be reached by the voting Members with 2/3’s majority a special vote must be taken by a small governing body.  This governing body will initially consist of the 4 founding Members of Open MPI (Indiana University, HLRS / University of Stuttgart, Los Alamos National Laboratory, and University of Tennessee-Knoxville).  Participation in the governing body will be reviewed once per calendar year and at this time adjustments can be made to who sits in this group.
+  1. Urgent voting issues will be given a reasonable amount of time for voting to allow all Members unable to attend the voting session to submit a vote not to exceed a week after the in-person voting session.  The amount of time will be set based on the urgency of the issue. Voting will be allowed at the physical meeting, via email, or via phone.
+
+= Open MPI Project Roles =
+
+The following roles must be assigned and agreed upon by the administrative steering committee: Release Manager, Gatekeeper, and Meeting Organizer.  The role of Committer will be delegated by each Member organization.  In most cases, it may be preferable that these assignments be shared among two or more individuals to ensure progress on the project and release.  The responsibilities of each role are defined below.
+
+== Release Manager ==
+
+  * One or more Release Manager is assigned per release of the Open MPI software
+  * Document and publish the entire process (start to end), including delegation
+  * For each release, lead the establishment of release criteria
+  * On a weekly basis, track progress/status (bugs, performance, etc.)
+  * Develop a schedule (i.e., a backwards plan from release)
+  * Enforce adherence to schedule – e.g., what does and does not make the release train
+  * Arbitrating severity, impact, cost, risk (e.g., which bugs to fix)
+
+== Gatekeeper ==
+
+  * Regulate commits to release branch
+  * Some level of sanity check before commit to branch
+  * Ensure patches are reviewed
+
+== Committer ==
+
+  * Individual authorized to make commits to the trunk or release branch
+  * Each Member organization may designate one or more individuals for this role
+
+== Meeting Organizer ==
+
+  * Makes arrangements for teleconference dial-in number
+  * Sets agenda topics in accordance with the schedule defined by the Release Manager
+  * Solicits agenda items for weekly teleconferences
+
+= Technical Leadership Committees =
+
+The Administrative Steering Committee has the right to assemble and authorize Technical Steering Committees to perform technical functions as necessary as well as to disassemble these committees when they are no longer necessary.  These Technical Steering Committees may be general and permanent, e.g., architectural review committee, or specific and temporary, e.g., a Supercomputing 06 organizing committee or per release technical team.
+
+= License =
+
+Open MPI is distributed under the New BSD license, listed below.
+Note that the phrase "above copyright notice" in the license text
+refers to the current list of copyrights that appear above the
+license text in the [source:/trunk/LICENSE license file] of the Open MPI main source code
+repository.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer listed in this license in the documentation and/or other materials provided with the distribution.
+  * Neither the name of the copyright holders nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+The copyright holders provide no reassurances that the source code provided does not infringe any patent, copyright, or any other intellectual property rights of third parties.  The copyright holders disclaim any liability to any recipient for claims brought against recipient by any third party for infringement of that parties intellectual property rights.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

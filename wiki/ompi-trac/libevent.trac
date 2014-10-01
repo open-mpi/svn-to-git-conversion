@@ -1,0 +1,153 @@
+= Notes from 5 Oct 2007 =
+
+From Paris meeting and from lengthy phone conversation with Brian
+Barrett.
+
+ * We specifically turned off epoll (and all other newer
+   wait-on-a-bunch-of-fd's [WOABOF's] mechanisms) because they all have
+   interesting / catastrophic failure modes when used with pty's on
+   Solaris, OS X, and Linux ranging from segv's to kernel panics (!).
+   Hence, since the IOF pipes in the orted to spawned processes may be
+   pty's, we simply turned off all the advanced WOABOF's and fall back
+   to select/poll.  They appear to be turned off by a few simple #if
+   0's in libevent files; no configure updates should be required to
+   turn them back on.
+
+ * Brian thinks that we may be able to either use an existing libevent
+   environment variable to force a run-time selection between
+   select/poll and the WOABOF's or simply add our own internal API.
+   This would let us have the orted use select/poll (even though many
+   of its fd's will likely be real sockets [not pty's], the
+   performance there is not very important, so it may be easier just
+   to have ''all'' orted fd's use select/poll and have MPI app's use
+   WOABOF's. 
+
+ * There are three modes to libevent's looping:
+   * OPAL_EVLOOP_NONBLOCK: poll -- call select/poll/WOABOF with a zero
+     timeout and check everything just once.
+   * OPAL_EVLOOP_ONCE: block waiting for something to happen (e.g.,
+     signal is raised, any of the fd's are ready for their respective
+     events, or the timeout expired).
+   * OPAL_EVLOOP_ONELOOP: default mode used by the orted's (today) --
+     block for the default timeout (2sec?) waiting for something to
+     happen.
+
+  * George feels that Christian's proposal for revamping progress
+    could be implemented in terms of libevent's functionality (i.e.,
+    no need to write anything/much new -- just use libevent properly).
+    However, both George and Brian feel that there may be performance
+    issues with our current libevent -- the signal/timer
+    recomputations are expensive and it calls gettimeofday a few
+    bazillion times.
+    * Brian has been following the libevent mailing lists.  He thinks
+      that the new versions of libevent may have two things that
+      interest us: 1) fixed/better signal/timer signal recomputations,
+      and 2) call gettimeofday() a lot less.
+    * Note that our libevent '''does''' use gettimeofday(), not a high
+      resolution timer.  We have an opal HR timer thingy (which is
+      used in opal_progress()), but it is not used by libevent.  Note
+      that we do not have a solid mechanism for the intel chip
+      high-resolution timer problem, namely: ''each'' CPU has its own
+      indepdenent timer such that if a process bounces between
+      processors, it may get wholly different/unrelated timer values
+      (e.g., process A on processor 0 reads time T, but then process A
+      bounces to processor 1, reads time again, and gets T-x --
+      whoops!).  There are well-known algorithms to deal with this but
+      we never bothered in OMPI because it didn't matter in the way we
+      used the HR timers.  Specifically, Brian says that there is some
+      "funky" math in opal_progress() to deal with this problem, but
+      all it does it guarantee that we don't timeout more than
+      2*desired_time_delta longer than we intend to (or something like
+      that) - which is "good enough" for OMPI's present use of the HR
+      timers (i.e., determining when to call libevent).
+      However, if we move to Christian's proposal and start using
+      libevent properly to regulate ''all'' events and timers (with
+      calls to a cheap HR timer instead of gettimeofday), we will need
+      to have the fix-the-intel-chip algorithms in place.  Perhaps
+      Christian can contribute here because he may have dealt with
+      this in PSM already.  Note that PPC and SPARC chips do not have
+      this problem; they have HW-synchronized blocks so that it
+      doesn't matter which processor you are on; a process will always
+      get a synchronized view of the HR time.
+    * In terms of merging in a new version of libevent to OMPI:
+      * Note that the new libevent has infrastructure for
+        non-blocking DNS and HTTP ''clients'' (not servers).  We may
+        or may not choose to import that stuff.  Brian thinks that the
+        libevent people will be splitting that stuff into a different
+        library in the next release anyway.
+      * A long, long time ago in a galaxy far, far away, someone
+        (maybe even me...?) renamed all the libevent symbols and flags
+        to have opal/OPAL prefixes.  This makes importing a new
+        version a real PITA.  It may be far, far simpler to have a .h
+        file with #define's that simply converts foo to opal_foo for
+        all the symbols that matter (let's stop renaming flags that
+        are not linkable symbols -- that really isn't necessary).
+        This will allow us to bring in new versions of libevent with
+        much fewer manual modifications.  Brian started this work with
+        event_rename.h, but really only did ''new'' symbols that were
+        recently added, he didn't take a comprehensive effort to fix
+        everything.
+      * Libevent's threading model is quite similar to POSIX foo_r()
+        functionality: you pass in a pointer to the data structure
+        that may be modified and it's the caller's responsibility to
+        ensure that thread safety w.r.t. data structures occurs
+        properly.  However, OMPI's threading model / use of libevent
+        kinda violates this model.  Specifically, opal_progress() has
+        one data structure that it uses for libevent.  But multiple
+        threads may call opal_progress() similtaneously, so multiple
+        threads may end up calling libevent with the same data
+        structure simultaneously.  Tim Woodall added fine-grained
+        locking in the parts of libevent that we use to make this all
+        work properly.  '''HOWEVER,''' if we start using WOABOF's
+        and/or we import new versions of libevent, we either need to
+        change opal_progress()'s use of this data structure or we need
+        to present/extend the locking scheme that Tim Woodall
+        implemented.
+      * We may also want to change the use of gettimeofday to a cheap
+        high-resolution timer (preferably with a clever #define kind
+        of way, if possible, to make future SVN merges of new versions
+        of libevent less painful).  See above for a discussion of the
+        opal HR timer stuff.
+
+  * Random opal_progress() note: the functions
+    opal_progress_event_users_increment() and
+    opal_progress_event_users_decrement() are used to count the number
+    of "users" of libevent (e.g., if anyone needs to have
+    opal_progress call libevent or not).  If num_users>0,
+    opal_progress will call libevent frequently.  If num_users==0,
+    opal_progress calls libevent infrequently.  Hence, the openib BTL
+    increments the num_users count during wireup and then decrements
+    it when wireup is done (in the openib OOB connect
+    pseudo-component).
+
+  * Random yield/opal_progress/libevent note: orted takes all the
+    defaults for yield/opal_progress/libevent.  ompi_mpi_init() plays
+    games -- it sets up yield()ing behavior and frequent libevent
+    invocations so that we can cooporate with the orted and shared
+    memory setup (which depend on multiple processes -- potentially
+    more processes than the number of processors -- sharing CPU cycles
+    nicely) and allow all processes on a single host to complete these
+    tasks in a timely fashion.  At the end of ompi_mpi_init(), we set
+    the yield/libevent behavior to be whatever is actually desired for
+    the MPI job.
+
+  * Random opal_progress() note: yield() should only be called if:
+    * "I want to yield" global behavior is enabled
+    * Nothing else happened in progress (to include libevent, I think?)
+
+  * '''Action item:''' Brian just recently wrote a progress handler
+    for the orted for routing reasons; there is a race condition where
+    a message may arrive in an orted for a process before there is a
+    route setup to that process yet.  Hence, we have to queue up the
+    message and then check later to see if a route has been setup yet
+    (see r16321).  Brian implemented this as a simple progress
+    function simply because he ran out of time to re-look up how to
+    use the timer functions.  However, this would conflict with the
+    idea of setting the orted to EVLOOP_ONCE because we would also
+    need to check this progress function (i.e., flipping between
+    progress and libevent).  Implementing it as a time would be better
+    because then libevent can handle the whole thing -- no need to
+    flip between progress and libevent.  Brian recommends fixing this
+    up to use a timed libevent in conjunction with the change to make
+    the orted run in EVLOOP_ONCE (e.g., have it check for the new
+    route ever .25, .5, or 1 sec or something).

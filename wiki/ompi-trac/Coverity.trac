@@ -1,0 +1,35 @@
+= Coverity and Open MPI =
+
+Coverity is an official partner of the Open MPI project.  They grant us access to their web-based tools for the glory of being listed in association with Open MPI.  
+
+The Coverity Prevent tool does sophisticated static source code analysis.  It points out all kinds of possible problems in the code, most of which you probably didn't even know were there.  More specifically, it can solve problems for you that you didn't even know you had.  Coverity currently runs nightly scans on trunk tarballs (we anticipate scanning all release branches).
+
+To use the tool, you must agree to the [http://scan.coverity.com/policy.html Coverity policy agreement] (which is pretty liberal, IMHO).  Pay special attention to point !#3 about competition.  Once you have agreed to that, e-mail Jeff Squyres and Tim Mattox that you'd like an account on Prevent and let us know what your desired account name is.  Tim or Jeff will forward your information to Coverity to get an account (we're the designated liasons between Coverity and Open MPI).
+
+Here is the link to the Open MPI Prevent results: [http://scan5.coverity.com:8080/ Coverity Open MPI nightly scan results]
+
+To sign up for a Coverity account: [http://scan.coverity.com/], click on "Register User".
+
+Here's some guidelines on using the Coverity web Prevent tool:
+
+ * All issues that the scanner finds are uniquely identified by a "CID" number (Coverity ID).  This number is unique across all runs, and will persist across multiple runs if the same issue exists.  So you can safely say "CID 123" to uniquely refer to a specific issue identified by the tool.
+     * When fixing issues found by the Prevent tool, it is good to list the CID number in the commit message, just for reference back to the Prevent tool.
+     * Likewise, if there's a corresponding Trac bug, don't hesitate to refer to CID numbers.
+ * Filling in fields on CID issues:
+   * Class:
+      * Uninspected: This is what all issues get by default.  Once you actually dig into an issue, you should set this field to something else.
+      * Pending: Set the issue to "pending" if you're still digging into the problem and haven't decided how to classify it yet.
+      * False: Set the issue to "False" if the scanner is reporting something that doesn't matter (i.e., it's a false positive).
+      * Intentional: Set the issue to "Intentional" if the code is intentionally doing something that Prevent is reporting; for reasons that the scanner can't know, the code is ok.
+      * Bug: Set the issue to "Bug" if Prevent found an actual bug.
+   * Severity: this one is fairly subjective - it's "major", "moderate", and "minor".  Here's my take:
+      * Major: likely to cause problems in non-erroneous situations.
+      * Moderate: not major and not minor.
+      * Minor: unlikely to cause problems (e.g,. it's a bug in an error-handling routine that is seldom/never tripped).
+   * Action: what are we going to/did we do?
+      * Undecided: Still don't know what to do about this issue.
+      * Fix: Means "we need to fix this, but haven't done so yet".
+      * Resolved: The bug was fixed in the OMPI code base.
+      * Ignore: Use this for false positives.
+   * Comment: Put some meaningful text in here.  E.g., if you found someone else's bug, put a comment in there about "Notified Jeff about this issue because it's his code."  Or "This is a false positive because ...".
+   * Ext Ref: this is intended to hold a reference to the OMPI source code repository where the issue was fixed.  For SVN, use an r number.  If we move to another VCS, put in a relevant commit id.

@@ -1,0 +1,39 @@
+= Description =
+
+Starting from the moment where the [wiki:"WindowsPort" Windows port] has been done, another opportunity to improve [http://www.open-mpi.org Open MPI] showed up. We can improve the loading time of our shared libraries as well as decreasing their size by carefully monitoring the symbols that get exported. This approach also allows the definition of a well defined interface for components writers and prohibits the usage of internal functions that are not supposed to be used from a component.
+
+= Current Status = 
+ * Automatic detection of the visibility capability of the used compiler. At the moment the following compilers are supported:
+   * GCC (> 4.X)
+   * Intel Compiler (>= 10.0) (in the 9.x version the visibility is broken)
+ * Many of the available components have been fixed to support the visibility feature.
+ * Upcoming Sun compilers are supposed to support the gcc syntax for visibility. Nevertheless attach to this wiki page there is a (untested) patch to exploid Sun's ldscope mechanism for managing symbols visibility.
+= Todo =
+== Medium Term == 
+ * Add more compilers with similar features (e.g. the sun compiler, pgi and patch scale)
+ * Fixing the remaining components (they are updated but not tested):
+   * Udapl
+   * Portals
+   * UD
+   * XGrid
+   * BProc
+   * XCpu
+   * Poe
+
+
+== Long Term ==
+ * Decide which functionallity needs to be exported.
+
+= Developers Howto =
+Most of the details have been described in [wiki:"WindowsPort" Windows port]. For helping to fix the remaining components please see the following instructions:
+ 1. Checkout the development branch via : svn co https://svn.open-mpi.org/svn/ompi/tmp/sven-visibility
+ 2. Configure the branch as usual
+ 3. Compile and install the branch
+ 4. Try to run a sample application.
+ 5. If a componment cannot be loaded at all then the component structure is not exported. Add the corresponding *_DECLSPEC or *_MODULE_DECLSPEC to the component structure declaration. GOTO 3 .
+ 6. If there are missing symbols the linker will complain and give you an error which tell's you the name of the missing symbol.
+    Go to the source and prepend the declaration of the missing symbol with the corresponing *_DECLSPEC or *_MODULE_DECLSPEC(IMPORTANT: tag the declaration and not the implementation). If the 
+    declartaion is missing add one. GOTO 3.
+ 7. If everything works as expected commit your changes back to the branch and update the Wiki page
+
+If you want to add another compiler please contact us directly.

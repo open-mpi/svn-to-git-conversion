@@ -1,0 +1,136 @@
+
+== Logistics ==
+  * Dates: Feb 25-27, 2009 (Wednesday - Fri)
+  * Time: Wed-Thurs 8:30am-5pm US Eastern (roughly), Fri 8:30am-1pm US Eastern (roughly)
+  * Location: Cisco offices, Louisville KY, USA (see below)
+
+This is likely to be a small meeting, probably only attended by Cisco, Indiana U., ORNL, U. Tennessee, Sun, and Los Alamos. All are free to attend, however.
+
+There may be dial-in portions for those who want to attend only selected portions.
+
+== Details on Cisco offices location ==
+
+ *  12910 Shelbyville Rd, Suite 210, Louisville, KY 40243
+ * [http://maps.google.com/maps?f=q&hl=en&geocode=&q=12910+shelbyville+rd&sll=38.1628,-85.520074&sspn=0.301793,0.729218&ie=UTF8&ll=38.24327,-85.516119&spn=0.009421,0.022788&z=16&iwloc=addr Google Maps of the address]
+ * [http://maps.google.com/maps/ms?hl=en&geocode=&ie=UTF8&msa=0&msid=108119265954387802600.00045ef2796b98adc5143&ll=38.242191,-85.51539&spn=0.004508,0.011222&t=h&z=17 Google Maps showing the actual building (satellite) and where to turn off Shelbyville Road]
+ * It's a shared office building; Cisco's office is on the 2nd floor.  If you get lost, call me.  If you're driving in on I64, Google recommends that once you get into Looieville, take I264N from I64 and then take Shelbyville Road (KY-60) east until you get to the Cisco offices.  You can do this, but there are many stoplights on Shelbyville.  Instead, it's a little faster to take 64 east and take I265N to the first exit: Shelyville Rd/KY-60 and go a short distance west to reach the Cisco offices.
+ * Beware in the prior paragraph: I264 is distinct from I265.  Look on a map and it's pretty obvious: I264 is the "inner loop" in Louisville; I265 is the "outer loop".
+ * Note, too, that the office building is set back from the road and not easily visible while driving -- there's no Cisco logo/sign out on the road or anything.  The turn into the office building is at a stoplight intersection that has an Applebee's restaurant on the NW corner.
+ * There's lots and lots of free parking around the office building.  If you don't see any free spots when you drive up, drive around back and there's always lots of spaces available.  It's a free lot; there's no registration or parking tags required.
+
+== Hotels ==
+
+You're on your own for accommodations.  There are at least 2 klumps of hotels near the Cisco offices; [http://maps.google.com/maps?f=q&source=s_q&hl=en&geocode=&q=hotels+near+40243&sll=38.167307,-85.499419&sspn=0.288816,0.718231&g=Louisville,+KY+40299&ie=UTF8&z=13 see this Google map].  The Cisco office is right by the word "Middletown" on KY60, north of I64.
+
+== Topics ==
+
+Several of these topics overlap considerably, so the discussion may range widely at any given time. Rather than attempt to create an agenda for the meeting, I have compiled a list of topics to be covered. I expect the initial discussion will center on creating a ''real'' agenda for the meeting, so expect things to change a lot!
+
+
+== Agenda ==
+
+  * Review of Dec meeting action item status. What has been done, what remains to be done, are we going to do them? A quick summary is provided below - see the [wiki:Dec08MeetingNotes wiki page] for the full meeting notes.
+    * Fully routable RML communications.
+      1. Static ports have been completely enabled for both daemons and processes in the trunk
+      2. Daemons still callback to mpirun upon startup, but do so along the routed pathways instead of direct when static ports are available
+      3. Shutdown procedure has been modified for SLURM to directly detect orted termination, so async shutdown w/static ports in that environment works. However, we still need a method for other environments. Thus, static ports (and hence, fully routable RML comm) cannot be used elsewhere at this time until this issue is resolved.
+      4. Shutdown of TCP port - do we have this right?
+    * Daemon collectives
+      1. have been moved to grpcomm
+      2. proc-based collective module built and fully functional
+    * MCA parameters
+      1. Nothing much done here except for addition of configure options to disable looking in user home directory for files
+    * Extreme-scale cluster support. Much done here - see below for related discussion items.
+    * '''DONE'''
+
+  * Common data storage. As noted in prior meeting plus in subsequent conversations, Open MPI stores multiple copies of data in the RTE and MPI layers. As we scale to ever larger systems, the memory consumed by this storage on a per-proc basis becomes prodigious.
+    1. RTE-level shared memory?
+    2. Where/how does the data enter?
+      * daemon-based systems
+      * daemon-less systems
+    * '''ACTION''' No real work has been done on this yet due to priorities. Ralph may have time to start work on it in upcoming month, will coordinate with George.
+
+  * Modex elimination.
+    1. Would it be useful for Ralph to describe the current method for doing this?
+    2. Perhaps discuss extending it to other BTL's beyond OpenIB?
+      * '''NOTE''' Extensible to several others, will look at them as time/opportunity permits
+    3. Alternative approaches?
+      * '''ACTION''' Test at scale as opportunities present. George is working on bringing over alternative modex/routed methods, but needs to modify the base modex code. Ralph will work on modifying routed modules to follow established paths so as to minimize connection storms, will revise return exit "ack" by orteds to ensure message gets to mpirun and/or allow orteds to "self-terminate" as their lifeline (defined as next step in routed tree) departs.
+
+  * Fault tolerance
+    * Manager-Worker Fault Model
+    * Data reliability PML. IU has some interest as part of CIFTS project. Currently, the DR is just a copy of OB1 that has some changes to handle DR. Josh is looking for a way to make this more maintainable. Several ideas were suggested, but no better method was derived.
+      * '''ACTION''' Josh will likely wait for the OB1 changes prior to reviving DR.
+    * Application-driven checkpointing. Josh has prepared a proposal that has been critiqued by UTK. This discussion will focus on resolving differences so we can proceed with implementation.
+    * '''ACTION''' Ralph will talk to application developers to see if we can get a sanitized example and establish a dialogue to understand exactly what is needed, what is missing from current capabilities, etc.
+
+  * Resource Manager collabs
+    * Ralph will report on activity to group '''DONE'''
+
+  * System resource consumption. I continue to get reports of hangs and/or aborts due to system resource consumption, either hitting limits on number of file descriptors/pipes or number of children for a proc. These are all seen during loops on comm_spawn where the child processes are short-lived - so the instantaneous number of fd's and children should be fairly small. Yet the jobs report hitting system limits and abort after varying numbers of loops. Increasing fd limits lets the job run longer (when that is the limiting factor), which would seem to indicate we are not cleaning up completely - but I have so far been unable to trace the root of the problem. I have no idea why we are hitting the #children issue, unless somehow that is an aggregate number.
+  * '''ACTION''' We are leaking file descriptors and ptys that appear associated with IOF. Ralph will investigate.
+    * '''FIXED - both trunk and 1.3 series'''
+  * '''ACTION''' Ralph will check for memory leakage as comm_spawn'd jobs complete
+    * '''Recycling of jobids and other resource usage has been completed and is in trunk'''
+
+  * Error manager - need both OMPI and ORTE frameworks, ORTE framework needs to send to HNP that proc has failed, HNP xcasts error failure to orted errmgrs, OMPI procs will register callback function with local errmgr to callback when message recvd. Response to MPI_Abort will remain same.
+  * '''ACTION''' UTK will provide patch for modified ORTE errmgr behavior
+
+  * Notifier framework. There is increasing interest in utilizing the notifier framework to provide alert and information on OMPI-detected problems.
+    1. identify and coordinate action to incorporate warnings in code base
+    2. define severity scale
+    3. relation to OPAL_SOS? See wiki:ErrorMessages
+    4. Can we begin identifying places to add notifications?
+    * '''ACTION''' Notifier framework will remain in orte. Notifier will register callbacks with SOS so that messages can be delivered to the appropriate place and/or handled according to the notifier's module.
+
+  * orte_show_help - alternative methods? We discussed multiple options for this, and concluded it was best handled as part of the overall RSL discussion. This will be documented below - to be continued on Thurs.
+    * '''ACTION''' Tabled until we figure out what to do about the BTL/RSL issue.
+
+  * Tight integration. We now have the ability to direct-launch applications in SLURM, and soon in Torque. These capabilities come at a price - namely, the applications do not have access to some of the MPI-2 operations (e.g., comm_spawn).
+    1. What documentation do we need to provide to differentiate these modes of operation?
+    2. When someone calls an unsupported function, we currently abort - is this the accepted response?
+    * '''ACTION''' Ralph will generate a warning message whenever unsupported calls are requested and return an MPI Error for the caller to handle. The warning message will identify why this cannot be done, and suggest that use of mpirun will allow it.
+    * '''ACTION''' Ralph will send to devel list and ask if anyone has a better idea.
+
+  * OPAL_SOS. Alive? Dead? When and who?
+    * See wiki:ErrorMessages
+    * '''ACTION''' Jeff will implement the infrastructure per Josh's notes on how this will work. Individual developers will implement in various code areas. Verbosity will be replaced by this system except for developer-only debugging output. The OPAL_SOS calls will have the error, severity, stack, user message, devel message, and sysadmin message. OPAL_SOS will maintain a stack so we know where the error started, and how it propagated upwards. Josh has detailed notes on how this will work.
+
+  * Feature release cycle. What will probably be a "lively" discussion about what should be released when, how we separate features out given the way they tend to aggregate their dependencies in the code base, etc.
+  * '''ACTION''' George and Brad will consider re-designating 1.3 to be a feature release series, with conversion to "stable" release in time for !SuperComputing.
+
+  * Connected processes - MPI standard issues with MPI_Finalize. We currently only barrier at the ORTE level, which means that we only barrier across the specific job (and not any/all attached jobs). George has pointed out that this violates the MPI standard, but the question is how best to fix it.
+    1. replace orte_grpcomm.barrier with MPI_Barrier in MPI_Finalize?
+      * pros: would extend across all communicators
+      * cons:
+        * forces open connections that may not be used by application, so it may be slower since the RML connections were already open
+    2. run loop over disconnect in MPI_Finalize prior to grpcomm.barrier?
+    3. other alternatives?
+    * '''ACTION''' MPI_Finalize - fan-in to rank0, rank0 will notify HNP that this job is ready to finalize. HNP currently gets add_route cmd for each connect/accept, needs to reference count, decrement when disconnect. When reference counts to all routes-to-other-jobs have reached zero, HNP sends finalize-barrier-release out to its local jobs. Local comm_spawn must retain its own reference counts so that it can leave when all its connections are done - i.e., if parent connects to another job, child can leave once it disconnects from parent and doesn't have to wait for parent to disconnect from remote job.
+    * '''ACTION''' Current system actually does what we need, if a proc in a connected job attempts to talk to a finalized proc, that is an erroneous program. Add an FAQ explaining this, and look at nicely handling the error condition. Otherwise, leave things alone.
+
+  * BTL move issues. This is actually two issues
+    1. Moving the BTL into a separate layer in order to allow other users of BTLs (tools, ORTE, other?)
+    2. Renaming several variables/names into the correct layer (e.g. OMPI_* into OPAL_*)
+    3. Creation of MCA framework to hold RTE interfaces, with single component for ORTE - other RTEs will add their own components as binary modules distributed independently.
+    * '''ACTION''' ORNL will think some more about how to resolve the circular linker references between the RTE and the ONET layer. 
+
+  * Passing and parsing regular expressions. Can review the SLURM logic and what has been done for that tight integration - is this extendable, or do we have alternative approaches we can explore?
+    1. launch instructions to the orteds on their cmd line to eliminate launch msg handshake
+    2. nidmap/pidmap info to procs that are directly launched
+      * '''ACTION''' Thomas will send Ralph a prototype to test for Torque integration. Hopes to deliver final solution by end March. Will not be compatible with SLURM regex, so Ralph will move that code to a SLURM-specific location.
+
+== Results of Discussions ==
+
+ * Pertaining the BTL move:
+   1. We discussed the possibility to have a runtime-loadable {{{mca}}} called {{{rsl}}}, which loads an RTE (basically two implementations, one called {{{orte}}}, one called {{{stci}}}). See picture below. Due to the complexity of the changes in the ompi layer and still the  dependency of onet/orte, this was discarded. [[BR]] [[Image(louisville_img_3890.jpg, 320px)]]
+   2. The consensus on Friday morning was to have a compile-time exchange via {{{#defines}}} for all relevant orte variables/structures/error-values and base onet on top of orte. We agreed to have a global {{{rte.h}}}, which would do the necessary redefinitions in the case of {{{stci}}} (see picture and the architecture diagram in the PDF below)...[[BR]] In the case of the RTE calling back into the onet layer we agreed to register BTL functions in order to upcall from {{{stci}}} into {{{stci}}} for communication purposes... [[BR]] [[Image(louisville_img_3893.jpg, 320px)]] [[BR]] [[Image(ompi_onet-2009.02.27.pdf)]]
+
+ * Another important item of the above diagram is an external rte.h header:
+   1. We agreed to have some build system magic with the end goal such that STCI will be able to use an unmodified OMPI tarball/SVN checkout/whatever.  Specifically:
+      - some kind of configure option to not build ORTE
+      - slurp in an external .h file to OMPI's rte.h that will do all the {{{#define}}} renames (e.g., orte_rml -> stci_rml) so that OMPI will compile/link against all the Right symbols.  "Normal" OMPI/RTE builds will not have all these #defines; it's only the additional {{{.h}}} file that we slurp in as a result of the configure option that would trigger all these {{{#defines}}}.
+      - slurp in the appropriate {{{-L}}}'s and {{{-l}}}'s (I don't think additional {{{-I}}}'s will be necessary...?  but am not 100% sure of that) for {{{LDFLAGS}}} and {{{LIBS}}} build macros.
+   2. Once the registration system is figured out for the RTE to make upcalls to the onet layer, ORTE will also implement these hooks (probably as [effectively] no-ops) so that the OMPI/ONET layer can always make the downcalls to register itself with the RTE (regardless of whether it's ORTE or STCI underneath).
+
+ * Additionally, in the aftermath of the meeting we decided that the datatype engine should be split in an MPI- and an MPI-agnostic part.

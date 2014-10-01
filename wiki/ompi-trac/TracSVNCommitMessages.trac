@@ -1,0 +1,100 @@
+= Making SVN commit messages affect Trac tickets =
+
+It is is fun and useful to have SVN commit messages directly affect Trac tickets.  From within a SVN commit message, you can do one of two things:
+
+ 1. Attach the commit message to one or more Trac tickets
+ 1. Attach the commit message to one or more Trac tickets ''and'' close the ticket
+ 1. Automatically create a Changeset-Move-Request Ticket (CMRs)
+
+== Attach the commit message ==
+
+This form attaches the full text of the commit message to one or more Trac tickets.  Add text of the following form anywhere in your SVN commit message:
+
+{{{
+Refs #1234
+}}}
+
+This will add your entire commit message to ticket !#1234 (obviously, substitute in the proper ticket number).  The text of your commit message will be prepended in the ticket with "(In [xxxx])", where "xxxx" is the r number of the commit.
+
+You can also use a comma-delimited list of ticket numbers if you want your message applied to multiple tickets.  For example:
+
+{{{
+Refs #1234, #2345, #3456
+}}}
+
+("Refs" is case-insensitive -- you can use any case variant)
+
+== Attach the commit message and close the ticket ==
+
+This is exactly the same form as just attaching the message, but uses the keyword "closes" or "fixes" instead of "refs".  For example:
+
+{{{
+This commit fixes #1234.
+}}}
+
+You can also use comma-delimited lists:
+
+{{{
+This commit closes #1234, #2345, #3456.
+}}}
+
+Be careful not to include extra words, such as prepositions, conjunctions, etc.  For example:
+
+{{{
+This commit closes #1234, #2345, and #3456.
+}}}
+
+will only attach the message and close the first two tickets -- !#3456 will not be affected.
+
+
+== Automatically create a Changeset Move Request Ticket (CMRs) ==
+
+Normal procedure to move a patch from trunk into one of our branches (v1.4, v1.5, ...) is to manually create a Changeset Move Request (CMR) Ticket, mention the patch revision number, select the milestone and priority. This ticket is then evaluated by Release Managers and applied by the Gatekeeper.
+
+To eliminate the necessity to create the CMR in the first place, we use an svn-hook to parse the svn commit msg for the {{{cmr=MILESTONE}}} token at the beginning of any line in the commit message.
+
+With any commit to the trunk, you can automatically create a new CMR, selecting one or more target branches to apply the branch just add the following text at the beginning of any line in your SVN commit message.
+{{{
+cmr=MILESTONE[:optional fields]
+}}}
+
+Valid MILESTONE values include "v1.6.6", "v1.7.4", "v1.7.5", "v1.8", ... etc.  If MILESTONE is not a valid, currently-open Trac milestone, ''the commit will fail without writing anything to the SVN repo''.
+
+There are three optional key=value fields, delimited by colons (ordering of the fields is irrelevant):
+
+ * '''ticket=CMR_TICKET:''' If you specify a ticket number, you will amend an existing CMR ticket.  
+   * The commit will fail ''without writing anything to the SVN repo'' if CMR_TICKET is not an existing, open CMR ticket, and/or if the specified milestone does not match the milestone on the specified ticket.
+ * '''reviewer=TRAC_ID:''' Assign the specified Trac ID to review this CMR.  
+   * The commit will fail ''without writing anything to the SVN repo'' if TRAC_ID is not valid.
+ * '''subject=SUBJECT:''' If you specify a subject, the summary of the CMR will be "Move !r12345 to MILESTONE (SUBJECT)".  
+   * If you do not specify a subject, the first few words of your commit message will be used as the SUBJECT value.
+
+Note that there is an older / less-general / deprecated form that (for now) still works, too:
+{{{
+cmr:MILESTONE[:#CMR_TICKET][:reviewer=TRAC_ID]
+}}}
+
+Here's a few examples.  Note that all examples have the "cmr=MILESTONE" token as the '''FIRST''' token on the line:
+{{{
+#!sh
+# Close ticket #42 and CMR this commit to the v1.5 milestone
+svn ci -m 'This really fixes #42\ncmr=v1.5'
+
+# Amend an existing v1.5 milestone CMR ticket
+svn ci -m 'This really fixes #42, and should be added to\ncmr=v1.5:ticket=4711'
+
+# Assign a reviewer
+svn ci -m 'This commit fixes ... and should be added to\ncmr=v1.5:reviewer=jsquyres'
+
+# Assign a subject
+svn ci -m 'This commit fixes ... and should be added to\ncmr=v1.5:subject=Datatype fix'
+
+# Multiple tokens
+svn ci -m 'This really fixes #42, and should be added to\ncmr=v1.5:ticket=42:reviewer=jsquyres:subject=Datatype fix'
+
+# Create multiple CMRs from a single commit
+# NOTE: Each CMR command line must be on its own line in the commit message!"
+svn ci -m 'Big Important fix.\ncmr=v1.4\ncmr=v1.5'
+}}}
+
+'''PLEASE NOTE''' If the CMR-parsing script is unable to understand your SVN commit message (e.g., you get the syntax wrong, you specify a milestone that doesn't exist, you try to amend a ticket that is not a matching CMR, etc.), the commit will abort '''WITHOUT WRITING TO THE SVN REPOSITORY''' and show you a brief error message indicating what you did wrong.  You can just fix what you did wrong and then re-commit.

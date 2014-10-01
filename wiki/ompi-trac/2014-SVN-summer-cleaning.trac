@@ -1,0 +1,44 @@
+= 2014 SVN Account Summer Cleaning = 
+
+Once a year, we prune non-active SVN accounts.  For example:
+
+ * People who are no longer involved in Open MPI
+ * People who no longer need write access to Open MPI's Subversion
+ * People who have moved organizations and no longer have that organization's permission to commit to Open MPI
+
+Each organization is responsible for editing this wiki page and moving each of their IDs to the "keep SVN write access" or "remove SVN write access" columns.  There's also some unknown IDs (meaning: Jeff didn't recognize those IDs and therefore didn't know with which organization to group them).  Please claim your organization's IDs.
+
+'''ALL ORGANIZATIONS MUST CLASSIFY THEIR COMMITTERS! '''
+
+'''DEADLINE FOR ACCOUNT CLASSIFICATION:''' COB, Thursday, July 31, 2014.  All accounts that are not classified by that date __will have their SVN write permissions removed.__
+
+When classifying your IDs, please remember the following:
+
+ * The goal is to make a small, core list of active SVN committers.
+ * Only put IDs in the "keep" column if they are actually active in Open MPI.
+ * The Open MPI SVN repository is open; removing someone's write permissions does not stop them from reading from SVN.
+ * Removing someone's SVN write access __does not affect their Trac / wiki / bug tracking account.__
+ * If you don't recognize an SVN ID in your organization, move it to the remove column.
+ * '''When in doubt, move to the "remove" column.'''
+ * Since it is trivial to restore an SVN ID if we make a mistake, better to err on the side of "remove".
+ 
+||='''Organization'''=||='''Keep SVN write access'''=||='''Remove SVN write access'''=||='''Still need to classsify these IDs'''=||
+|| AMD ||bbenton || || ||
+|| Cisco || jsquyres, dgoodell || rfaucett || ||
+|| Dresden || bwesarg, jurenz || knuepfer ||  ||
+|| HLRS || hpcchris || ||  ||
+|| Indiana U || lums || dikim2 || ||
+|| Intel ||rhc, vvenkatesan|| || ||
+|| LANL || hjelmn, hppritcha ||samuel ||  ||
+|| Mellanox ||alex, alinas, amikheev, devendar, jladd, igoru, miked, vasily, yosefe || alekseys,  kliteyn ||   ||
+|| NVIDIA || rolfv || || ||
+|| OGC || swise || || ||
+|| Oracle || eugene || || ||
+|| ORNL || manjugv, naughtont, pasha || ||  ||
+|| RIST || ggouaillardet || || ||
+|| Sandia || tkordenbrock, rbbrigh, regrant, ktpedre || mjleven ||   ||
+|| U Houston ||edgar, hadi, mjbhaskar|| || ||
+|| U Politècnica de València || jroman, osvegis || || ||
+|| U Tennessee Knoxville || bouteill, bosilca, herault || coti, gef, lemarini, pjesa, wbland|| ||
+|| U Wisconsin - La Crosse || jjhursey || ||  ||
+|| Individual || adrian || brbarret || ||

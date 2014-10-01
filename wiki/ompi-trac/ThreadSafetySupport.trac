@@ -1,0 +1,321 @@
+This page is to be used to track the progress of thread safety testing by the community members.  Later we will use this (or another page) to jot down ideas that we think could improve OMPI's threadsafety performances.
+== Issues ==
+  * There are issues with concurrent thread access to a tcp endpoint.  r15963 provides a workaround that prevents a segv when dereferencing a NULL frag pointer.  But the underlying issue of multiple threads polling on the same endpoint still needs to be resolved.  Hence, this note here.
+== Enhancements ==
+  * Possible comm creation performance improvement if we implemented an unexpected cid queue (get's rid of a collective).
+== IU ==
+  * Intel Tests (We run these nightly via MTT. Here is a recent run)
+    * MPI: r15955 w/ --enable-mpi-threads
+    * Tests: All tests in the file 'all_tests_no_perf'
+    * System: Thor: Dual processor Dual processor Xeon(32 bit) w/ hyperthreading, running on 4 nodes, 2 ppn
+    * Network combinations used: "gm,self", "gm,sm,self", "openib,self", "tcp,openib,sm,self", "tcp,self", "tcp,sm,self"
+    * All tests in file 'all_tests_no_perf' pass.
+  * Threads Tests
+    * MPI: r15957 w/ --enable-mpi-threads
+    * Tests: built with pthreads and ran with defaults (no arguments)
+    * System: Thor: Dual processor Xeon(32 bit) w/ hyperthreading, running on 8 nodes, 2 ppn
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||MT_sendrecv   ||All      ||gm,self     ||Pass  || ||
+||              ||         ||gm,sm,self  ||Pass  || ||
+||              ||         ||openib,self ||Pass ||  ||
+||              ||         ||openib,sm,self ||Pass  || ||
+||              ||         ||tcp,self    ||Fail  || segfault in tcp btl  ||
+||              ||         ||tcp,sm,self ||Pass  || ||
+||MT_coll       ||         ||gm,self     ||Fail  || assertion failure in mca_coll_base_comm_unselect  ||
+||              ||         ||gm,sm,self  ||Fail  || aborted: assertion error pml_ob1_recvreq.c:542 ||
+||              ||         ||openib,self ||Fail  || assertion failure in pml_ob1_irecv.c:69 ||
+||              ||         ||openib,sm,self ||Fail ||hangs:  mca_oob_tcp_peer_send_handler: invalid connection state (3) ||
+||              ||         ||tcp,self    ||Fail  || segfault in tcp btl  ||
+||              ||         ||tcp,sm,self ||Fail  || segfault in tcp btl  ||
+||MT_comm       ||         ||gm,self     ||Fail  || hangs ||
+||              ||         ||gm,sm,self  ||Fail  || hangs ||
+||MT_commcaching||         ||gm,self     ||Pass  ||||
+||              ||         ||gm,sm,self  ||Pass  ||||
+||MT_env        ||         ||gm,self     ||Fail  ||abort: assert error in pcomm_set_errhandler.c:61||
+||              ||         ||gm,sm,self  ||Fail  ||abort: assert error in pcomm_set_errhandler.c:61||
+||MT_greqs      ||         ||gm,self     ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||              ||         ||gm,sm,self  ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||MT_group      ||         ||gm,self     ||Pass  || ||
+||              ||         ||gm,sm,self  ||Pass  || ||
+||MT_misc       ||         ||gm,self     ||Fail  || hangs||
+||              ||         ||gm,sm,self  ||Fail  || hangs||
+||MT_pt2pt2     ||         ||gm,self     ||Pass  || ||
+||              ||         ||gm,sm,self  ||Pass  || ||
+||MT_rcvany     ||         ||gm,self     ||Pass  || ||
+||              ||         ||gm,sm,self  ||Pass  || ||
+||MT_send       ||         ||gm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||gm,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_send2      ||         ||gm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||gm,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_win        ||         ||gm,self     ||Fail  || Error in MPI_Win_free: MPI_ERR_RMA_SYNC ||
+||              ||         ||gm,sm,self  ||Fail  || Error in MPI_Win_free: MPI_ERR_RMA_SYNC ||
+== Sun ==
+  * Intel Tests
+  * Threads Tests
+    * MPI: built r15584 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads (and lock init fix)
+    * Tests: built with Solaris Threads and ran with defaults (no arguments)
+    * System: Solaris 10/x86
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||mt_sendrecv   ||All      ||tcp,sm,self||Pass  || ||
+||mt_coll       ||         ||tcp,self   ||Fail  ||np=2 hangs in Gather, np=4 hangs in Bcast ||
+||mt_comm       ||         ||tcp,self   ||Fail  ||various hangs and segv in mca_pml_ob1_recv_frag_callback||
+||mt_commcaching||         ||tcp,self   ||false Pass||messages about truncation receive||
+||mt_env        ||         ||tcp,self   ||Fail  ||np=4 fails Assertion  pcomm_set_errhandler.c, line 56||
+||mt_greqs      ||         ||tcp,self   ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||mt_group      ||         ||tcp,self   ||Pass  || ||
+||mt_misc       ||         ||tcp,self   ||Fail  ||hangs with np=4||
+||mt_pt2pt2     ||         ||tcp,self   ||Pass  || ||
+||mt_rcvany     ||         ||tcp,self   ||Fail  ||hangs with np=2 & 4 ||
+||mt_send       ||         ||tcp,self   ||Pass  ||Note mtt actually inteprets it as a fail because how it aborts||
+||
+||mt_send2      ||         ||tcp,self   ||Pass  ||Note mtt actually inteprets it as a fail because how it aborts||
+||mt_start_compl||         ||tcp,self   ||Fail  ||np=2 hangs, np=4 segv's in mca_allocator_bucket_cleanup||
+||mt_win        ||         ||tcp,self   ||Fail  ||several test failures and Segv MPI_Win_lock and ompi_comm_nextcid
+||
+||mt_wincache   ||         ||tcp,self   ||Pass  || ||
+||mt_f2c_c2f   ||         ||tcp,self   ||Pass  || ||
+  * Threads Tests
+    * MPI: built r15936 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads 
+    * Tests: built with Solaris Threads and ran with defaults (no arguments)
+    * System: Solaris 10/x86
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||mt_sendrecv   ||All      ||tcp,self||Fail  ||np=2 hangs, np=4 segv's in tuned collectives ||
+||mt_coll       ||         ||tcp,self   ||Fail  ||np=2 hangs in Gather, np=4 hangs in Bcast ||
+||mt_commcaching||         ||tcp,self   ||Pass|| ||
+||mt_env        ||         ||tcp,self   ||Fail  ||np=4 fails Assertion  pcomm_set_errhandler.c, line 56||
+||mt_greqs      ||         ||tcp,self   ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||mt_group      ||         ||tcp,self   ||Pass  || ||
+||mt_misc       ||         ||tcp,self   ||Fail  ||hangs with np=4||
+||mt_pt2pt2     ||         ||tcp,self   ||Pass  || ||
+||mt_rcvany     ||         ||tcp,self   ||Pass  || ||
+||mt_send       ||         ||tcp,self   ||Pass  ||Note mtt actually inteprets it as a fail because how it aborts||
+||
+||mt_send2      ||         ||tcp,self   ||Pass  ||Note mtt actually inteprets it as a fail because how it aborts||
+||mt_start_compl||         ||tcp,self   ||Fail  ||np=2 passes, np=4 hangs ||
+||mt_win        ||         ||tcp,self   ||Fail  ||fails with MPI_ERR_RMA_SYNC error message ||
+||mt_wincache   ||         ||tcp,self   ||Pass  || ||
+||mt_f2c_c2f   ||         ||tcp,self   ||Pass  || ||
+  * Threads Tests
+    * MPI: built r16064 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads 
+    * Tests: built with Solaris Threads and ran with defaults (no arguments)
+    * System: Solaris 10/x86
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||mt_sendrecv   ||All      ||tcp,self||Fail  ||np=2&4 hangs ||
+||mt_coll       ||         ||tcp,self   ||Fail  ||np=2 hangs in Gather, np=4 hangs in Bcast ||
+||mt_comm       ||         ||tcp,self   ||Fail  ||np=2 hangs in Free tests, np=4 passes??? ||
+||mt_commcaching||         ||tcp,self   ||Pass|| ||
+||mt_env        ||         ||tcp,self   ||Fail  ||np=4 fails Assertion  pcomm_set_errhandler.c, line 56||
+||mt_greqs      ||         ||tcp,self   ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||mt_group      ||         ||tcp,self   ||Pass  || ||
+||mt_misc       ||         ||tcp,self   ||Fail  ||hangs with np=4||
+||mt_pt2pt2     ||         ||tcp,self   ||Pass  || ||
+||mt_rcvany     ||         ||tcp,self   ||Pass  || ||
+||mt_send       ||         ||tcp,self   ||Fail  ||np=4 hangs||
+||mt_send2      ||         ||tcp,self   ||Fail  ||np=4 hangs||
+||mt_start_compl||         ||tcp,self   ||Fail  ||np=2 passes, np=4 hangs ||
+||mt_win        ||         ||tcp,self   ||Fail  ||fails with MPI_ERR_RMA_SYNC error message ||
+||mt_wincache   ||         ||tcp,self   ||Pass  || ||
+||mt_f2c_c2f   ||         ||tcp,self   ||Pass  || ||
+  * Threads Tests
+    * MPI: built r16237 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads 
+    * Tests: built with Solaris Threads and ran with defaults (no arguments)
+    * System: Solaris 10/x86
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||mt_sendrecv   ||All      ||tcp,self||Fail  ||np=2&4 hangs ||
+||mt_coll       ||         ||tcp,self   ||Fail  ||np=2 hangs in Gather, np=4 hangs in Bcast ||
+||mt_comm       ||         ||tcp,self   ||Pass || ||
+||mt_commcaching||         ||tcp,self   ||Pass|| ||
+||mt_env        ||         ||tcp,self   ||Fail  ||fails Assertion  pcomm_set_errhandler.c, line 56||
+||mt_greqs      ||         ||tcp,self   ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||mt_group      ||         ||tcp,self   ||Pass  || ||
+||mt_misc       ||         ||tcp,self   ||Fail  ||hangs with np=4||
+||mt_pt2pt2     ||         ||tcp,self   ||Fail  ||hangs ||
+||mt_rcvany     ||         ||tcp,self   ||Pass  || ||
+||mt_send       ||         ||tcp,self   ||Fail  ||hangs||
+||mt_send2      ||         ||tcp,self   ||Pass  || ||
+||mt_start_compl||         ||tcp,self   ||Fail  ||np=2 passes, np=4 hangs ||
+||mt_win        ||         ||tcp,self   ||Fail  ||fails with MPI_ERR_RMA_SYNC error message ||
+||mt_wincache   ||         ||tcp,self   ||Pass  || ||
+||mt_f2c_c2f   ||         ||tcp,self   ||Pass  || ||
+ * Threads Tests
+    * MPI: built r16237 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads 
+    * Tests: built with Solaris Threads and ran with defaults (no arguments)
+    * System: Solaris 10/x86
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||mt_sendrecv   ||All      ||sm,self||Pass  || ||
+||mt_coll       ||         ||sm,self   ||Pass  || ||
+||mt_comm       ||         ||sm,self   ||Pass  || ||
+||mt_commcaching||         ||sm,self   ||Pass|| ||
+||mt_env        ||         ||sm,self   ||Fail  ||fails Assertion  pcomm_set_errhandler.c, line 56||
+||mt_greqs      ||         ||sm,self   ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||mt_group      ||         ||sm,self   ||Pass  || ||
+||mt_misc       ||         ||sm,self   ||Fail  ||hangs with np=4||
+||mt_pt2pt2     ||         ||sm,self   ||Pass  || ||
+||mt_rcvany     ||         ||sm,self   ||Pass  || ||
+||mt_send       ||         ||sm,self   ||Pass  || ||
+||mt_send2      ||         ||sm,self   ||Pass  || ||
+||mt_start_compl||         ||sm,self   ||Pass  || ||
+||mt_win        ||         ||sm,self   ||Fail  ||fails with MPI_ERR_RMA_SYNC error message ||
+||mt_wincache   ||         ||sm,self   ||Pass  || ||
+||mt_f2c_c2f   ||         ||sm,self   ||Fail  ||np=4 segv in ompi_osc_rdam_component_finalize ||
+== UTK ==
+  * Intel Tests
+  * Threads Tests
+
+== HLRS == 
+  * Threads Tests
+    * MPI: built r15661 w/ --enable-mpi-threads --enable-progress-threads
+    * Tests: ran with defaults (no arguments)
+    * System: Linux EMT64t
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||MT_sendrecv   ||All      ||tcp,self    ||Pass  || ||
+||              ||All      ||sm,self     ||Pass  || ||
+||MT_coll       ||         ||tcp,self    ||Pass  || ||
+||              ||         ||sm,self     ||Fail  || various hangs and segv ||
+||MT_comm       ||         ||tcp,self    ||Fail  || hangs ||
+||              ||         ||sm,self     ||Fail  || segv ||
+||MT_commcaching||         ||tcp,self    ||false Pass||messages about truncation receive||
+||              ||         ||sm,self     ||false Pass||messages about truncation receive||
+||MT_env        ||         ||tcp,self    ||Fail  ||np=4 is ok else fails assertion and segv||
+||              ||         ||sm,self     ||Fail  ||np=4 is ok else fails with assertion and segv||
+||MT_greqs      ||         ||tcp,self    ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||              ||         ||sm,self     ||Fail  ||MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||MT_group      ||         ||tcp,self    ||Pass  || ||
+||              ||         ||sm,self     ||Fail  || segv||
+||MT_misc       ||         ||tcp,self    ||Pass  || ||
+||              ||         ||sm,self     ||Pass  || ||
+||MT_pt2pt2     ||         ||tcp,self    ||Pass  || ||
+||              ||         ||sm,self     ||Fail  || hangs ||
+||MT_rcvany     ||         ||tcp,self    ||Fail  || segv ||
+||              ||         ||sm,self     ||Fail  || segv ||
+||MT_send       ||         ||tcp,self    ||Pass  ||  Intentionally calling MPI_Abort ||
+||              ||         ||sm,self     ||Pass  ||  Intentionally calling MPI_Abort ||
+||MT_send2      ||         ||tcp,self    ||Pass  ||  Intentionally calling MPI_Abort ||
+||              ||         ||sm,self     ||Pass  ||  Intentionally calling MPI_Abort ||
+||MT_win        ||         ||tcp,self    ||Fail  ||  hangs ||
+||              ||         ||sm,self     ||Fail  ||  segv ||
+
+
+
+  * Threads Tests
+    * MPI: built r15936 w/ --enable-mpi-threads 
+    * Tests: ran with defaults (no arguments)
+    * System: Linux EMT64t 2nodes/ 4 processes
+||Test Group    ||Test Name||BTLs        ||Status||Detail||
+||MT_sendrecv   ||All      ||tcp,self    ||Failed  || segvfault ||
+||              ||All      ||mvapi,self  ||Pass    || ||
+||              ||All      ||sm,self     ||Pass    || ||
+||MT_coll       ||         ||tcp,self    ||Failed  || segvfault ||
+||              ||         ||mvapi,self  ||Pass    || ||
+||              ||         ||sm,self     ||Pass    || ||
+||MT_comm       ||         ||tcp,self    ||Pass    || ||
+||              ||         ||mvapi,self  ||Pass    || ||
+||              ||         ||sm,self     ||Pass    || ||
+||MT_commcaching||         ||tcp,self    ||false Pass||messages about truncation receive||
+||              ||         ||mvapi,self  ||false Pass||messages about truncation receive||
+||              ||         ||sm,self     ||false Pass||messages about truncation receive||
+||MT_env        ||         ||tcp,self    ||Fail    || fails assertion and segv ||
+||              ||         ||mvapi,self  ||Fail    || fails assertion and segv ||
+||              ||         ||sm,self     ||Pass    || ||
+||MT_greqs      ||         ||tcp,self    ||Fail    || segvfault ||
+||              ||         ||mvapi,self  ||Fail    || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||              ||         ||sm,self     ||Fail    || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||MT_group      ||         ||tcp,self    ||Pass    || ||
+||              ||         ||mvapi,self  ||Pass    || ||
+||              ||         ||sm,self     ||Pass    || ||
+||MT_misc       ||         ||tcp,self    ||Fail    || hang ||
+||              ||         ||mvapi,self  ||Fail    || hang ||
+||              ||         ||sm,self     ||Fail    || hang ||
+||MT_pt2pt2     ||         ||tcp,self    ||Fail    || hang ||
+||              ||         ||mvapi,self  ||Fail    || hang ||
+||              ||         ||sm,self     ||Fail    || hang ||
+||MT_rcvany     ||         ||tcp,self    ||Pass    || ||
+||              ||         ||mvpai,self  ||Fail    || segvfault ||
+||              ||         ||sm,self     ||Pass    || ||
+||MT_send       ||         ||tcp,self    ||Pass    ||  Intentionally calling MPI_Abort ||
+||              ||         ||mvapi,self  ||Pass    ||  Intentionally calling MPI_Abort ||
+||              ||         ||sm,self     ||Pass    ||  Intentionally calling MPI_Abort ||
+||MT_send2      ||         ||tcp,self    ||Pass    ||  Intentionally calling MPI_Abort ||
+||              ||         ||mvapi,self  ||Pass    ||  Intentionally calling MPI_Abort ||
+||              ||         ||sm,self     ||Pass    ||  Intentionally calling MPI_Abort ||
+||MT_win        ||         ||tcp,self    ||Fail    ||  segv ||
+||              ||         ||mvapi,self  ||Fail    ||  segv ||
+||              ||         ||sm,self     ||Fail    ||  segv ||
+
+
+== IBM == 
+  * Threads Tests
+    * MPI: built r15980 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads
+    * Tests: ran with defaults (no arguments)
+    * System: PPC64/SLES10/eHCA, 2 nodes, np=6 (3 processes/node)
+||Test Group    ||Test Name||BTLs            ||Status||Detail||
+||MT_sendrecv   ||All      ||tcp,sm,self     ||Pass  || ||
+||              ||All      ||openib,sm,self  ||Pass  || ||
+||MT_coll       ||         ||tcp,sm,self     ||Fail  || mca_pml_ob1_irecv obj_magic_id failed assert ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_comm       ||         ||tcp,sm,self     ||Fail  || intermittent hangs ||
+||              ||         ||openib,sm,self  ||Fail  || intermittent hangs ||
+||MT_commcaching||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_env        ||         ||tcp,sm,self     ||Fail  || pcomm_set_errhandler obj_magic_id failed assert ||
+||              ||         ||openib,sm,self  ||Fail  || pcomm_set_errhandler obj_magic_id failed assert ||
+||MT_greqs      ||         ||tcp,sm,self     ||Fail  || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||              ||         ||openib,sm,self  ||Fail  || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||MT_group      ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_misc       ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_pt2pt2     ||         ||tcp,sm,self     ||Fail  || hangs ||
+||              ||         ||openib,sm,self  ||Fail  || hangs ||
+||MT_rcvany     ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_send       ||         ||tcp,sm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||openib,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_send2      ||         ||tcp,sm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||openib,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_start_compl||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_win        ||         ||tcp,self        ||Fail  || err in MPI_Win_free: error while executing rma sync ||
+||              ||         ||openib,sm,self  ||Fail  || err in MPI_Win_free: error while executing rma sync ||
+||mt_wincache   ||         ||tcp,self        ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||mt_f2c_c2f    ||         ||tcp,self        ||Fail  || Error: comparing MPI_LOGICAL{1,2,4}||
+||              ||         ||openib,sm,self  ||Fail  || Error: comparing MPI_LOGICAL{1,2,4}||
+
+  * Threads Tests
+    * MPI: built r15980 w/ --enable-mpi-threads --with-threads=posix --disable-progress-threads
+    * Tests: ran with defaults (no arguments)
+    * System: x86_64/Fedora 7/mthca, 2 nodes, np=4 (2 processes/node)
+||Test Group    ||Test Name||BTLs            ||Status||Detail||
+||MT_sendrecv   ||All      ||tcp,sm,self     ||Pass  || ||
+||              ||All      ||openib,sm,self  ||Pass  || ||
+||MT_coll       ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_comm       ||         ||tcp,sm,self     ||Fail  || intermittent hangs ||
+||              ||         ||openib,sm,self  ||Fail  || intermittent hangs ||
+||MT_commcaching||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_env        ||         ||tcp,sm,self     ||Fail  || intermittent segv's: bad addr from PMPI_Comm_set_errhandler? ||
+||              ||         ||openib,sm,self  ||Fail  || intermittent segv's: bad addr from PMPI_Comm_set_errhandler? ||
+||MT_greqs      ||         ||tcp,sm,self     ||Fail  || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||              ||         ||openib,sm,self  ||Fail  || MPI_Wait failed with MPI_ERR_TYPE: invalid datatype ||
+||MT_group      ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_misc       ||         ||tcp,sm,self     ||Fail  || hangs ||
+||              ||         ||openib,sm,self  ||Fail  || hangs ||
+||MT_pt2pt2     ||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_rcvany     ||         ||tcp,sm,self     ||Fail  || occasional hangs ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_send       ||         ||tcp,sm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||openib,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_send2      ||         ||tcp,sm,self     ||Pass  || Intentionally calling MPI_Abort ||
+||              ||         ||openib,sm,self  ||Pass  || Intentionally calling MPI_Abort ||
+||MT_start_compl||         ||tcp,sm,self     ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||MT_win        ||         ||tcp,self        ||Fail  || err in MPI_Win_free: error while executing rma sync ||
+||              ||         ||openib,sm,self  ||Fail  || err in MPI_Win_free: error while executing rma sync ||
+||mt_wincache   ||         ||tcp,self        ||Pass  || ||
+||              ||         ||openib,sm,self  ||Pass  || ||
+||mt_f2c_c2f    ||         ||tcp,self        ||Fail  || Error: comparing MPI_LOGICAL{1,8}||
+||              ||         ||openib,sm,self  ||Fail  || Error: comparing MPI_LOGICAL{1,8}||

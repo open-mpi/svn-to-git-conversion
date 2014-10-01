@@ -1,0 +1,15 @@
+= General Description =
+
+Open MPI seeks to support both data and process fault tolerance. Data reliability and network failover fault tolerance support is in active development. Process level fault tolerance in its many flavors (e.g., Checkpoint/restart, Message Logging, etc.) is also in active development. This page in intended to provide the user community with updates as to the progress of these development efforts.
+
+= Data Reliability =
+
+To be written...
+
+= Network Failover =
+
+To be written...
+
+= Checkpoint/Restart =
+
+See [wiki:"ProcessFT_CR" Checkpoint/Restart Process Fault Tolerance] for more information.

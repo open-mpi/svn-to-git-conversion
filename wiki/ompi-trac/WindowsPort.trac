@@ -1,0 +1,50 @@
+== Welcome to the Windows port Wiki. ==
+
+Over the time I expect to write down here everything I learn over my Windows programming expedition. Plus all the ways to deal with porting applications from the Unix world to the Windows operating system. Of course as a central place for the Windows port, this page will contain all possible advices for [http://www.open-mpi.org Open MPI] people (and others) about how to keep a code base Windows friendly.
+
+First thing that have to be keep in mind is the fact that on Windows we have to compile most of the Open MPI project as C++ code. This have to do with the way we're using the opal_object_t. The problem come from the way the DLL are loaded on Windows, and how the names are resolved. We need the C++ name resolution in order to be able to have derived object from object declared in other DLLs. This is not required for most of the UNIX made software, but for Open MPI it has to be this way or a huge amount of coding will be required in order to overpass this problem.
+
+Now let's go to the second big requirement. On Windows the symbols that have to be available for external usage have to be declared in a special way if you provide a DLL. More than that, the header file which will be used by outside software have to declare the symbols in different way when it is used internally (for the compilation of the DLL) or externally. Follow an email I send to the Open MPI mailing list about this topic:
+
+  On UNIX all symbols are exported except if the are declared as static or inlined. On Windows is exactly the opposite. They have to be declared as exported, otherwise they cannot be visible outside a dynamic library. There are 2 ways to declare them as exported. The first one is to create a definition file which contain the name of  all functions you want to export, and use this file at the link stage. It's time consuming, and require that the developers update their .def files regularly (and include them in the make process). The second one require modification of the headers files. It's less fun, but this process can be automated. Seems easy isn't it ? Well, it's not.[[BR]][[BR]] In order to work, a functions should be declared as  [http://msdn2.microsoft.com/en-us/library/dabb5z75.aspx '''__declspec (dllexport)'''] when the header file is used to create the DLL and as  [http://msdn2.microsoft.com/en-us/library/dabb5z75.aspx '''__declspec(dllimport)'''] when it is used to compile against the DLL. I did some work on this topic and the magic is in the opal_config_bottom.h, orte_config.h and ompi_config.h. First, let me assure you that on UNIX nothing will change. The defines, I will be talking about on the next few lines, are empty on anything except Windows. Now, let me explain how it works on Windows. As we have 3 sub-projects (OPAL, ORTE and OMPI) and each of them can generate a DLL, we need to have a separate defined for each of them. Moreover, as each of the project have components that can be DLLs these components have to have their own define. We're saved by the fact that right now a component cannot directly access another component, otherwise we will have to have a special define for each of them. But, right now this is not required. So, the rules are simple:[[BR]][[BR]] - each symbols you want to be visible outside a DLL, should have a *_DECLSPEC define in front of the prototype, if it comes from the a main library (the .o file is included directly in one of the main libraries: opal, orte, ompi) and a *_MODULE_DECLSPEC if it come from one of the components. More specifically, for components in general is quite simple as they export only one symbol i.e. the component structure. Therefore, each definition of a component structure should be preceded by a *_MODULE_DECLSPEC, and has to be in a header file. Notice, that the component structure have function pointers inside to functions that are not declared as exported by the component DLL. That's supported without any problems, as once the DLL is loaded (and possibly relocated by the OS) these pointers will point to a fixed address. [[BR]][[BR]] Now what's the "*" on the *_DECLSPEC and *_MODULE_DECLSPEC. It's the name of the sub-project the code goes in. If it's OPAL then it will be  [http://svn.open-mpi.org/trac/ompi/browser/trunk/opal/include/opal_config_bottom.h OPAL_DECLSPEC] and  [http://svn.open-mpi.org/trac/ompi/browser/trunk/opal/include/opal_config_bottom.h OPAL_MODULE_DECLSPEC] and so on( the other options are ORTE with  [http://svn.open-mpi.org/trac/ompi/browser/trunk/orte/include/orte_config.h.in ORTE_DECLSPEC] and  [http://svn.open-mpi.org/trac/ompi/browser/trunk/orte/include/orte_config.h.in ORTE_MODULE_DECLSPEC], and OMPI with  [http://svn.open-mpi.org/trac/ompi/browser/trunk/ompi/include/ompi_config.h.in OMPI_DECLSPEC] and  [http://svn.open-mpi.org/trac/ompi/browser/trunk/ompi/include/ompi_config.h.in OMPI_MODULE_DECLSPEC]).
+
+So, the rule of the thumb on which symbols have to be exported is the following: ''If one DLL (component) need to access a function from another DLL then this function have to be declared with DECLSPEC''. If I look at ORTE, for each framework the base directory get compiled directly into the liborte.dll. Therefore, if one of these functions might be accessed directly (that exclude all callbacks) by any other component (which will be in a dynamic build in another DLL) then the function have to be declared as DECLSPEC.
+
+=== How to build Open MPI on Windows using CMake ===
+
+CMake is a cross-platform, open-source build system. We introduced CMake support for building Open MPI __only__ on Windows platforms (Windows XP and higher). The CMake support is now available in Open MPI trunk, 1.3.3, and the binaries generated in this way will also work under Cygwin.
+
+There are a few steps to build Open MPI with CMake:
+
+ * Download and install the latest version of CMake (at least v2.4),  it can be found here: http://www.cmake.org/cmake/resources/software.html.
+
+ * Download and install a Visual Studio with C++ compiler. A free version of Visual Studio can be found here: http://www.microsoft.com/express/.
+
+ * Open the CMake GUI, add the source path and build path of Open MPI. We recommend here to build out of the source tree, so that it won't get polluted by CMake generated files.
+
+ * Then configure, you will be asked for selecting the corresponding compiler that you want to configure for. Please note, only Visual Studio 2005/2008/Express has been tested.
+
+ * After the first time configuration, all available options will show up in the CMake GUI. Change the options as you need.
+
+ * Run configure again and then generate all Windows solution files. A re-configuration is always necessary when any option is changed, so that the solution files is up to date.
+
+ * Go to the build directory, open the generated Windows solution file (OpenMPI.sln by default), and build the 'ALL_BUILD' project, and all the Open MPI sources will be compiled.
+
+ * To install the binaries into the target directory (configured via CMake option CMAKE_INSTALL_PREFIX), build the 'INSTALL' project. To generate a installer, build the 'PACKAGE' project (this will need the installation of NSIS).
+
+ * Open the Visual Studio command prompt, check and set the PATH environment variable for Open MPI. Now it should work.
+
+
+Some explanations for a few important CMake options:
+
+ * BUILD_SHARED_LIBS : Build shared or static libraries.
+
+ * CMAKE_INSTALL_PREFIX : The installation path that CMake can install the binaries to, i.e. when build the 'INSTALL' project.
+
+ * OMPI_WANT_CCP : Enable/disable the Compute Cluster Pack support, which uses the job scheduler on Windows Server 2003/2008. 
+
+ * OPAL_WANT_LIBLTDL : Enable/disable the DSO build. To enable this option, requires a installation of Windows version Libtool, it can be found here: http://gnuwin32.sourceforge.net/packages/libtool.htm.
+
+
+
+

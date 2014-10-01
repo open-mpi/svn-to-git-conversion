@@ -1,0 +1,111 @@
+This page is a proposal for OMPI can obtain a representation of the physical topology of a host.  This representation will likely be a graph representing entities such as processors, memory nodes, NICs, busses, etc.
+
+Open MPI will be able to use this information in several ways.  Here are some immediate/short-term examples:
+
+ * If ORTE is given the decision about where to map processes, processes can be placed "close" to NICs
+ * Shared memory collectives can structure their algorithms to match the physical memory layout 
+ * The MPI layer can intelligently decide which NICs to use (i.e., use the "close" ones)
+
+For example, assume that a host has the following physical topology: 
+
+[[Image(layout.png)]]
+
+I may want to be able to assign HCA 0 (ports 1,2) to Socket 0/Core 0 and HCA 1 (ports 1,2) to Socket 3/Core 0 and have nothing else running on this node (i.e., only socket 0/core 0 and socket 3/core 0 have MPI processes on them).
+
+Note that this is different than ticket #1023.  That ticket is about the user (or system administrator or resource manager) deciding where to place processes.  This proposal is for the processes running on a host to be able to discover the actual physical representation of the host (e.g., if a hostfile specified in #1023 does not match the representation that is discovered on the host, it is an error).
+
+We have been working on a method of placing specific MPI processes on these socket/cores (e.g., ticket #1023 allows the placement of specific MPI_COMM_WORLD ranks on specific slot designations with specific processor / socket/core designations), and the process can then determine which processor / socket/core on which it is running.  This location information, combined with knowledge of the topology of the host, can be used to pick a "close" network resource.  
+
+We have decided to use a weighted edge graph description of the local topology.  For example, the following represents the figure shown above:
+
+{{{
+Socket 0 (Core*) ----1---> HCA0
+              |------4---> HCA1
+
+Socket 1 (Core*) ----2---> HCA0
+              |------3---> HCA1
+
+Socket 2 (Core*) ----3---> HCA0
+              |------2---> HCA1
+
+Socket 3 (Core*) ----4---> HCA0
+              |------1---> HCA1
+}}}
+
+A more flexible syntax that allows additional functionality would be good (such as making specific bindings regardless of edge weight, or perhaps ignoring interfaces within the edge map).  I think this allows OMPI to make sane decisions  on which NIC to use and decouples scheduling decisions (rank placement) from local resource allocation (such as NICs).
+
+Assumedly, resources will be allocated based on minimum total weight from a process to a resource (e.g., the total distance between a processor node to a NIC node in the weighted edge graph).  Weights can be manipulated, if desired, to effect certain policies.
+
+----
+
+To begin we will have a new framework (possibly named ''carto''), likely with a separate component for each OS.  The main unit of information in ''carto'' is a graph containing nodes and edges.  Edges are busses or other types of information pathways -- the intent is that information flows along them and is not necessarily [heavily] processed.  Nodes represent processing points, such as CPU cores/processors, NICs, accelerators, etc.
+
+For example, the linux component will have top-level functionality for creating a graph representing cores in the system.   It will also contain a set of additional "discovery" functions can be registered to find other relevant resources (such as NICs), perhaps by probing the /sys and/or /proc filesystems, or using other mechanisms as appropriate.  Each discovery function is capable of traversing an existing graph (e.g., the map of already-discovered cores and busses) and anotating the graph by adding new nodes incident to existing "core" nodes. 
+
+The following definitions may be helpful: 
+
+{{{
+enum opal_carto_base_node_type_t { 
+   OPAL_CARTO_NODE_CORE,
+   OPAL_CARTO_NODE_NIC,
+   OPAL_CARTO_NODE_ACCELERATOR,
+   /* ... other relevant top-level types ... */
+   OPAL_CARTO_NODE_MAX
+};
+
+
+struct opal_carto_base_node_t { 
+    opal_object_t super;
+    opal_carto_base_node_type_t ocn_type;
+    uint32_t ocn_unique_id;
+
+    /* The following two arrays are paired; ocn_edges[i] corresponds to ocn_weights[i] */
+    /* JMS: I prefer not having a fixed number of max edges */
+    struct opal_carto_base_node_t **ocn_edges;
+    /* JMS: I don't think we need more than uint8_t here, do we? */
+    uint8_t **ocn_weights;
+}; 
+
+
+/**
+ * return value: OPAL_SUCCESS on success, something else if the target type cannot be found
+ * root (IN): the node in the graph where to start
+ * target_type (IN): the opal_carto_base_node_type_t of the type of node that we're looking for
+ * out_distant (OUT): min distance to the target type
+ * num_out_nodes (OUT): the number of entries in the out_nodes_array
+ * out_nodes (OUT): array of pointers to nodes found (each of which are out_distance away)
+ */
+int opal_carto_base_find_min(opal_carto_base_node_t *root, opal_carto_base_node_type_t target_type, , uint32_t *out_distance, int *num_out_nodes, 
+               struct opal_carto_base_node_t **out_nodes);
+
+/**
+ * return value: OPAL_SUCCESS if a distance is able to be calculated; something else if not
+ * node1 (IN): starting node
+ * node2 (IN): ending node
+ * distance (OUT): distance between them
+ */
+int opal_carto_base_distance(opal_carto_node_t *node1, opal_carto_node_t *node2, uint32_t *distance);
+
+/**
+ * return value: NULL-terminated array of pointers to nodes comprising the graph that has been assembled so far; 
+ * NULL if no graph has been assembled so far.  It is a full COPY of the actual graph contained in the carto base.
+ */ 
+struct opal_carto_base_node_t **opal_carto_base_get_graph(void);
+
+/**
+ * return value: OPAL_SUCCESS on success
+ * graph (IN/OUT): graph to free
+int opal_carto_base_free_graph(struct opal_carto_base_node_t **graph);
+
+/**
+ * JMS: What is this -- the module interface function?  Doesn't it need an IN parameter of the graph to annotate?
+ */
+struct opal_cart_base_node_t* opal_carto_linux_discover_nodes(void);
+
+/**
+ * JMS: Ditto -- is this meant to be the internal linux discovery function?
+ */
+typedef int (*opal_carto_linux_discover_fn_t) (struct opal_carto_node_t* node); 
+}}}
+
+JMS: Logical question: should we also have an expanded version of carto (perhaps in the ORTE or OMPI layers) that describes the layout of the network (for many of the same reasons described in the beginning)?

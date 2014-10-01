@@ -1,0 +1,151 @@
+= Notes on Heterogeneous Support in Open MPI =
+
+As of Open MPI v1.2, the code base supports operation in heterogeneous environments.  The run-time and MPI layer deal with heterogeneous operations differently, as appropriate for their usage.  The run-time heterogeneous support focuses on providing maximum portability in all cases, while the MPI layer seeks to provide highest performance when peers are of the same architecture.
+
+== Run-time support ==
+
+The bulk of run-time support for heterogeneous operations is built into the DSS service.  All buffers are packed in network byte order, allowing two processes to communicate without knowing anything about each other.  With undescribed buffers, sized types (long, size_t, pid_t, etc.) are always packed in a fully-described format so that they can be unpacked on the remote process without the layer unpacking the buffer knowing what the remote architecture looks like.
+
+The oob requires a minimal amount of heterogeneous support, common to what would be expected with a TCP application that runs in heterogeneous environments.
+
+== MPI support ==
+
+The MPI layer has the requirement of extremely high performance, which is often in opposition to the requirements of heterogeneous support.  Therefore, the heterogeneous support in Open MPI is a compile time option, and there is a C preprocessor define, {{{OMPI_ENABLE_HETEROGENEOUS_SUPPORT}}} that is {{{1}}} when heterogeneous support is requested and {{{0}}} otherwise.  The current default is to support heterogeneous operations, but this might be changing in a future version of Open MPI.  During initialization, an attempt is made to detect heterogeneous platforms and abort the job of heterogeneous support is not available.
+
+=== Determining process architecture features ===
+
+The datatype engine determines a number of characteristics about the architecture a given process is running on.  This information is shared whenever {{{ompi_proc_t}}} information is shared ({{{MPI_INIT}}} and the dynamic process functions), and is available as a bitmask in any {{{ompi_proc_t}}} structure in the {{{proc_arch}}} field.  {{{proc_arch}}} is an integer type of unspecified size (currently {{{uint32_t}}}, but that might change).  Functions and bitmasks for decoding a given {{{proc_arch}}} are available in the header file {{{ompi/datatype/dt_arch.h}}}.
+
+To determine if two processes have the same architecture, simply compare their {{{proc_arch}}} fields.  For example, to see if proc {{{proc}}} has the same architecture as the local process:
+
+{{{
+#!c
+if (proc->proc_arch == ompi_proc_local()->proc_arch) {
+    /* same architecture */
+} else {
+    /* different architecture */
+}
+}}}
+
+Frequently, especially when preparing headers for use, the concern is not whether the architecture is the same but whether the processes are of the same endianness.  Headers are always sent in network byte order (big endian), so work is only required if the local process is little endian and the remote process is big endian.  A flag is generally set on headers as to whether a header is in network byte order, as the current transport design does not supply a {{{ompi_proc_t}}} associated with the sender when a receive is completed.  A typical usage, this time from the OB1 PML:
+
+'''Sender'''
+{{{
+#!c
+#if OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+#ifdef WORDS_BIGENDIAN
+hdr->hdr_common.hdr_flags |= MCA_PML_OB1_HDR_FLAGS_NBO;
+#else
+/* if we are little endian and the remote side is big endian,
+   we're responsible for making sure the data is in network byte
+   order */
+if (sendreq->req_send.req_base.req_proc->proc_arch & OMPI_ARCH_ISBIGENDIAN) {
+    hdr->hdr_common.hdr_flags |= MCA_PML_OB1_HDR_FLAGS_NBO;
+    MCA_PML_OB1_MATCH_HDR_HTON(hdr->hdr_match);
+}
+#endif
+#endif
+}}}
+
+'''Receiver'''
+{{{
+#!c
+#if !defined(WORDS_BIGENDIAN) && OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+if (hdr->hdr_common.hdr_flags & MCA_PML_OB1_HDR_FLAGS_NBO) {
+    MCA_PML_OB1_MATCH_HDR_NTOH(hdr->hdr_match);
+}
+#endif
+mca_pml_ob1_recv_frag_match(btl, &hdr->hdr_match, segments,des->des_dst_cnt);
+}}}
+
+Note that we assume a big endian machine will never receive a header in little endian.  Little endian machines are responsible for ensuring that they never send a header to a big endian machine without first converting it to network byte order.
+
+=== Datatype layer support ===
+
+Coming soon...
+
+=== Modex transfer ===
+
+At the time a process publishes modex information, it is not known if the application is running in a heterogeneous environment or not.  Therefore, modex information is always published in network byte order.  The mdoex information is published as blobs of binary data instead of using the OpenRTE datatype services, so it is up to the transport author to do the endian conversion.  Currently, the code style is to provide {{{NTOH}}} and {{{HTON}}} macros for this conversion.  For example, from the GM BTL:
+
+{{{
+#!c
+struct mca_btl_mx_addr_t {
+    uint64_t nic_id;
+    uint32_t endpoint_id;
+#if OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+    uint8_t padding[4];
+#endif
+};
+typedef struct mca_btl_mx_addr_t mca_btl_mx_addr_t;
+
+#define BTL_MX_ADDR_HTON(h)                     \
+do {                                            \
+    h.nic_id = hton64(h.nic_id);                \
+    h.endpoint_id = htonl(h.endpoint_id);       \
+} while (0)
+
+#define BTL_MX_ADDR_NTOH(h)                     \
+do {                                            \
+    h.nic_id = ntoh64(h.nic_id);                \
+    h.endpoint_id = ntohl(h.endpoint_id);       \
+} while (0)
+}}}
+
+Note that padding rules (see next section) have to be followed as it's possible an array of the modex structures will be transfered in the modex.
+
+=== Header sizing / Padding Rules ===
+
+{{{
+#!c
+struct foo_t {
+    uint32_t a;
+    uint64_t b;
+};
+}}}
+
+What is the value of {{{sizeof(struct foo_t)}}}?  If you say 12, you'd be right sometimes.  And if you say 16, you'd be right sometimes.  Different compilers and architectures enforce different padding and alignment rules, which can cause problems for heterogeneous operations.  For example, most 64 bit RISC systems will add 4 bytes of padding between {{{a}}} and {{{b}}} so that the 64 bit integer is 8 byte aligned (on PPC, the lack of alignment will slow the access down, but on UltraSPARC, it may lead to a bus error).  However, on x86 systems (including x86_64), 64 bit integers can be aligned on 4 bytes, so there will be no padding between {{{a}}} and {{{b}}}.  If {{{struct foo_t}}} was being sent from process {{{a}}} to {{{b}}} (or vice-versa), the receiving process would find an incorrect value for {{{b}}} because it would be looking in the wrong place.
+
+To overcome this issue, padding is added between fields in the structure so that the most conservative alignment rules are always met without any implicit padding.  This padding is always protected by {{{#if OMPI_ENABLE_HETEROGENEOUS_SUPPORT}}}, because padding implies more data transfer for x86_64 machines, which implies slower data transfers for the most common platform used with Open MPI.  The most conservative alignment rule is:
+
+  * '''A structure entry is aligned on a byte boundary equal to its size.'''  So a {{{uint16_t}}} should be 2 bytes aligned, a {{{uint32_t}}} should be 4 bytes aligned, and a {{{uint64_t}}} should be 8 bytes aligned.
+
+This gets incredibly complex when structures are contained within structures.  For example, from the OB1 PML, we see:
+
+{{{
+#!c
+struct mca_pml_ob1_common_hdr_t {
+    uint8_t hdr_type;  /**< type of envelope */
+    uint8_t hdr_flags; /**< flags indicating how fragment should be processed */
+};
+typedef struct mca_pml_ob1_common_hdr_t mca_pml_ob1_common_hdr_t;
+
+struct mca_pml_ob1_match_hdr_t {
+    mca_pml_ob1_common_hdr_t hdr_common;   /**< common attributes */
+    uint16_t hdr_ctx;                      /**< communicator index */
+    int32_t  hdr_src;                      /**< source rank */
+    int32_t  hdr_tag;                      /**< user tag */
+    uint16_t hdr_seq;                      /**< message sequence number */
+#if OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+    uint8_t  hdr_padding[2];               /**< explicitly pad to 16 bytes. */
+#endif
+};
+typedef struct mca_pml_ob1_match_hdr_t mca_pml_ob1_match_hdr_t;
+
+struct mca_pml_ob1_frag_hdr_t {
+    mca_pml_ob1_common_hdr_t hdr_common;     /**< common attributes */
+#if OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+    uint8_t hdr_padding[6];
+#endif
+    uint64_t hdr_frag_offset;                /**< offset into message */
+    ompi_ptr_t hdr_src_req;                  /**< pointer to source request */
+    ompi_ptr_t hdr_dst_req;                  /**< pointer to matched receive */
+};
+typedef struct mca_pml_ob1_frag_hdr_t mca_pml_ob1_frag_hdr_t;
+}}}
+
+Padding is needed at the end of {{{mca_pml_ob1_match_hdr_t}}} because most compilers will pad the structure to a size that is a multiple of 4 so that an array of the structures is all properly aligned, but not all will do that when the structure is embedded in another structure -- better safe than sorry and be explicit.  On the other hand, the padding in {{{mca_pml_ob1_frag_hdr_t}}} is in the middle of the structure and is necessary to properly align the {{{hdr_frag_offset}}} field.  On most 64 bit RISC machines, the compiler would add 6 bytes of padding, but on 64 bit x86_64 machines, the compiler would likely add only 2 bytes of padding.  This would clearly lead to badness on many systems, so we add the most conservative amount of padding.
+
+'''Note:''' There is another option to the structure packing to adding padding and that is to influence the structure packing rules of the compiler to align data using a given set of rules (for example, enforce 4 byte alignment for 8 byte structure entries.  However, the cost to RISC-like machines in accessing those structures is much greater than the cost of sending a few extra bytes (6 is currently the highest number of padding bytes added for a given message) across modern networks.  Further, the compiler hints for setting packing rules vary from one compiler to another, so setting packing rules would be a difficult maintenance problem.
+
+'''Mac OS X Note:''' The default GCC compiler on Intel Macs enforces padding rules that are identical to PowerPC machines running at the same word size.  When compiling in 64 bit mode on the Intel Macs, the {{{struct foo_t}}} at the beginning of this section would have the same size as the structure on a 64 bit Power PC build, but different than the structure on a 64 bit Linux x86_64 box.

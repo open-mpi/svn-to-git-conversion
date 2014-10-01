@@ -1,0 +1,60 @@
+{{{
+NAME
+     orte-clean - cleans up any stale processes and files leftover
+     from Open MPI jobs
+
+SYNOPSIS
+     orte-clean [--host <hostnames> | --hostfile hosts.txt]
+
+     orte-clean will attempt to clean up any processes and files
+     leftover from Open MPI jobs that were run in the past.  This
+     includes OMPI infrastructure/helper commands, any processes that
+     were spawned as part of the job, and any temporary files.
+     orte-clean will only act upon processes and files that belong to
+     the user running the orte-clean command.
+
+     orte-clean follows the same node selection rules as mpirun.  When
+     running in a resource manager job, orte-clean will automatically
+     clean all nodes allocated to that resource manager job.  When not
+     running in a resource managed environment, orte-clean will
+     default to running on the localhost.  The use of the --host for
+     --hostfile allows the user to further specify the list of nodes
+     to run on.
+
+     Example 1: No resource manager being used
+
+     To clean up the local node only
+     example% orte-clean
+
+     To clean up on a specific set of nodes specified on command line.
+     example% orte-clean --host node1,node2,node3
+
+     To clean up on a specific set of nodes from a file.
+     example% orte-clean --hostfile nodes_file
+
+
+     Example 2: Within a resource managed environment like N1GE,
+     SLURM, or Torque.  The following example is from N1GE.
+
+     First, we see that we have two nodes with two CPUs each.
+     example% qsh -pe orte 4
+     example% mpirun -np 4 hostname
+     node1
+     node1
+     node2
+     node2
+
+     Clean up all the nodes in the cluster.
+     example% orte-clean
+
+     Clean up a subset of the nodes in the cluster.
+     example% orte-clean -host node1
+
+POSSIBLE FUTURE OPTIONS
+      
+     [--universe foobar] This argument will allow the user to specify
+     a specific universe that needs to be cleaned.
+
+     [-v | --verbose] This argument will run the command in verbose
+     mode and print out the universes that are getting cleaned up.
+}}}

@@ -1,0 +1,53 @@
+We have a small number of coding style guidelines for the group:
+
+ * 4 space tabs.  No more, no less.
+ * '''NEVER''' use actual tab characters; always use spaces.  Both emacs and vim have secret mojo that can automatically use spaces when you hit the <TAB> key.  This makes the code look the same in every browser, regardless of individual tab display settings.
+ * When comparing constants for equality or inequality, always put the constant on the left.  This is defensive programming: if you have a typeo in the test and miss a "!" or "=", you'll get a compiler error.  For example:
+{{{
+#!c
+/* Do this */
+if (NULL == foo) {
+/* Because if you have a typeo, this will be a compile error rather than a subtle bug */
+if (NULL = foo) {
+}}}
+ * More defensive programming: ''always'' include blocks in curly braces ({}), even if they are only one line long.  For example:
+{{{
+#!c
+/* Do this */
+if (whatever) {
+    return OMPI_SUCCESS;
+}
+/* Not this */
+if (whatever)
+    return OMPI_SUCCESS;
+}}}
+ * '''NEVER''' use C++-style comments (//) in C code.  This includes all of the OPAL, ORTE, and OMPI libraries.
+ * Use C89 style coding (e.g., do not mix declarations in the middle of code).
+ * '''ALWAYS''' include "<level>_config.h" as your first #include file, where <level> is one of ompi, orte, or opal -- the level that you're writing in.  There are very, very few cases where this is not true (E.g., some bizarre Windows scenarios).  But in 99.9999% of cases, this file should be included '''first''' so that it can affect system-level #include files if necessary.
+ * Filenames and symbols must follow the '''prefix rule''' (see [http://www.open-mpi.org/community/lists/devel/2009/07/6389.php e-mail thread]):
+   * Filenames must be prefixed with `<framework>_<component>`.
+   * Public symbols must be prefixed in components with  `<layer>_<framework>_<component>`, where <layer> is one of `mca`,  `ompi`, `orte`, or `opal`.  Note that `mca` used to be the most common, but it has fallen  out of favor compared to the other `<layer>` prefixes.  When in doubt about whether a symbol is public, be safe and add the prefix.
+   * Non-public symbols must be declared static or otherwise made to not appear in the global scope.
+ * '''ALWAYS''' #define macros, even for logical values.  The GNU Way is to #define a macro when it is "true" and to #undef it when it is "false".  In Open MPI, we '''always''' #define a logical macro to be either 0 or 1 -- we never #undef it.  The reason for this is defensive programming: if you are only checking if a preprocessor macro is defined (via #ifdef or "#if defined(FOO)"), you will get no warning when compiling if you accidentally misspell the macro name.  However, if you use the logic test "#if FOO" with an undefined macro (e.g., because you misspelled it), you'll get a compiler warning or error.  Misspelled macro names can be tremendously difficult to find when they are buried in thousands of lines of code, so we will take all the help from the preprocessor/compiler that we can get!
+{{{
+/* Gnu Way - you will get no warning from the compiler if you misspell "FOO"; 
+   the test will simply be false */
+#ifdef FOO
+  ...
+#else
+  ...
+#endif
+
+/* Open MPI Way - you will get a warning from the compiler if you misspell "FOO";
+   the result of the test is a different value than whether you spelled the macro
+   name right or not */
+#if FOO
+  ...
+#else
+  ...
+#endif
+}}}
+
+== Proposed Coding Style Alterations ==
+
+   * [wiki:ErrorMessages Error Messages]

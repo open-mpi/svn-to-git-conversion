@@ -1,0 +1,77 @@
+= INTRODUCTION =
+For this project, we want to add the ability to failover from one IB interface to another one.  The idea is that under normal operation, we will be striping data over multiple interfaces.  However, when a failure occurs on one of the interfaces, we want to stop using it and send all the traffic over the connection that is still working.  Below, we will list some requirements of the project and some nice-to-haves.
+
+= REQUIREMENTS =
+  1. Open MPI will establish connections over both subnets at job startup thereby striping the data over both of the subnets.  If an error is detected in one of the subnets, communication will continue over the fabric that is still working.
+  1. If a failed subnet recovers while the job is running, Open MPI will not start using it again.
+  1. HCA failover is targeted for open IB only.  When running a job that expects to use HCA failover, only the open IB BTL should be specified for internode communication.
+
+= NICE TO HAVES =
+  1. The ability to re-establish communication on a subnet that recovers.
+  1. The ability to failover to a TCP network.
+
+= ERRORS =
+It is important that we understand the type of errors we can see when running over the openib BTL.  Basically, the errors that can be seen are of two types, synchronous and asynchronous.  A synchronous error as an error that occurs when polling the completion queue.  The completion queue will return a completion event but with an error status.  The other type of errors we can see are asynchronous errors.  These errors are handled by a separate thread that polls an asynchronous event queue.  
+
+Each synchronous error is associated with a specific fragment that received the error.  This means that we can extract the fragment and act upon it with a synchronous error.  Asynchronous errors are not associated with a fragment.  Deciding on what types of errors to handle will drive the design.  For example, if we are mostly concerned with a connection failing somewhere in the network, this manifests itself as a synchronous error.  In this case, we know that we can recreate the fragment so there is no reason to keep track of the fragments.  If we are also concerned with asynchronous errors, then we would need to keep a list of fragments that and acknowledge them after they are received.
+
+Let us talk a little more about the error scenarios.
+  1. We receive a synchronous error and therefore assume the fragment did not successfully get transmitted and received.  This is the most common set of errors.
+  1. The second set of errors is also a synchronous error but in this case we get an error from the completion queue but the fragment actually gets delivered to the remote side.  This can happen when the data is delivered to the remote side but just prior to the ACK being delivered (at the verb level or below) back to the sender, the cable is pulled.  To handle this case, we have to be able to ensure that the receiving side can handle duplicate fragments.
+  1. A third set of errors can occur after the data has made it to the remote side but before it makes it into the memory of the other node.  This can happend because of an error on the HCA or over the PCIe bus.  In this case I believe we get an asynchronous error.
+
+= OBSERVED ERRORS =
+So far I have seen the following error codes while running jobs and then pulling a cable or turning off a port.
+  * IBV_WC_RETRY_EXC_ERR 
+  * IBV_WC_WR_FLUSH_ERR
+All the time I have seen these errors, the fragment did not make it to the receiver.  In other words, during all my testing I have observed the first set of errors I have described.  It is worth noting that if we did stumble into the second scenario, and there is no way to detect it, we could end up with a nasty error case like a hang.  For example, imagine we are using the send protocol and a message has been broken into a whole bunch of fragments.  In this type of protocol, the receiver simply adds up the number of bytes that it has received and decides it is complete when all the fragments have arrived.  If the sender is sending one fragment twice, the receiver will conclude it is done prior to actually receiving all the data.  This could result in incorrect data in the receiver's buffer.   I have not thought out all the scenarios but I do not think the results would be good.
+
+= PLAN =
+It is important that we decide which errors to solve for as this will drive the design.  My initial plan was just to solve for the first set of errors.  However, as I pointed out, I believe that while highly unlikely, the second set of errors could provide some unpleasant results if not handled properly.  I would also suggest we ignore the asynchronous errors as they seem highly unlikely and in those cases we would simply abort the job.
+
+
+= APPROACHES =
+There are several different approaches to solving the failover cases.  I would like to try and list them out along with the pluses and minuses of them.
+
+= OPENIB BTL SOLUTION =
+This was my original approach and was driven by the statement "Every fragment is self-contained and has all the information necessary to be retransmitted."  I was also going under the assumption that I would only be solving the first error case so there would be no concern of duplicate fragmnets.  I implemented this and had it fully functional in the case where I was only worrying about send semantics.  The beauty of this approach is that it has zero impact on the critical paths.  It was only when an error was detected that it sprang into action.  I asked the PML for an alternate BTL to send the data on, moved all fragments that were sitting on internal openib BTL queues to the other BTL, then retransmitted the fragment.  I then waited for all the other fragments to signal errors and move themselves over upon failure.  This approach also handled the coalesced fragments and short message RDMA.   The coalesced fragments require a fair amount of work but the short message RDMA just worked.
+
+This approach fell apart when I looked at handling the large-message RDMA.  The problem is that the openib BTL has no idea what types of messages it is transmitting.  It has no knowledge if it is a MATCH or a PUT fragment and this is where the problem lies.  Imagine that we are sending a PUT fragment from the receiver to the sender.  The receiver gets an error on the PUT fragment.  The BTL then just moves the fragment over to the working connection and sends it to the sender.  However, the fragment contains rkey information that is specific to the original BTL.  This information is useless for the other BTL.  Therefore, everything breaks down.  
+
+There is no way to solve this if we want to keep PML information out of the BTL.  One possible thought was that we modify things so that the rkey information for both BTLs gets put in the PUT message.  However, I think we would start violating some Open MPI abstractions if we start doing that.
+
+An protoype implentation of this approach is located here.  http://bitbucket.org/rolfv/ompi-failover-new
+A lot of the diffs in here are debug support.  The meat of the changes are in btl_openib_component.c.
+
+= USING NEW FRAGMENT SPECIFIC SEQUENCE NUMBERS AND KEEPING TRACK OF FRAGMENTS =
+This approach has been known as the Bull approach.  In this design, we introduce fragment sequence numbers into the PML header information for all fragments.  Bull did an initial implementation which is located here. http://bitbucket.org/gueyem/ob1-failover This code is a little hard to follow because there also is a whole bunch of formatting changes mixed in.  This prototype is not functional when running across two different HCAs as it does handle the fact that when a RDMA type error occurs, one needs to "restart" that RDMA operation.  More details later about this.
+
+When this approach was announced there was a lot of hang wringing in the community.  The obvious concern is that under normal operation, there is a penalty to be paid.  Bull tried to address this by making the feature a configurable option.  However, there were then thoughts that there must be a way to keep this feature there the whole time.  I know that Sun would really like to keep the failover support performance effects to a minimum.
+
+The great feature about this approach is that it can handle all types of failures as it is keeping a list of fragments.  
+
+= PML ERROR EVENT DRIVEN =
+This approach does not use sequence numbers or keep track of fragments.  Rather, similar to the first approach, it just handles each synchronous error and acks upon it.  However, all the action is handle in the PML layer.  This is an improvement upon the openib approach in that it can handle large message RDMA protocols.  
+
+The tricky part is handling failures when doing the PUT protocol.  However, I believe this is possible by sending FIN messages back with a status of failed.  Then the PUT message can be resent.  The disadvantage with this approach is that it only handles the first type of errors.  In the second set of errors where a fragment returns with an error on the sending side but actually makes it to the receiving side, we are stuck.
+
+A prototype implementation of this is here.  http://bitbucket.org/rolfv/ompi-failover-latest
+
+= PML RESTART RENDEZVOUS - ''NOT POSSIBLE'' =
+Another approach to avoid the need for fragment sequence numbers was to decide that upon error during a RNDV protocol, we would restart the entire RNDV handshaking.  This would mean that we could utilize the existing MPI sequence numbers that existed in the current MATCH, RGET, and RNDV fragments.  However, I quickly discovered that this cannot work because after a RNDV is restarted there may still be fragments in flight from the earlier incantation of the RNDV.  There is no way to tell when one of these fragments shows up whether it was from the original RNDV or from a restarted one.   This lead me to start looking at a hybrid approach.
+
+= PML RESTART RENDEZVOUS HYBRID =
+In this scenario, I add in some sequence numbers that are used within the non-matching fragments.  Specifically, the PUT, ACK, FIN, and FRAG fragments.  That way, if we restart a RNDV, then we can track the various fragments that make it up and toss out any that belong to the earlier request.  This means we have started adding logic into the critical path so we have not necessarily improved on the Bull approach.  In addition, it turns out we will need to add in the MPI sequence numbers as well because there is a chance that a fragment may be in flight.  While in flight, the request it is associated with restarts and finishes.  The fragment then shows up and looks at an invalid request.  It sees that its request specific sequence number matches and thinks it is a valid fragment when it is not. 
+
+I am still trying to get my hands around if fragments can show up when a request has already completed.  As I stated, I have added in both the existing MPI sequence numbers as well as small sequence number to detect fragments that belong to an earlier incantation of the RNDV protocol.  However, I have also realized that the MPI sequence numbers are specific to a communicator and a connection.  This means that the following might be possible.  Imagine that a RNDV request gets restarted.  It then completes and releases the request.  Communication is started between a different connection and it then grabs the request that was just freed and starts using it.  A fragment shows up from the earlier request that should be dropped.  However, the MPI sequence number from the new request just happens to match the MPI sequence number from the request that was earlier completed.  Therefore, there is no way to know that this fragment should be dropped as the MPI sequence number is not unique.  
+
+It may be that since we only are dealing with two openib BTLs that this cannot happen.  If we went up to three BTLs, then perhaps this could happen.  
+
+In any event, with this protocol I am certainly messing around with the critical paths even in normal operation.  A prototype of this implementation lives here.  http://bitbucket.org/rolfv/ob1-restart-rndv
+
+Pasha have discussed this problem of frags showing up for a request that has already been restarted.  He made two suggestions that I want to capture here.
+  1. Do not use any send fragments when doing rendezvous.  Currently, there are some rendezvous protocols that do a mixture of RDMA operations and send fragments.  If we eliminated send fragments, then perhaps the receipt of multiple RDMA operations is OK since we are just overwriting data that is already there.   There are no counters adding up the number of bytes being received.
+  1. When a RNDV restart is received, first drain off all fragments from the previous incantation of the request.  He claims that we should know all the outstanding fragments so this should be possible.  I am not convinced that we can know when we have drained off all fragments from a connection.  I also believe that we may get EAGER messages mixed in with the send fragments so what do we do with that case?  I have drawn up a picture that illustrates my concern.  It is here. https://svn.open-mpi.org/trac/ompi/attachment/wiki/HCAFailover/rendezvous-restart.pdf
+
+== WHAT IS THE SOLUTION? ==
+Currently, I am leaning toward perhaps a combination of the Bull approach which provides the extra sequence numbers in the headers but then use then use some of the PML Error Event Driven approach as well.  While we get the penalty of tracking the extra sequence numbers, we do not have the penalty of storing and deleting fragments as they are completed.  And if we make the tracking of the sequence numbers a run-time option, then the effect on the normal operation should be minimal.  However, the addition of any type of sequence numbers will always be a non-zero affect so I am not sure we can have that enabled by default.  

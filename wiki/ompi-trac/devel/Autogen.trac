@@ -1,0 +1,51 @@
+[[PageOutline]]
+
+= The role of autogen.pl =
+
+This wiki page briefly outlines what autogen.pl does in the process of building Open MPI.
+
+>> ''NOTE:'' This page describes the most recent version of Open MPI's "autogen" process.  For older versions, refer to the archived versions of this wiki page:
+
+ * [wiki:devel/Autogen/before-sep-2010 Versions 1.4.x and earlier, and early versions of the 1.5.x series (e.g., 1.5.0)]
+
+== Related wiki pages ==
+
+ * [wiki:devel/CreateFramework How to create a new MCA framework].
+ * [wiki:devel/CreateComponent How to create a new MCA component].
+
+== autogen.pl ==
+
+Open MPI's top-level autogen.pl script is the boostrap script for configuring and building Open MPI.  It is necessary to run autogen.pl in [http://www.open-mpi.org/svn/obtaining.php developer checkouts] (e.g., from Subversion or [wiki:UsingMercurial Mercurial]), but is unnecessary to run in official distribution tarballs.
+
+Be sure to read the following first:
+
+ * [http://www.open-mpi.org/svn/building.php Requirements for building from a developer checkout]
+ * [source:/trunk/HACKING Instructions for how to install the GNU Auto tools] (and other random developer-level setup information)
+
+autogen.pl does the following (in brief):
+
+ 1. Traverses the Open MPI source code tree looking for frameworks, components, MPI extensions, and Open MPI contributed software packages
+ 1. Decides how to configure each framework, component, extension, and contrib
+ 1. Decides how to build each framework, component, extension, and contrib
+ 1. Invokes all the proper GNU Auto tools (i.e., Autoconf, Automake, Libtool) to setup Open MPI's configure and build process
+
+Specifically, when autogen.pl traverses OMPI's source tree and decides how to configure and build frameworks, components, MPI extensions, and Open MPI contributed software packages, it supplements/edits OMPI's top-level configure script with the information that it both finds and decides (yes, that sentence makes sense -- you might need to read it a few times to fully grok it).  '''Hence, autogen.pl discovers frameworks, components, MPI extensions, and Open MPI contributed software packages and then incorporates them into the GNU Autoconf / Automake / Libtool process that is used to configure and build Open MPI.'''  This concept is critical to understand when creating new frameworks and components because both frameworks and components have the ability to insert hooks into OMPI's top-level configure script.  These hooks can then be invoked at strategic points during OMPI's configuration process.
+
+After autogen.pl has completed successfully, you can invoke the normal "configure; make all install" configure-and-build procedure.  Open MPI official distribution tarballs already have autogen.pl invoked back at the factory, so end users only need to invoke the normal "configure; make all install" build procedure.
+
+== Re-running autogen.pl ==
+
+Note that you need to re-run autogen.pl (and therefore configure) whenever:
+
+ * You modify OMPI's top-level configure.ac
+ * You modify any of OMPI's top-level config/*.m4 scripts
+ * You modify any framework's configure.m4 file
+ * You modify any component's configure.m4 file
+ * You [wiki:devel/CreateComponent add or remove a component]
+ * You [wiki:devel/CreateFramework add or remove a framework]
+
+The rule of thumb is: if you change anything regarding the configuration scripts or composition of OMPI, you need to re-run autogen.pl and configure, and then re-build the entire OMPI tree.
+
+== Editing Makefile.am's ==
+
+Note that you do '''not''' need to re-run autogen.sh (and therefore configure) if you edit a Makefile.am (or Makefile.include).  If you are using GNU Make, you can simply invoke "make" and the Right Magic happens (specifically, the Automake-emitted Makefiles will realize that their corresponding Makefile.am's have been edited, re-run the right bootstrapping commands to re-generate the target Makefile(s), re-load the target Makefile(s), and invoke then invoke the proper build targets).  If you are not using GNU Make, you may need to run "make" twice: the first time will rebuild the Makefiles, the second time will run the newly-modified Makefile targets.

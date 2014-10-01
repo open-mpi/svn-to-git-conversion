@@ -1,0 +1,96 @@
+= December 2012 OMPI Developer's Meeting =
+
+Thursday, Dec. 6, 2012:
+ * 8am - 6pm
+ * Greenplum facility: [http://goo.gl/maps/ijo3A 1900 S Norfolk Ave, San Mateo, CA]
+
+Friday, Dec. 7, 2012:
+ * 8am - noon
+ * Greenplum facility: [http://goo.gl/maps/ijo3A 1900 S Norfolk Ave, San Mateo, CA]
+
+Note that this overlaps with the last day of the [http://meetings.mpi-forum.org/Meeting_details.php December 3-6 2012 MPI Forum meeting], mainly because we believe that the Forum will finish before Thursday.  :-)
+
+Attendance:
+
+ * Jeff Squyres
+ * Ralph Castain
+ * Brian Barrett (Thu only; leaving Fri morning)
+ * Brice Goglin
+ * Josh Hursey
+ * Nathan Hjelm
+ * Sam Gutierrez
+ * Rich Graham (likely only Thursday)
+ * Geoffroy Vallee (CANCEL)
+ * Takahiro Kawashima (only Thursday)
+ * Manjunath Gorentla Venkata (Thu only)
+
+Agenda topics (in no particular order):
+
+ * Mellanox: OB1 bottleneck / profiling results
+ * Brian: progress callbacks from requests
+ * Brian: memory reduction
+ * Brian: fix thread safety brokenness in PMLs
+ * Brian: NBC on intercommunicators
+ * Brian / Ralph: async progress
+ * ORNL: ORCA patch
+   * https://bitbucket.org/gvallee/orca-ornl
+ * hwloc: if anybody wants to discuss where hwloc is going, Brice will be here
+ * Ralph: stale code (Windows, Solaris, C/R)
+ * Ralph: ORTE progress thread status, event lib thread support
+ * Ralph: rewrite of RML/OOB status
+ * Ralph: movement of BTLs
+ * Ralph: extend BTL/MTL to include "modex reqd" flag
+ * Jeff: RPATH flags in wrapper compilers (#376)
+ * Jeff: Windows support possibility (John Cary)
+ * Nathan: MCA framework updates
+ * MPI-2.2/MPI-3 compliance
+
+Notes:
+  * Asynch progress
+    * Portals 4 progress engine tried the spin and block model; hard to get small message latency down
+    * Rather than push an asynch progress for all messages model, let upper layer protocols choose
+    * Non-blocking collectives currently wouldn't get async progress.  Would have to change to a model where the request callbacks are used instead of registering an opal_progress function
+    * What do do with ENABLE_PROGRESS_THREADS?  Might be best to delete it?  
+       * **Brian** sent a note to **George** with the details
+    * **Brian** is going to enable thread support by default, so that we can start testing thread corner cases
+    * **Nathan** is going to look at FREELIST_WAIT to try to reduce the recursion, which will help with the recursion behavior which can cause trouble out of an asynch callback.
+  * Memory reduction
+    * Big scaling problem is the endpoint structure size in BTLs, someone needs to look at this in OpenIB
+    * Other problems are the modex (can make this shared on node and more polling based) and the ompi_proc_t
+    * **Ralph** looking at dealing with modex
+    * **Brian** going to remove the list_item_t from ompi_proc_t and add accessor functions for everything not performance critical in ompi_proc_t so that we can make some of the pointers (like convertor) be global when homogeneous build.
+  * Progress callbacks from requests
+    * No one knew what this was
+    * However, we had a long conversation about ROMIO and non-blocking and decided
+    * **Jeff** will implement the MPIX functions for grequest.
+  * Non-blocking collectives / communicator creation
+    * Discussion about how to implement the non-blocking communicator creation.  We ran into some fairly serious problems in design, because we allow communication during collective creation
+    * **Jeff** is going to update this piece later.
+
+ * long discussion about MPIT
+    * **Nathan** will keep working on this
+
+ * long discussion about ORCA
+   * Remove this as a layer, and move to a framework in OMPI
+   * static framework a la libevent
+   * **Geoffray** is going to work on this in his bitbucket
+
+ * linking
+   * **Jeff** will make the wrapper compilers recognize static
+   * **Brian** will do --with-orte, .... (i have this in a picture)
+
+ * moving the BTL's down to OPAL
+    * Issues:
+       1. naming (ompi_proc_t)
+       1. initialization
+       1. endpoint sharing
+       1. tag allocation
+          * opal header file.  Put in a comment saying that if anyone wants one, buy an OMPI developer a beer and we'll commit it for you
+       1. what comes down?
+          * BTL, mpool, rcache, allocator, some common
+          * move BML -> BTL base
+    * **Ralph** to fill in more details on the decided design.
+    * **Ralph** will setup a bitbucket for this work.  
+    * **GP people** will start working on this in !Jan/Feb. 
+
+ 

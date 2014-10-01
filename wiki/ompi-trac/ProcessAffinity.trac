@@ -1,0 +1,820 @@
+== mpirun ==
+The following are the mpirun options that pertain to process affinity and mapping.
+
+'''Binding'''
+ * -bind-to-core|--bind-to-core          -- Bind processes to specific cores
+ * -bind-to-none|--bind-to-none          -- Do not bind processes (default)
+ * -bind-to-socket|--bind-to-socket      -- Bind processes to sockets
+
+'''Mapping''' (also affected by pre-binding)
+ * -bycore|--bycore                      -- Alias for byslot
+ * -byslot|--byslot                      -- Assign processes round-robin by slot (the default)
+ * -bysocket|--bysocket                  -- Assign processes round-robin by socket
+ * -cpus-per-proc|--cpus-per-proc <arg0> -- Number of cpus to use for each process [default=1]
+ * -npersocket|--npersocket <arg0>       -- Number of processes Launch n processes per socket on all allocated nodes
+ * -stride|--stride <arg0>               -- When binding multiple cores to a process, the step size to use between cores [default: 1]
+
+'''Topology info'''
+ * -num-boards|--num-boards <arg0>       -- Number of processor boards/node (1-256) [default=1]
+ * -num-cores|--num-cores <arg0>         -- Number of cores/socket (1-256) [default: 1]
+ * -num-sockets|--num-sockets <arg0>     -- Number of sockets/board (1-256) [default: 1]
+ * -report-bindings|--report-bindings    -- Report process bindings to stderr
+
+== Josh's mpirun options proposal ==
+This proposal has the downfall of not being able to describe the equivalent of "-bysocket -cpus-per-proc X" because "-resources-per-rank X" granularity is tied to the mapping setting.
+
+'''Binding Mantra'''
+ * Map
+ * Check
+ * Bind
+
+'''Binding'''
+ * -bind-to-none|--bind-to-none          -- Do not bind processes (default)
+ * -bind-to-pu|--bind-to-pu          -- Bind processes to specific processing unit
+ * -bind-to-core|--bind-to-core          -- Bind processes to specific cores
+ * -bind-to-socket|--bind-to-socket      -- Bind processes to sockets
+ * -bind-to-board|--bind-to-board          -- Bind processes to specific board
+
+
+'''Mapping''' (also affected by pre-binding)
+
+ * -map-by-pu                      -- Assign processes round-robin by processing units
+ * -map-by-core                      -- Alias for byslot
+ * -map-by-slot                      -- Assign processes round-robin by slot (the default)
+ * -map-by-bysocket              -- Assign processes round-robin by socket
+ * -map-by-board                 -- Assign processes round-robin by board
+ * -resources-per-proc <arg0>  -- Assign <arg0> resources per process in the current mapping granularity
+ * -procs-per-resource <arg0>  -- Assign <arg0> processes per resource in the current mapping granularity
+ * -stride <arg0>|--stride <arg0> -- During the mapping the logical resource index increases by stride where resource is in the current mapping granularity
+ * -cpus-per-proc|--cpus-per-proc <arg0> -- alias for -bycore -resourcesperproc <arg0>
+ * -npersocket|--npersocket <arg0>              -- alias for -bysocket -procsperresource <arg0>
+
+'''Modifiers'''
+ * -[no]overscribe
+ * -[no]wrap
+ * -[no]spill
+
+== 2009 mpirun options proposal ==
+
+'''Binding Mantra'''
+ * Map
+ * Check
+ * Bind
+
+'''Binding'''
+ * -bind-to-none|--bind-to-none          -- Do not bind processes (default)
+ * -bind-to-pu|--bind-to-pu          -- Bind processes to specific processing unit
+ * -bind-to-core|--bind-to-core          -- Bind processes to specific cores
+ * -bind-to-socket|--bind-to-socket      -- Bind processes to sockets
+ * -bind-to-board|--bind-to-board          -- Bind processes to specific board
+
+
+'''Mapping''' (also affected by pre-binding)
+
+ * -map-by-pu                      -- Assign processes round-robin by processing units
+ * -map-by-core                      -- Alias for byslot
+ * -map-by-slot                      -- Assign processes round-robin by slot (the default)
+ * -map-by-bysocket              -- Assign processes round-robin by socket
+ * -map-by-board                 -- Assign processes round-robin by board
+ * -bind-width Xy                -- Assign X amount of y resources to each process (y= t|c|s|b)
+ * -map-width Xy                 -- Assign X processes to each y resource (y=t|c|s|b)
+ * -stride Xy|--stride Xy -- During the mapping the logical resource index increases in X strides of y resource granularity (no y defaults to map granularity)
+ * -cpus-per-proc|--cpus-per-proc <arg0> -- alias for -bycore -bind-width <Arg0>c
+ * -npersocket|--npersocket <arg0>              -- alias for -bysocket -map-width <arg0>s
+
+'''Modifiers'''
+ * -[no]overscribe
+ * -[no]wrap
+ * -[no]spill
+
+
+== Test Cases ==
+
+=== Purpose ===
+The following specify a set of cases that show how the different mapping and binding options may affect each other.  I am writing this to spec out potential interactions we may expect and show what is actually produced in OMPI 1.4.2 and the gaps we have in a development hg workspace of refactored paffinity code that I hope to put back in a OMPI 1.5.1 release.
+
+=== Assumptions ===
+ * All test cases are assuming they are run on a single system that contains 4 sockets and 4 cores each socket. 
+ * No Hardware threads are assumed.  However for the code I am working on processes bound to a core will be bound to all available hardware threads on that core.
+ * physcpu numbering is contiguous from 0 - 15
+ * socket 0 contains physcpus 0-3, socket 1 contains physcpus 4-7, socket 2 contains physcpus 8-11, socket 3 contains physcpus 12-15  
+ * Placement key 
+   * _ _ _ _  - denotes a socket with four cores
+   * _ _ _ _  / _ _ _ _ / _ _ _ _ / _ _ _ _ - denotes a machine with 4 socket each with 4 cores.
+   * each core position can hold a process
+   * 0 1 2 3 / 4 5 _ _ / _ _ _ _ / _ _ _ _ - describes a job with 6 processes (0-5) positioned on all 4 cores of the first socket and the first 2 cores of the second socket.
+
+=== Potential edge conditions ===
+The following are definitions of conditions that might occur for mapping/binding settings.  
+ * Wrapping
+   * The action of going through a set of machine resources (boards, sockets, cores, processing units) once and thus restarting the mapping of a job's processes.
+   * ''Decision during mapping''
+ * Oversubscription
+   * When the mapping of a job reaches a point where there are more processes then a particular resource (ie more processes than cores, threads...)
+   * ''Decision after mapping:'' proceed without warning, proceed with warning, error
+ * Overspilling
+   * The act that a multiple resource binding could extend over a resource boundary.  For example if I try to bind a process to 4 cores and there are only 2 cores on a socket does the system map to the next socket or wrap or error?
+   * ''Decision during mapping''
+ * Non-uniform resources
+   * When a system have resources that are not homogeneous.  For example a machine that has two sockets one with 2 cores the other with 4 cores.
+   * ''Factors that influence mapping''
+ * Nothing happens
+ 
+=== Case 1 ===
+Linear process binding to single core
+
+==== Synopsis ====
+ * mpirun -np 4 -bind-to-core                                    hostname
+ * mpirun -np 4 -bind-to-core -bycore                            hostname
+ * mpirun -np 4 -bind-to-core -bycore -cpus-per-proc 1           hostname
+ * mpirun -np 4 -bind-to-core -bycore -cpus-per-proc 1 -stride 1 hostname
+
+==== Description ====
+ * Map MPI processes linearly, according to rank order of MPI_COMM_WORLD
+ * Bind each process to one core
+ * Wrap when number of local processes > number of cores
+
+==== Examples ====
+ * Normal
+   * mpirun -np 4 -bind-to-core hostname
+   * Expected mapping 
+     * 0 1 2 3  / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.4.2 mapping
+     * 0 1 2 3  / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.5rc6 mapping
+     * 0 1 2 3  / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 17 -bind-to-core hostname
+   * Expected mapping
+     * Oversubscription condition 
+   * OMPI 1.4.2 mapping
+     * Error: invalid physical processor id returned (I think this is a bug)
+   * OMPI 1.5rc6 mapping
+     * Error: Not enough processors
+   * hg mapping
+ * Prebind subset
+   * numactl --physcpubind=1,2,3 mpirun -np 3 -bind-to-core hostname
+   * Expected mapping 
+     * _ 0 1 2  / _ _ _ _ / _ _ _ _ / _ _ _ _  
+   * OMPI 1.4.2 mapping
+     * _ 0 1 2  / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.5rc6 mapping
+     * _ 0 1 2  / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * hg mapping
+
+[[span(JMS What happens with non-linear pre-bind PUs, such as: numactl --physcpubind=2,4,7 mpirun -np 3 -bind-to-core hostname, style=color:blue)]]
+[[BR]][[span(TDD Good point I'll add a new testcase, style=color:green)]]
+=== Case 2 ===
+Linear process binding to multiple cores
+==== Synopsis ====
+ * mpirun -np 4 -cpus-per-proc 2 -bycore -bind-to-core           hostname
+ * mpirun -np 4 -cpus-per-proc 2 -bycore -bind-to-core -stride 1 hostname
+ * mpirun -np 4 -resources-per-proc 2 -map-by-core -bind-to-core hostname
+==== Description ====
+ * Map MPI processes linearly, according to rank order of MPI_COMM_WORLD
+ * Bind each process to multiple processors as specified by -cpus-per-proc
+ * Wrap when number of local processes > number of cores
+==== Examples ====
+ * Normal
+   * mpirun -np 4 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * 0 0 1 1  / 2 2 3 3 / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.4.2 mapping
+     * 0 0 1 1  / 2 2 3 3 / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.5rc6 mapping
+     * 0 0 1 1  / 2 2 3 3 / _ _ _ _ / _ _ _ _ 
+   * hg mapping
+ * Odd proc value
+   * mpirun -np 4 -cpus-per-proc 3 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * 0 0 0 1  / 1 1 2 2 / 2 3 3 3 / _ _ _ _ 
+     * Overspill condition???  (eugene yes, jeff/tdd no)
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 1  / 1 1 2 2 / 2 3 3 3 / _ _ _ _ 
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 9 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * Oversubscription condition
+   * OMPI 1.4.2 mapping
+     * Error: invalid physical processor id returned (I think this is a bug)
+   * OMPI 1.5rc6 mapping
+     * Error: Not enough processors
+   * hg mapping - seems to not wrap
+ * Prebind subset
+   * numactl --physcpubind=2,3,4,5,6,7,8,9 mpirun -np 4 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * _ _ 0 0 / 1 1 2 2 / 3 3 _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping
+     * _ _ 0 0 / 1 1 2 2 / 3 3 _ _ / _ _ _ _
+   * OMPI 1.5rc6 mapping
+     * _ _ 0 0 / 1 1 2 2 / 3 3 _ _ / _ _ _ _
+   * hg mapping
+
+[[span(JMS Same question as above: What happens with non-linear pre-bind PUs?, style=color:blue)]]
+[[BR]] [[span(TDD Good point I'll add a new testcase, style=color:green)]]
+
+=== Case 3 ===
+Linear process binding to multiple strided cores
+==== Synopsis ====
+ * mpirun -np 4 -stride 2 -cpus-per-proc 2 -bycore -bind-to-core hostname
+ * mpirun -np 4 -stride 2 -resources-per-proc 2 -map-by-core -bind-to-core hostname
+==== Description ====
+ * Map MPI processes to cores strided by the number given to the -stride option, according to rank order of MPI_COMM_WORLD
+ * Bind each process to multiple processors as specified by -cpus-per-proc
+ * Wrap when number of local processes > number of cores
+==== Examples ====
+ * Normal
+   * mpirun -np 4 -stride 2 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * 0 _ 0 _ / 1 _ 1 _ / 2 _ 2 _ / 3 _ 3 _
+   * OMPI 1.4.2 mapping (this looks broken to me)
+     * 0 _ 0 _ / 2 _ 2 _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 _ / 1 _ 3 _ / 3 _ _ _ / _ _ _ _
+   * OMPI 1.5rc6 mapping (this looks broken to me)
+     * 0 _ 0 _ / 2 _ 2 _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 _ / 1 _ 3 _ / 3 _ _ _ / _ _ _ _
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 5 -stride 2 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * Wrapping condition
+     * Oversubscription condition??? (tdd:??,jeff:no)
+      [[BR]] [[span(JMS Why wouldn't this be 0 4 0 4 / 1 _ 1 _ / 2 _ 2 _ / 3 _ 3 _ ?, style=color:blue)]]
+      [[BR]] [[span(TDD because the algorithm always starts at socket 0 core 0.  I guess the question is what is the intention of the use of stride what are the empty cores/processing units for?, style=color:green)]]
+   * OMPI 1.4.2 mapping
+     * Error: invalid physical processor id returned (I think this is a bug)
+   * OMPI 1.5rc6 mapping
+     * Error: Not enough processors
+   * hg mapping  
+     * seems to not wrap
+ * Prebind subset
+   * numactl --physcpubind=2,3,4,5,6,7,8,9,10,11,12,13 mpirun -np 3 -stride 2 -cpus-per-proc 2 -bycore -bind-to-core hostname
+   * Expected mapping 
+     * _ _ 0 _ / 0 _ 1 _ / 1 _ 2 _ / 2 _ _ _
+     * Overspill condition??? (Eugene: yes, Jeff: no)
+   * OMPI 1.4.2 mapping (this looks broken to me)
+     * _ _ 0 _ / 0 _ 2 _ / 2 _ _ / _ _ _ _
+     * _ _ _ _ / 1 _ 1 _ / 3 _ 3 / _ _ _ _
+   * OMPI 1.5rc6 mapping (this looks broken to me)
+     * _ _ 0 _ / 0 _ 2 _ / 2 _ _ / _ _ _ _
+     * _ _ _ _ / 1 _ 1 _ / 3 _ 3 / _ _ _ _
+   * hg mapping
+
+[[span(JMS Same question as above: What happens with non-linear pre-bind PUs?, style=color:blue)]]
+[[BR]] [[span(TDD Good point I'll add a new testcase, style=color:green)]]
+=== Case 4 ===
+Socket mapping binding to single core
+
+==== Synopsis ====
+ * mpirun -np 4 -bysocket -bind-to-core                            hostname
+ * mpirun -np 4 -bysocket -bind-to-core -cpus-per-proc 1           hostname
+ * mpirun -np 4 -bysocket -bind-to-core -cpus-per-proc 1 -stride 1 hostname
+
+ * -cpus-per-proc <arg0> is an alias for "-map-by-core -resources-per-proc <arg0>" which conflicts with -map-by-socket
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to one core
+ * Wrap to socket0 when each time the local process VPID is modulo number of sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -bysocket -bind-to-core hostname
+   * Expected mapping 
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * OMPI 1.4.2 mapping
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * OMPI 1.5rc6 mapping
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -bysocket -bind-to-core hostname
+   * Expected mapping 
+     * 0 4 _ _ / 1 5 _ _ / 2 6 _ _ / 3 7 _ _
+     * Wrapping condition
+   * OMPI 1.4.2 mapping
+     * 0 4 _ _ / 1 5 _ _ / 2 6 _ _ / 3 7 _ _
+   * OMPI 1.5rc6 mapping
+     * 0 4 _ _ / 1 5 _ _ / 2 6 _ _ / 3 7 _ _
+   * hg mapping
+* Wrapping Oversubscription
+   * mpirun -np 17 -bysocket -bind-to-core hostname
+   * Expected mapping
+     * Oversubscription condtion
+   * OMPI 1.4.2 mapping
+     * Error: invalid physical processor id returned (I think this is a bug)
+   * OMPI 1.5rc6 mapping
+     * Error: Not enough processors
+   * hg mapping  
+* Prebind subset
+   * numactl --physcpubind=2,3,4,5 mpirun -np 4 -bysocket -bind-to-core hostname
+   * Expected mapping 
+     * _ _ 0 2 / 1 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed)
+   * hg mapping
+
+[[span(JMS Same question as above: What happens with non-linear pre-bind PUs?, style=color:blue)]]
+[[BR]] [[span(TDD Good point I'll add a new testcase, style=color:green)]]
+=== Case 5 ===
+Socket mapping binding to multiple cores
+
+==== Synopsis ====
+ * mpirun -np 4 -cpus-per-proc 2 -bysocket -bind-to-core           hostname
+ * mpirun -np 4 -cpus-per-proc 2 -bysocket -bind-to-core -stride 1 hostname
+
+ * -cpus-per-proc <arg0> is an alias for "-map-by-core -resources-per-proc <arg0>" which conflicts with -map-by-socket
+
+[[span(We can't express this mapping without a --bind-width kind of option.,style=color:red)]]
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to multiple cores as specified by -cpus-per-proc argument
+ * Wrap to socket0 when each time the local process VPID is modulo number of sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping 
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * OMPI 1.4.2 mapping
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * OMPI 1.5rc6 mapping
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping =
+     * 0 0 4 4 / 1 1 5 5 / 2 2 6 6 / 3 3 7 7
+   * OMPI 1.4.2 mapping
+     * 0 0 4 4 / 1 1 5 5 / 2 2 6 6 / 3 3 7 7
+   * OMPI 1.5rc6 mapping
+     * 0 0 4 4 / 1 1 5 5 / 2 2 6 6 / 3 3 7 7
+   * hg mapping
+* Wrapping Oversubscription
+   * mpirun -np 17 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping
+     * Error out of resources
+   * OMPI 1.4.2 mapping
+     * Error: invalid physical processor id returned (I think this is a bug)
+   * OMPI 1.5rc6 mapping
+     * Error: Not enough processors
+   * hg mapping
+ * Prebind subset
+   * numactl --physcpubind=2,3,4,5,12,13 mpirun -np 3 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping 
+     * _ _ 0 0 / 1 1 _ _ / _ _ _ _ / 2 2 _ _ 
+   * OMPI 1.4.2 mapping
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed)
+   * hg mapping
+ * Prebind subset (odd mapping) (XXX - is this valid???)
+   [[BR]]  [[span(JMS Yes, I think this is valid and as core counts go up, I think we might see this in practice as MPI jobs start sharing nodes, style=color:blue)]]
+   * numactl --physcpubind=3,4,5,12,13,14 mpirun -np 3 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping
+     * _ _ _ 0 / 1 1 _ _ / _ _ _ _ / 2 2 _ _ (???)
+     * _ _ _ 0 / 0 1 _ _ / _ _ _ _ / 1 2 2 _ (???)
+       [[BR]]  [[span(JMS I think it should be the 2nd one -- the 1st one makes no sense to me, style=color:blue)]]
+       [[BR]]  [[span(TDD the first tries to force binding of a process to a particular socket, style=color:green)]]
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed)
+   * hg mapping
+
+[[span(JMS How about another case where physcpubind=1,3,5,9,10,13?, style=color:blue)]]
+[[BR]] [[span(TDD Ok I will but it seems a little too similar to above but I see why you are calling it out., style=color:green)]]
+
+=== Case 6 ===
+mapping n persocket binding to single core, layering of processes done by sockets but VPID ordering is done by core
+forcing a limit of np to n persocket
+==== Synopsis ====  
+ * mpirun -np 4 -npersocket 1 -bind-to-core                           hostname
+ * mpirun -np 4 -npersocket 1 -bind-to-core -bycore                   hostname
+ * mpirun -np 4 -npersocket 1 -bind-to-core -bycore -cpus-per-proc 1  hostname
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to one core
+ * Layer processes per socket
+ * Order the VPID of processes per core
+ * Force job to not have more than np = n * sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -npersocket 1 -bind-to-core hostname
+   * Expected mapping 
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * OMPI 1.4.2 mapping 
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * OMPI 1.5rc6 mapping
+     * 0 _ _ _ / 1 _ _ _ / 2 _ _ _ / 3 _ _ _
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -npersocket 2 -bind-to-core hostname
+   * Expected mapping 
+     * 0 1 _ _ / 2 3 _ _ / 4 5 _ _ / 6 7 _ _
+   * OMPI 1.4.2 mapping 
+     * 0 1 _ _ / 2 3 _ _ / 4 5 _ _ / 6 7 _ _
+   * OMPI 1.5rc6 mapping
+     * 0 1 _ _ / 2 3 _ _ / 4 5 _ _ / 6 7 _ _
+   * hg mapping
+ * Prebind subset 
+   * numactl --physcpubind=2,3,4,5 mpirun -np 4 -npersocket 2 -bind-to-core hostname
+   * Expected mapping 
+     * _ _ 0 1 / 2 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed)
+   * hg mapping
+ * Prebind subset limit
+   * numactl --physcpubind=2,3,4,5 mpirun -np 8 -npersocket 2 -bind-to-core hostname
+   * Expected mapping (note only 4 procs executed)
+     * _ _ 0 1 / 2 3 _ _ / _ _ _ _ / _ _ _ _
+       [[BR]]  [[span(JMS Why wouldn't this be an error?  User asked for 8 and we can't execute 8 procs with the constraints they gave.  We should abort, IMHO, style=color:blue)]]
+       [[BR]] [[span(TDD because I think I ran a similar case that shown npersocket act as a limiter but doesn't force an abort.  I'll add a case like this but without prebinding and then we can have the discussion., style=color:green)]]
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed)
+   * hg mapping
+
+[[span(JMS JMS -- this is as far as I got, style=color:blue)]]
+
+
+
+
+=== Case 8 ===
+mapping n persocket binding to multiple cores, layering of processes done by sockets but VPID ordering is done by core
+forcing a limit of np to n persocket
+==== Synopsis ====  
+ * mpirun -np 4 -npersocket 1 -bind-to-core -cpus-per-proc 2  hostname
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to multiple cores
+ * Layer processes per socket
+ * Order the VPID of processes per core
+ * Force job to not have more than np = n * sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -npersocket 1 -bind-to-core -cpus-per-proc 2 hostname
+   * Expected mapping 
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * OMPI 1.4.2 mapping 
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * OMPI 1.5rc6 mapping
+     * 0 0 _ _ / 1 1 _ _ / 2 2 _ _ / 3 3 _ _
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -npersocket 2 -bind-to-core -cpus-per-proc 2 hostname
+   * Expected mapping 
+     * 0 0 1 1 / 2 2 3 3 / 4 4 4 5 / 6 6 7 7 
+   * OMPI 1.4.2 mapping 
+     * 0 0 1 1 / 2 2 3 3 / 4 4 4 5 / 6 6 7 7 
+   * OMPI 1.5rc6 mapping
+     * 0 0 1 1 / 2 2 3 3 / 4 4 4 5 / 6 6 7 7 
+   * hg mapping
+ * Prebind subset 
+   * numactl --physcpubind=2,3,4,5 mpirun -np 4 -npersocket 2 -bind-to-core -cpus-per-proc 2 hostname
+   * Expected mapping 
+     * _ _ 0 0 / 2 2 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 1 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed) 
+   * hg mapping
+ * Prebind subset limit
+   * numactl --physcpubind=2,3,4,5 mpirun -np 8 -npersocket 2 -bind-to-core -cpus-per-proc 2 hostname
+   * Expected mapping (note only 4 procs executed)
+     * _ _ 0 0 / 2 2 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 1 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed) 
+   * hg mapping
+
+
+
+=== Case 9 ===
+mapping n persocket binding to sockets, layering of processes done by sockets but VPID ordering is done by core
+forcing a limit of np to n persocket
+==== Synopsis ====
+ * mpirun -npersocket 1                                 hostname
+ * mpirun -np 4 -npersocket 1                           hostname
+ * mpirun -np 4 -npersocket 1 -bind-to-socket           hostname
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to all cores on a socket
+ * Layer processes per socket
+ * Order the VPID of processes per core
+ * Force job to not have more than np = n * sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -npersocket 1  hostname
+   * Expected mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.4.2 mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * hg mapping
+ * Wrapping 
+   * mpirun -npersocket 2  hostname
+   * Expected mapping 
+     * 0 0 0 0 / 2 2 2 2 / 4 4 4 4 / 6 6 6 6
+     * 1 1 1 1 / 3 3 3 3 / 5 5 5 5 / 7 7 7 7
+   * OMPI 1.4.2 mapping 
+     * 0 0 0 0 / 2 2 2 2 / 4 4 4 4 / 6 6 6 6
+     * 1 1 1 1 / 3 3 3 3 / 5 5 5 5 / 7 7 7 7
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / 2 2 2 2 / 4 4 4 4 / 6 6 6 6
+     * 1 1 1 1 / 3 3 3 3 / 5 5 5 5 / 7 7 7 7
+ * Wrapping More npersocket than physical cores
+   * mpirun -npersocket 5  hostname
+   * Expected mapping 
+     *  0  0  0  0 /  2  2  2  2 /  4  4  4  4 /  6  6  6  6
+     *  1  1  1  1 /  3  3  3  3 /  5  5  5  5 /  7  7  7  7
+     *  8  8  8  8 /  9  9  9  9 / 10 10 10 10 / 11 11 11 11
+     * 12 12 12 12 / 13 13 13 13 / 14 14 14 14 / 15 15 15 15
+     * 16 16 16 16 / 17 17 17 17 / 18 18 18 18 / 19 19 19 19
+   * OMPI 1.4.2 mapping 
+     *  0  0  0  0 /  2  2  2  2 /  4  4  4  4 /  6  6  6  6
+     *  1  1  1  1 /  3  3  3  3 /  5  5  5  5 /  7  7  7  7
+     *  8  8  8  8 /  9  9  9  9 / 10 10 10 10 / 11 11 11 11
+     * 12 12 12 12 / 13 13 13 13 / 14 14 14 14 / 15 15 15 15
+     * 16 16 16 16 / 17 17 17 17 / 18 18 18 18 / 19 19 19 19
+   * OMPI 1.5rc6 mapping
+     *  0  0  0  0 /  2  2  2  2 /  4  4  4  4 /  6  6  6  6
+     *  1  1  1  1 /  3  3  3  3 /  5  5  5  5 /  7  7  7  7
+     *  8  8  8  8 /  9  9  9  9 / 10 10 10 10 / 11 11 11 11
+     * 12 12 12 12 / 13 13 13 13 / 14 14 14 14 / 15 15 15 15
+     * 16 16 16 16 / 17 17 17 17 / 18 18 18 18 / 19 19 19 19
+   * hg mapping
+ * Prebind subset 
+   * numactl --physcpubind=2,3,4,5 mpirun -np 4 -npersocket 2 hostname
+   * Expected mapping =
+     * _ _ 0 0 / 2 2 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 1 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping 
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed) 
+   * hg mapping
+ * Prebind subset limit
+   * numactl --physcpubind=2,3,4,5 mpirun -np 8 -npersocket 2 hostname
+   * Expected mapping =
+     * _ _ 0 0 / 2 2 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 1 1 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping (note only 4 procs executed)
+     * Error:  Input/output error (things worked if I used first core on each socket, more debugging needed)
+   * OMPI 1.5rc6 mapping
+     * Error:  No such file or directory (things worked if I used first core on each socket, more debugging needed) 
+   * hg mapping
+
+=== Case 10 ===
+mapping n persocket binding to sockets, using bysocket mapping
+forcing a limit of np to n persocket
+==== Synopsis ====
+ * mpirun -np 4 -npersocket 1 -bysocket                           hostname
+ * mpirun -np 4 -npersocket 1 -bysocket -bind-to-socket           hostname
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to all cores on a socket
+ * Use bysocket mapping to assign VPIDs to processes
+ * Force job to not have more than np = n * sockets
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -npersocket 1 -bysocket hostname
+   * Expected mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.4.2 mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -npersocket 2  hostname
+   * Expected mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * 4 4 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+   * OMPI 1.4.2 mapping 
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * 4 4 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * 4 4 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+   * hg mapping
+ * Prebind subset 
+   * numactl --physcpubind=2,3,4,5 mpirun -np 4 -npersocket 2 -bysocket hostname
+   * Expected mapping =
+     * _ _ 0 0 / 1 1 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 2 2 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * OMPI 1.5rc6 mapping
+     * _ _ 0 0 / 1 1 _ _ / _ _ _ _ / _ _ _ _
+     * _ _ 2 2 / 3 3 _ _ / _ _ _ _ / _ _ _ _
+   * hg mapping
+ * Prebind subset limit
+   * numactl --physcpubind=2,3,4,5 mpirun -np 8 -npersocket 2 -bysocket hostname
+   * Expected mapping =
+     * Error
+   * OMPI 1.5rc6 mapping
+     * Error:  Conflicting number of procs requested
+
+=== Case 11 ===
+Map by core bind each process to a socket
+==== Synopsis ====
+ * mpirun -np 4 -bind-to-socket           hostname
+ * mpirun -np 4 -bind-to-socket -bycore   hostname
+
+==== Description ====
+ * Map MPI processes by core, in order of rank in MPI_COMM_WORLD
+ * Bind each process to a single socket
+==== Examples ====
+ * Normal
+   * mpirun -np 4 -bind-to-socket hostname
+   * Expected mapping    
+     * 0 0 0 0 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 1 1 1 1 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 2 2 2 2 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 3 3 3 3 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.4.2 mapping
+     * 0 0 0 0 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 1 1 1 1 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 2 2 2 2 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 3 3 3 3 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 1 1 1 1 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 2 2 2 2 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+     * 3 3 3 3 / _ _ _ _ / _ _ _ _ / _ _ _ _ 
+   * hg mapping
+ * Wrapping (Is this valid or should it be out of resources?)
+   * mpirun -np 17 -bind-to-socket hostname
+   * Expected mapping 
+     *  0  0  0  0 / 4 4 4 4 /  8  8  8  8 / 12 12 12 12 
+     *  1  1  1  1 / 5 5 5 5 /  9  9  9  9 / 13 13 13 13
+     *  2  2  2  2 / 6 6 6 6 / 10 10 10 10 / 14 14 14 14
+     *  3  3  3  3 / 7 7 7 7 / 11 11 11 11 / 15 15 15 15
+     * 16 16 16 16 / _ _ _ _ /  _  _  _  _ /  _  _  _  _ 
+   * OMPI 1.4.2 mapping
+     *  0  0  0  0 / 4 4 4 4 /  8  8  8  8 / 12 12 12 12 
+     *  1  1  1  1 / 5 5 5 5 /  9  9  9  9 / 13 13 13 13
+     *  2  2  2  2 / 6 6 6 6 / 10 10 10 10 / 14 14 14 14
+     *  3  3  3  3 / 7 7 7 7 / 11 11 11 11 / 15 15 15 15
+     * 16 16 16 16 / _ _ _ _ /  _  _  _  _ /  _  _  _  _ 
+   * OMPI 1.5rc6 mapping
+     *  0  0  0  0 / 4 4 4 4 /  8  8  8  8 / 12 12 12 12 
+     *  1  1  1  1 / 5 5 5 5 /  9  9  9  9 / 13 13 13 13
+     *  2  2  2  2 / 6 6 6 6 / 10 10 10 10 / 14 14 14 14
+     *  3  3  3  3 / 7 7 7 7 / 11 11 11 11 / 15 15 15 15
+     * 16 16 16 16 / _ _ _ _ /  _  _  _  _ /  _  _  _  _ 
+   * hg mapping
+ * Prebind subset
+   * numactl --physcpubind=2-7 mpirun -np 4 -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ 0 0 / 2 2 2 2 / _ _ _ _ / _ _ _ _ 
+     * _ _ 1 1 / 3 3 3 3 / _ _ _ _ / _ _ _ _ 
+   * OMPI 1.5rc6 mapping (this seems odd, note I actually ran this on a 2 socket / 4 core system)
+     * _ _ 2 2 / 0 0 0 0 / _ _ _ _ / _ _ _ _
+     * _ _ _ _ / 1 1 1 1 / _ _ _ _ / _ _ _ _
+     * _ _ _ _ / 3 3 3 3 / _ _ _ _ / _ _ _ _
+   * hg mapping
+ * Prebind subset wrapping 1
+   * numactl --physcpubind=2-15 mpirun -np 8 -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ 0 0 / 2 2 2 2 / 6 6 6 6 / _ _ _ _
+     * _ _ 1 1 / 3 3 3 3 / 7 7 7 7 / _ _ _ _
+     * _ _ _ _ / 4 4 4 4 / _ _ _ _ / _ _ _ _
+     * _ _ _ _ / 5 5 5 5 / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping (I don't have a machine big enough to run this case)
+   * OMPI 1.5rc6 mapping (I don't have a machine big enough to run this case)
+   * hg mapping
+ * Prebind subset wrapping 2
+   * numactl --physcpubind=3-8 mpirun -np 86 -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ _ 0 / 1 1 1 1 / 5 _ _ _ / _ _ _ _
+     * _ _ _ _ / 2 2 2 2 / _ _ _ _ / _ _ _ _
+     * _ _ _ _ / 3 3 3 3 / _ _ _ _ / _ _ _ _
+     * _ _ _ _ / 4 4 4 4 / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping (I don't have a machine big enough to run this case)
+   * OMPI 1.5rc6 mapping (I don't have a machine big enough to run this case)
+   * hg mapping
+
+=== Case 12 ===
+Map by socket bind each process to a socket
+==== Synopsis ====
+ * mpirun -np 4 -bind-to-socket -bysocket hostname
+
+==== Description ====
+ * Map MPI processes by sockets, in order of rank in MPI_COMM_WORLD
+ * Bind each process to a single socket
+ * Wrap when local rank%sockets > sockets
+
+==== Examples ====
+ * Normal
+   * mpirun -np 4 -bind-to-socket -bysocket hostname
+   * Expected mapping    
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3  
+   * OMPI 1.4.2 mapping
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3  
+   * OMPI 1.5rc6 mapping
+     * 0 0 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3  
+   * hg mapping
+ * Wrapping (Is this valid or should it be out of resources?)
+   * mpirun -np 17 -bind-to-socket -bysocket hostname
+   * Expected mapping 
+     *  0  0  0  0 /  1  1  1  1 /  2  2  2  2 /  3  3  3  3
+     *  4  4  4  4 /  5  5  5  5 /  6  6  6  6 /  7  7  7  7
+     *  8  8  8  8 /  9  9  9  9 / 10 10 10 10 / 11 11 11 11
+     * 12 12 12 12 / 13 13 13 13 / 14 14 14 14 / 15 15 15 15
+     * 16 16 16 16 /  _  _  _  _ /  _  _  _  _ /  _  _  _  _ 
+   * OMPI 1.5rc6 mapping
+     *  0  0  0  0 /  1  1  1  1 /  2  2  2  2 /  3  3  3  3
+     *  4  4  4  4 /  5  5  5  5 /  6  6  6  6 /  7  7  7  7
+     *  8  8  8  8 /  9  9  9  9 / 10 10 10 10 / 11 11 11 11
+     * 12 12 12 12 / 13 13 13 13 / 14 14 14 14 / 15 15 15 15
+     * 16 16 16 16 /  _  _  _  _ /  _  _  _  _ /  _  _  _  _ 
+   * hg mapping
+ * Prebind subset
+   * numactl --physcpubind=2-15 mpirun -np 4 -bind-to-socket -bysocket hostname
+   * Expected mapping 
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.5rc6 mapping
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * hg mapping
+ * Prebind odd subset
+   * numactl --physcpubind=3-15 mpirun -np 4 -bind-to-socket -bysocket hostname
+   * Expected mapping 
+     * _ _ _ 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * OMPI 1.5rc6 mapping
+     * _ _ _ 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+   * hg mapping
+ * Prebind subset wrapping 1
+   * numactl --physcpubind=2-15 mpirun -np 8 -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * _ _ 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+   * OMPI 1.5rc6 mapping
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * _ _ 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+   * hg mapping
+ * Prebind subset wrapping 2
+   * numactl --physcpubind=2-15 mpirun -np 9 -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * _ _ 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+     * _ _ _ _ / 8 8 8 8 / _ _ _ _ / _ _ _ _
+   * OMPI 1.4.2 mapping
+   * OMPI 1.5rc6 mapping
+     * _ _ 0 0 / 1 1 1 1 / 2 2 2 2 / 3 3 3 3
+     * _ _ 4 4 / 5 5 5 5 / 6 6 6 6 / 7 7 7 7
+     * _ _ 8 8 / _ _ _ _ / _ _ _ _ / _ _ _ _
+   * hg mapping
+ * Prebind subset wrapping 3
+   * numactl --physcpubind=4-12 mpirun -np 8  -bind-to-socket hostname
+   * Expected mapping 
+     * _ _ _ 0 / 1 1 1 1 / 2 2 2 2 / 3 _ _ _
+     * _ _ _ _ / 4 4 4 4 / 5 5 5 5 / _ _ _ _
+     * _ _ _ _ / 6 6 6 6 / 7 7 7 7 / _ _ _ _
+   * OMPI 1.5rc6 mapping (I do not have a machine big enough to test this out)
+   * hg mapping
+=== Case X ===
+Socket mapping binding to multiple strided cores (is this an invalid option combination?)
+
+==== Synopsis ====
+ * mpirun -np 4 -stride 2 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+
+==== Description ====
+ * Map MPI processes by sockets, round robin, in order of rank in MPI_COMM_WORLD
+ * Bind each process to multiple cores as specified by -cpus-per-proc argument
+ * Not sure how the strided argument affects mapping  
+==== Examples ====
+ * Normal np == sockets
+   * mpirun -np 4 -stride 2 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping == ???
+   * OMPI 1.4.2 mapping
+   * hg mapping
+ * Wrapping 
+   * mpirun -np 8 -stride 2 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping == ???
+   * OMPI 1.4.2 mapping
+   * hg mapping
+ * Prebind subset
+   * numactl --physcpubind=2,3,4,5,12,13 mpirun -np 3 -stride 2 -cpus-per-proc 2 -bysocket -bind-to-core hostname
+   * Expected mapping == ???
+   * OMPI 1.4.2 mapping
+   * hg mapping
+
+
+== Other Notes ==
+A draft version of a major revision of this page is at ProcessAffinityRewrite.
+[[BR]]
+A draft version of a new ProcessAffinityNewOptions proposal.  This is to codify some new consistent and hopefully coherent options for binding.

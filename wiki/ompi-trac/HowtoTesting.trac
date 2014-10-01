@@ -1,0 +1,31 @@
+In [wiki:"TmpBranchMaint" How to maintain a tmp branch], the creation and lifetime of a branch is being discussed.
+
+However, before merging this branch back into the mainline trunk repository, one should limit the intrusiveness and properly test the patches to be added.
+This page should guide through a set of steps, that should be done before committing back into trunk:
+
+1. Configure Your branch with various options:
+  a. Configure directly in the source directory
+  b. Configure in another "build"-directory ({{{VPATH}}} compilation)
+  c. Configure with debugging enabled and eliminate any warnings being issued ('''NOTE:''' This is enabled by default when configuring from the SVN-checkout's source directory):[[BR]]
+     {{{$SRCDIR/configure --enable-debug --enable-picky}}}[[BR]] This will add the following warnings to {{{CFLAGS}}}: [[BR]] {{{-Wall -Wundef -Wno-long-long -Wsign-compare -Wmissing-prototypes -Wstrict-prototypes -Wcomment -pedantic -Wno-long-double -Werror-implicit-function-declaration}}}
+  d. Additionally, one may add {{{CFLAGS='-Wextra -Wdeclaration-after-statement -Wundef -Wshadow -Wpointer-arith -Wbad-function-cast -Wcast-align'}}} to {{{configure}}}.
+  e. Configure statically
+
+2. Configure with various optional parts:
+  a. Configure {{{--enable-memchecker}}} (might need a recent {{{--with-valgrind=DIR}}})
+  b. Configure with checkpoint/restart {{{--with-ft=cr}}}
+  c. Configure with {{{--enable-peruse}}}
+
+3. Regresssion tests with the following testsuites:
+  a. Intel Testsuite, adapt the Makefile and run with {{{make run FILE=p2p}}}
+  b. IBM Testsuite with {{{configure}}}, {{{make}}}, {{{make check}}}
+  c. HLRS mpi_test_suite using: {{{./configure --with-mpi-dir=XXX CC=mpicc}}} and at least {{{mpirun -np 4 ./mpi_test_suite -t P2P,Collective}}}
+
+4. Performance tests with the following testsuites:
+  a. Netpipe on shared memory: {{{make mpi}}} and {{{mpirun -np 2 --mca btl sm,self ./NPmpi}}}
+  b. SkaMPI: {{{make}}} and {{{mpirun -np 3 ./skampi -i input_files/coll.ski}}}
+
+5. Run {{{make distcheck}}} in the configured directory
+
+After all, a single checking should merge the branch back into trunk. This may need some quiet time for the SVN.
+In the evening, at around 9pm EST, the tar-ball for MTT testing gets created for further testing on multiple platforms.

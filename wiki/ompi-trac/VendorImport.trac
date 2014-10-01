@@ -1,0 +1,6 @@
+Open MPI includes a number of 3rd Party packages.  Care must be taken when handling these packages (especially when making changes), as there is a need to bring upstream changes into the code base over time.  Currently, this document only includes instructions for handling specific, complicated packages already in Open MPI.  Over time, it will be expanded to include general instructions for new packages.
+
+  * [wiki:"VendorImportLibevent" Libevent]
+  * [wiki:"VendorImportROMIO" ROMIO]
+
+Before working with 3rd party packages, it may be helpful to review the 3rd party vendor import section of the SVN book, available here: http://svnbook.red-bean.com/en/1.2/svn.advanced.vendorbr.html

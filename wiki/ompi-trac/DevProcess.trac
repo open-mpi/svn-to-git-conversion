@@ -1,0 +1,47 @@
+= Assumptions =
+
+ * We are a cooperative community
+
+= Notes =
+
+  * RFCs are one unit of decision (there may be more than this)
+  * An author can withdraw an RFC at any time.
+  * Non-contentious RFCs
+    * RFC sent out
+    * Timeout reached no comments
+    * Author sends Len notice of timeout
+    * Author starts implementation
+    * RFC put on concall notification agenda
+    * No comments on RFC during concall results in RFC logged as Decision
+      * Comments recv'd after timeout need to be solidly substantiated
+        (ie better have a good reason for objection)
+  * Contentious case
+    * RFC sent
+    * Comments received discussed and resolved by author and interested parties (timeout may or may not stop)
+    * new RFC submitted (with shorter timeout) at original RFC timeout or later
+      * the RFC may be reiterrated multiple times depending on how contentious the area is.
+    * once timeout reached for RFC author sends it to Len
+    * RFC put on concal notification agenda
+    * No comments on RFC during concall results in RFC logged as Decision
+  * How do we know when consensus has been reached?
+    * When the timeout expires (either first or latest RFC) or a community vote has occured (and been recorded)
+  * How do we know when consensus is not possible?  
+    * A reasonable attempt is made at consensus (intentionally subjective).
+    * If a reasonable attempt fails, any participant can determine that consesus is not happening / throws up red flag.
+    * Then it goes to the community (e.g., the weekly engineering teleconference).  Community decision is recorded.
+ * Possible scenarios:
+    1. RFC goes out, timeout, all is good.
+    1. RFC goes out, lots of discussion, more RFCs, timeout eventually occurs, all is good.
+    1. RFC goes out, lots of discussion, no agreement/consensus, goes to community for vote.  One of the following two occurs:
+      * Community votes, decision is made.
+      * Community comes back with different idea that pushes the discussion back down to sub group for further discussion.  Go back to beginning of process.
+
+Terry thought: the last two options (i.e., mapping out the two community possibiliies in the contentintious case) may be too process-heavy.  Why not stop at at "throw it up to the community", and let the community decide what to do from there?
+
+= Still to figure out =
+
+  * Back-end technology / format to record Decisions
+    * Throw this to the community -- two obvious choices: public SVN (not in the code tree) or the wiki.  Both give history, allow editability (as resonable), etc.
+  * Who writes up "rejected" RFC's to be recorded?
+
+Is this whole thing "too much"?  We want the simple/normal cases to be lightweight and easy to do.  But have an option for a more complex case that will guarantee resolution (given the overriding assumption).  It's feeling like "too much" right now...

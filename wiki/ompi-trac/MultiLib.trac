@@ -1,0 +1,69 @@
+Multi-lib refers to a single installation prefix that can support more than one build target.  Multilib is frequently used to allow a package to provide both 32 and 64 bit libraries.  Unfortunately, each operating system implements multlib support differently.  For example:
+
+  Linux::
+    Multilib support is implemented by putting libraries in `${prefix}/lib32` and `${prefix}/lib64`.  Binaries are in `${prefix}/bin` and contain only one target.
+  Solaris::
+    Multilib support is implemented by putting libraries in `${prefix}/lib` (32 bit) and `${prefix}/lib/v9` or `${prefix}/lib/amd64` (64 bit).  Binaries are in `${prefix}/bin` and contain only one target.
+  Mac OS X / Darwin::
+    Multilib support is implemented in the binary format.  Libraries are always in `${prefix}/lib` and binaries in `${prefix}/bin`.  A given library or binary (or dynamically loaded object) can contain multiple targets.  The target is chosen by the linker at load time by following some well-specified selection rules.  Targets can differ both in word size (32 / 64 bit) and platform (ppc / x86).
+
+Any multi-lib support in Open MPI must support all three of these models and should do so with minimal impact on the user.  However, we do allow for the requirement of extra work on the part of the binary packager / sysadmin installing Open MPI.
+
+= Goals /  Requirements =
+
+  * Any multi-lib implementation should be able to cope with not just 32/64 bit builds but different processor architectures and (one day...) 128 bit builds.
+  * The configure / build system should have no knowledge of multi-lib building (with the exception of cross-compilation to a target that can not execute on the build host, such as building x86 code on a PowerPC processor)
+  * The configure / build system / source code should have no knowledge of which platforms are going to be built in the multi-lib (ie, a given build for x86 shouldn't know that it will also be having x86_64, ppc, and ppc64 also associated with it), or even if the current build is multi-lib
+  * Multilib support should be invisible to the user (except specifying the target architecture using normal compiler flags when using the wrapper compilers).
+  * It's ok to assume that there's a master build script that is calling ./configure and make and that is capable of doing some processing of text files after the configure has been completed
+
+= Current Multi-lib / Cross-compile Configure options =
+
+There are a small number of configure options that are extremely useful when doing either cross-compile or multi-lib builds of Open MPI.
+
+  `--disable-binaries`::
+    Do not build the binaries associated with Open MPI (wrapper compilers, orterun, mpirun, etc.).  The data files for the wrapper compilers are still installed, however.
+  `--target` and `--host`::
+     Used to specify the target and build platforms when compiling for an architecture that can not be executed on the platform running configure
+
+= Hints on specifying installation directories =
+
+Generally, users only provide a `--prefix` option to specify installation directories and all other directories are automatically specified relative to the prefix.  The following are the rules used by default:
+
+{{{
+exec_prefix='${prefix}'
+bindir='${exec_prefix}/bin'
+sbindir='${exec_prefix}/sbin'
+libexecdir='${exec_prefix}/libexec'
+datadir='${prefix}/share'
+sysconfdir='${prefix}/etc'
+sharedstatedir='${prefix}/com'
+localstatedir='${prefix}/var'
+libdir='${exec_prefix}/lib'
+includedir='${prefix}/include'
+oldincludedir='/usr/include'
+infodir='${prefix}/info'
+mandir='${prefix}/man'
+}}}
+
+However, in order to build a multi-lib package on Solaris or Linux, the `--includedir=` and `--libdir=` options are generally given to configure so that the include files and libraries are installed into different directories (so that they don't clash when everything is installed into one nice package).  In order to preserve the relocatable behavior of the package, these options should be specified relative the the `exec_prefix`  and `prefix`.  For example, on Linux, the configure options should likely be:
+
+{{{
+# 32 bit build
+% ./configure --prefix=/opt/openmpi --includedir='${prefix}/include/32' --libdir='${exec_prefix}/lib32'
+# 64 bit build
+% ./configure --prefix=/opt/openmpi --includedir='${prefix}/include/64' --libdir='${exec_prefix}/lib64'
+}}}
+
+and on Sparc Solaris:
+
+{{{
+# 32 bit build
+% ./configure --prefix=/opt/openmpi --includedir='${prefix}/include/32' --libdir='${exec_prefix}/lib'
+# 64 bit build
+% ./configure --prefix=/opt/openmpi --includedir='${prefix}/include/64' --libdir='${exec_prefix}/lib/v9'
+}}}
+
+Note that the include differentiation is necessary due to the Fortran bindings.  While the C headers can be blended together and making compile time decisions on which configuration blocks to use by looking at defines in the environment, this can not be done in Fortran because the preprocesor may not be run on the file.  This is an issue because one Fortran constant will have a different value in 32 and 64 byte builds.  There does not seem to be a convention for handling this on Linux, so the examples are given based on how Sun appears to want to package Open MPI.
+
+Since OS X can use `lipo` to piece together the multiple target libraries into a single libary and there is often no Fortran support in an Open MPI build on OS X, it may be possible to build a suitable target without specifying either `--includedir` or `--libdir`.

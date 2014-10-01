@@ -1,0 +1,25 @@
+= Guidelines for MCA / MPI_T parameter levels =
+
+The MCA parameter registration system accepts a "level" parameter; an enum ranging from OPAL_INFO_LVL_1 to OPAL_INFO_LVL_9.  Note that these levels correspond to the MPI-3 MPI_T interface levels:
+
+ 1. '''OPAL_INFO_LVL_1:''' End user / basic
+ 1. '''OPAL_INFO_LVL_2:''' End user / detailed
+ 1. '''OPAL_INFO_LVL_3:''' End user / all
+ 1. '''OPAL_INFO_LVL_4:''' Application tuner / basic
+ 1. '''OPAL_INFO_LVL_5:''' Application tuner / detailed
+ 1. '''OPAL_INFO_LVL_6:''' Application tuner / all
+ 1. '''OPAL_INFO_LVL_7:''' MPI developer / basic
+ 1. '''OPAL_INFO_LVL_8:''' MPI developer / detailed
+ 1. '''OPAL_INFO_LVL_9:''' MPI developer / all
+
+Here's some general guidelines for choosing which of the three main categories to use:
+
+ 1. '''End user:''' Generally, these are parameters that are required for correctness, meaning that someone may need to set these just to get their MPI application to run correctly.  For example, BTL "if_include" and "if_exclude" parameters fit into this category.  We should put '''as few parameters as possible''' in this category in an effort to stem the learning curve for newbies.
+ 1. '''Application tuner:''' Generally, these are parameters that can be used to tweak MPI application performance.  This even includes parameters that control resource exhaustion levels (e.g., number of free list entries, size of buffers, etc.), and ''could'' be considered "correctness" parameters if they're set too low.  But, really -- they're tuning parameters.
+ 1. '''MPI developer:''' Put parameters in this category that either don't fit in the other two, or are specifically intended for debugging / development of Open MPI itself.
+
+For choosing the finer-grained "basic" / "detailed" / "all" sub-categories, this is mainly a judgement call.  But here's a few guidelines:
+
+ 1. '''Basic:''' Use this sub-category for parameters that everyone in this category will want to see -- even less-advanced end users / application tuners / new OMPI developers.
+ 1. '''Detailed:''' Use this sub-category for parameters that are "useful, but you won't need to change them often."
+ 1. '''All:''' Use this sub-category for all other parameters.  Such parameters are likely fairly esoteric.

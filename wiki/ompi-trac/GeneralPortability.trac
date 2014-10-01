@@ -1,0 +1,63 @@
+This page contains a number of general notes on writing code in Open MPI such that it has the best chance of "Just Working" on as many platforms as possible.  There will likely still be problems, but this should help :).
+
+== General Reading ==
+
+Some links for writing portable code:
+
+  * The Autoconf Manual's [http://www.gnu.org/software/autoconf/manual/html_node/Function-Portability.html#Function-Portability C Function Portability Guide]
+  * The Autoconf Manual's [http://www.gnu.org/software/autoconf/manual/html_node/Header-Portability.html#Header-Portability Header Portability Guide]
+  * [wiki:PrintfCodes Using printf()]
+
+Some links for writing portable configure mojo:
+
+  * [http://www.gnu.org/software/autoconf/manual/html_node/Portable-Shell.html#Portable-Shell Portable Shell Programming]
+
+
+== Environ ==
+
+On traditional Unix systems, {{{environ}}} is accessed by adding {{{extern char** environ}}} somewhere in the file, and accessing it as a char** (when {{{getenv()}}} / {{{setenv()}}} won't do the job, of course).  On OS X, {{{environ}}} exists in {{{crt0.o}}} instead of {{{libc.so}}}, which means that it is an undefined symbol that is not resolvable until the link of the application.  This causes significant problems for users that are building shared libraries that depend upon Open MPI's shared libraries.  There is an accessor function that works around this problem.  This means that {{{environ}}} should be declared something like:
+
+{{{
+#!C
+#ifdef HAVE_CRT_EXTERNS_H
+#include <crt_externs.h>
+#endif
+
+#if !defined(__WINDOWS__)
+#ifdef HAVE__NSGETENVIRON
+#define environ (*_NSGetEnviron())
+#else
+OPAL_DECLSPEC extern char **environ;
+#endif
+#endif  /* !defined(__WINDOWS__) */
+}}}
+
+This should be done automatically by including {{{opal/util/opal_environ.h}}} in any files that require access to {{{environ}}}.  This also means that {{{environ}}} is a preprocessor define on OS X, so it can not be used as a variable or function name anywhere in the source code that may include {{{opal_environ.h}}}.
+
+
+== Header files ==
+
+=== The project's header files ===
+All header files should be properly secured against multiple inclusion, i.e.:
+{{{
+#ifndef OPAL_MCA_MYNAME_H
+#define OPAL_MCA_MYNAME_H
+...
+#endif /* OPAL_MCA_MYNAME_H */
+}}}
+
+All header files should be C++ safe, i.e. they should be ready to be included from C++ source code. For this the {{{BEGIN_C_DECLS}}} and {{{END_C_DECLS}}} macros (defined in {{{opal/include/opal_config_bottom.h}}} is provided to mark the beginning of the C declarations. These are equivalent to the corresponding {{{extern "C" {  }}} declarations.
+
+=== Including other header files ===
+
+Any system header file, that is not required by Posix should be checked for with {{{configure}}} and ifdef'd in the header file.
+The header files currently checked by {{{configure}}} can be greped for with {{{grep HAVE_ opal/include/opal_config.h.in | grep -e '_H$'}}}.
+
+A particular nice header file is {{{stdbool.h}}}, which provides the {{{bool}}} datatype -- however, this of course should be not included in standard-conforming C++ code.
+Therefore, this inclusion should be protected:
+{{{
+#if defined(HAVE_STDBOOL_H) && !(defined(c_plusplus) || defined(__cplusplus))
+#include <stdbool.h>
+#endif
+}}}
+

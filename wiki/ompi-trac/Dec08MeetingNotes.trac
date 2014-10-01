@@ -1,0 +1,160 @@
+The discussions at the Dec meeting ranged over a lot of topics, some of which were not included in the original agenda (as usual :-)). This represents a quick set of notes taken by RHC that tried to capture the essence of the conclusions along with some of the discussion. Other participants are welcome to modify, augment, and/or correct!
+
+In general, the meeting focused on scalability issues, primarily driven by the desire/need to reach extreme scales involving 30k+ nodes and 480k+ procs. In addition, we discussed some current problems in the code base that require coordination to resolve.
+
+[[BR]]
+
+
+== Fault Tolerance ==
+
+Achieving FT at extreme scale is clearly a research problem. However, there is some near-term need for an application-driven checkpoint/restart method which would avoid storing full binary images of every process. Specifically, users would like the following:
+
+  * at the minimum, a "enable_checkpoint" API so they can tell OMPI "do whatever you need to do to enable me to checkpoint now". This might trigger OMPI to quiet the networks, for example, thus ensuring the application is in a restartable state. We would also need an API to "release" from this state so the application can continue without starting over again. In this mode, the user's code would call "enable_checkpoint", do their own code to write out the data areas they need to save, and then call "release" and continue executing.
+    * Issue: how would each process know when the others are done checkpointing their data areas? Do we need some kind of coordinating "barrier" in "release" that doesn't mess up the checkpoint itself?
+  * perhaps provide an extension that allows users to register data areas to be checkpointed, and then just a "checkpoint" API that does all the necessary things described above. So a user's code would register data areas, execute along until they reached a point where they want a checkpoint, call "checkpoint", and then continue executing.
+    * Issue: would also need APIs to deregister data areas, and/or to re-register a data area whose size has changed (for the latter, perhaps just deregister and re-register it?)
+
+  * '''ACTION''' Josh volunteered to send out some ideas on how these requests could be implemented within OMPI. '''[DONE]'''
+
+[[BR]]
+[[BR]]
+
+
+== Fully Routable RML ==
+
+We continue to have issues at scale with the number of sockets being opened to the HNP (i.e., mpirun) during initial setup of the daemons. Currently, each daemon "phones home" directly to the HNP upon launch - this is done in order for the daemon to tell the HNP its contact info. The HNP then sends each daemon a launch message that contains both the contact info for all daemons plus the info required to launch the application. This launch message is transmitted via "xcast", which means that it is relayed across daemons according to their routed topology. Thus, sockets between the individual daemons are opened during the course of the xcast. All subsequent communications flow across the newly established network - with one significant exception.
+
+The current routed components all retain their direct connection to the HNP for two purposes:
+  * abnormal conditions that might cause an intermediate daemon to fail, thus breaking the routed connectivity. Each daemon retains a defined "lifeline" connection that, if broken, initiates a local shutdown. For the existing routed components, the lifeline is defined as the next daemon "up" the tree (the existing components are all based on various tree topologies). The HNP connection is thus used to notify mpirun of clean shutdown for this particular daemon, thereby allowing us to tell the user which nodes failed and may require manual cleanup.
+  * during normal termination of the job. Currently, the HNP detects completion of all application procs (as notified via the daemons) and sends a message via xcast to all daemons to terminate. Each daemon then "acks" this message, with the HNP waiting until all daemons report back to ensure that the HNP doesn't exit early. Since each daemon terminates asynchronously, this "ack" must travel directly to the HNP in order to ensure its arrival.
+
+Moving to a fully routed communication network, therefore, requires that we address both startup and shutdown issues. Both of these were discussed at the meeting:
+  * Shutdown
+    * UTK approach - change the normal termination procedure to a synchronous one. In this method, a daemon maintains all connections to its children until the ack flows up from them, then sends the ack up the tree and exits. This requires moving the daemon shutdown logic into the routed framework, and modifying the routed framework's close so that it blocks until the shutdown sync has completed.
+      * '''ACTION''' George promised to put this variation in a tmp repo where it could be reviewed by others
+      * '''Issue raised''': how does this handle abnormal terminations where connectivity may be broken?
+    * LANL approach - use environ capabilities to determine orted termination. In this method, the orteds do not "ack" the shutdown message. Instead, they simply perform their local cleanup and terminate. The HNP's operational PLM then detects termination of all daemons via notification by the underlying environment. For example, by polling for obit events in Torque, or via waitpid callback from SLURM. This retains async shutdown and avoids any issues about abnormal termination scenarios. However, it only works in environments that support notification of daemon termination - notably, it will NOT work in ssh environments.
+      * '''ACTION''' While both SLURM and Torque components for this capability already exist in the code base, they have not been fully debugged. Ralph will debug them and notify the developers list so that people can evaluate them. '''[DONE for SLURM]'''
+    * It was noted that these two approaches are by no means mutually exclusive. We agreed to ensure a design that supports both approaches, ensuring that a routed component that utilizes a synchronous shutdown doesn't conflict with a PLM that depends upon asynchronous shutdown.
+  * Startup
+    * We discussed the possibility of using well-known ports for the daemons, thus eliminating the need to cross-communicate contact info before establishing the routed topology. Two primary issues surround this approach:
+      * support for multiple mpirun's sharing a node. Whether caused by multiple users sharing a node, or by one user executing multiple mpiruns that overlap on one or more nodes, this scenario will result in more than one daemon on a node. If all daemons assume they are to use the same well-known port, then a collision will occur that will cause all but the first daemon on the node to fail. However, if we allow daemons to select their port from within a range, then how can daemons on other nodes know for certain which port has been selected?
+        * '''DECISION''' For now, it will be the user's responsibility to ensure that nodes are not shared if port reuse is operational
+        * '''DECISION''' Dynamic ports for daemons will remain the default behavior. Using well-known ports will, if implemented, always be a non-default option.
+      * inter-job interference when one job terminates and another immediately starts on the same nodes. In this scenario, the issues are potential messages from an old daemon being delivered to the new daemon, and confusion at the OS level when the new daemon attempts to bind to the same socket as the prior daemon.
+    * We discussed a couple of potential solutions
+      * UTK approach: each daemon opens a direct socket to the HNP at startup, but then closes that connection once the routed topology has been established. This still has the HNP socket count limit and creation time issues, but doesn't suffer from the shared node and in-flight messages of the alternatives.
+      * Resolve the port reuse problem. We discussed several elements worth exploring in this regard:
+        * SO_REUSADDR - this is the flag we currently use when opening the sockets. In order for the socket to be immediately reused, we need to have clean shutdown of the socket connections - this costs time but may be okay (needs to be checked). Right now, we just close(fd), which causes kernel to do timedwait on socket. Cleanly shutting down the socket allows the kernel to cleanly release the socket so we avoid waittime to start next job
+          * proc that does connect must do shutdown(fd,...), read(fd) until == 0, then close(fd).
+          * '''ACTION''' Ralph will modify the OOB to track which proc actually starts the connection, and have that proc cleanly shut it down as this may also help resolve other problems in TCP socket behaviors being observed on large clusters '''[DONE]'''
+          * '''ACTION''' Ralph will instrument OMPI/ORTE to determine how much time impact there is due to initial port wireup across the daemons '''[DONE]'''
+          * '''ACTION''' Ralph will implement a test version using some form of auto-wireup (see Extreme-Scale Launch below)  '''[DONE]'''
+        * SO_REUSEPORT - may exist only in BSD, but reputedly would allow the port to be reused immediately regardless of how it was shut down.
+          * '''ACTION''' Ralph will investigate
+
+[[BR]]
+[[BR]]
+
+
+== Daemon Collectives ==
+
+The current daemon collectives are implemented in the ODLS framework, specifically in the base default functions. This implementation assumes a tree-based topology for the routed network since that is what the current routed components use. However, future routed components may want to use other topologies, and alternative (probably superior) collective algorithms might better reside in various grpcomm components.
+
+The reason the daemon collectives reside in the ODLS is simply based on access to required data. Because the odls processes incoming launch commands, it knows which daemons are involved in every launch. Thus, given that only one collective was being used at the time, it made sense to locate it in the odls.
+
+This has now changed, and it makes more sense for the daemon collectives to be located in the grpcomm components.
+  * '''ACTION''' Ralph will move the odls data structures to public variables so the data can be accessed elsewhere '''[DONE]'''
+  * '''ACTION''' Ralph will move the existing daemon collective procedure into the current grpcomm components, coordinating with George on the appropriate (if any) API changes to the grpcomm framework '''[DONE]'''
+
+We also discussed (on an email thread) alternative ways of doing the collective within the application procs themselves. Ralph proposed collapsing the data to the node_local_rank=0 proc, and then having that proc on each node perform the collective operation. This would remove responsibility for the collectives from the daemons, which otherwise require logic to detect when an application is attempting to execute such an operation. For example, we have significant logic to detect that the job is executing a barrier operation, and to figure out which daemons have procs that are participating. Shifting this responsibility back to the procs themselves removes this complexity.
+  * '''ACTION''' Ralph will build a new grpcomm component that executes this approach and compare how it works to the daemon-based approach '''[DONE]'''
+
+[[BR]]
+[[BR]]
+
+
+== General Cleanup ==
+
+George noted that our current cleanup procedure only removes files created within the session directory tree. However, some subsystems may create files in other locations - e.g., shmem. George proposed a new system for cleanup whereby orteds will look in the session directory area for a list of files to remove, including flags that tell orted which cmd to use to remove each file in case something special is required. No objections were raised to this request.
+  * '''ACTION''' George will commit the changes to the trunk.
+
+
+George also noted that we don't release the allocated slots when a job completes so they can be re-used by subsequent MPI-2 operations. Thus, if an application calls comm_spawn multiple times, with each job terminating cleanly at some point, mpirun will complain about resource exhaustion even though adequate slots are available. Ralph suggested how this can be fixed, but didn't have time to do it.
+  * '''ACTION''' George will commit a fix '''[DONE]'''
+  * '''ACTION''' Ralph will add the logic to re-use local jobids (so we can relax somewhat the 32-bit limit on spawned jobs) and flush the odls job data as well
+
+[[BR]]
+[[BR]]
+
+
+== MCA Infrastructure ==
+
+Two areas of the MCA infrastructure were discussed:
+  * Component open. We discussed again the problem of components that depend for proper operation on the selection of another specific component in a separate framework. For example, a grpcomm component's collective algorithms are optimized for a particular routed topology and can perform quite badly if the wrong routed component is selected. While we can try and ensure that the right combination is selected by adjusting priorities, it gets harder as more components are created.
+    * George indicated that he had extended the component structure to add a "depend" field where we can specify dependencies of this component upon other components.
+    * Issue raised: how did this handle components of the same name that reside in different frameworks? Does the field include identifiers for framework as well as component?
+    * '''ACTION''' George promised to commit this change to the OMPI trunk
+  * MCA params. Two issues were discussed in this area:
+    * Non-overrideable params. Specifically, system administrators want/need to be able to set some params that define OMPI's behavior that cannot be overridden by users. These params would be in a file, and need to be flagged inside of OMPI so that any subsequent settings (enviro, cmd line, etc.) are ignored.
+      * '''DECISION''' Make it a configurable option, off by default, that can be enabled by giving location and filename of the param file containing the non-overrideable settings
+    * Reading MCA parameter files. Some of us working on large clusters have found that the current procedure whereby every process looks for (and reads, if found) a default MCA parameter file, a user-level param file, etc. can really impact launch scalability, especially on NFS-mounted directories. This was recently the subject of a configuration option to control this behavior. It was noted at the meeting that mpirun already reads all this info and adds it to the environment used to launch the MPI procs anyway, so an MPI proc shouldn't really need to read anything. This led to a lively discussion about which procs (HNP, orted, app) should look at what MCA param sources, and how to control all the possible combinations.
+      * George requested the ability to tell each of these process types to read a different MCA param file, including "none"
+      * '''PROPOSED''' Modify the MCA param system to only look at designated sources
+        * Mpirun
+          * looks at all 4 identified sources [override, file, env (includes cmd line), default]
+          * puts results into local environment and provides that to orteds at launch
+          * sets flag to orteds to specify sources, can be controlled by user
+            * default to only allow 2 sources [env, default]
+            * user can request specific files be read, or that default filenames be read
+        * orted
+          * looks at specified sources
+          * puts results into local environment and provides that to local app procs at launch
+          * sets flag to local app procs to specify sources, can be controlled by user
+            * default to only allow 2 sources [env, default]
+            * user can request specific files be read, or that default filenames be read
+      * '''UNRESOLVED''' Do we want to add flag telling the OPAL mca param system to only store info from the first source where it finds that param - avoid storing duplicated info that we won't use anyway? The system currently stores -all- values for a param, even though we only use the one with highest priority. This wastes memory, but may be difficult to modify.
+          
+
+[[BR]]
+[[BR]]
+
+
+== Extreme-Scale Launch ==
+
+We discussed the issues surrounding operation on extreme-scale clusters, both in terms of launching at such scales and memory footprint at high ppn. Several potential launch options to achieve the specified time objectives were explored:
+
+  * Pass launch instructions to orteds to remove the current launch message. In this scenario, the orteds would be given adequate information to immediately launch the application procs. The question, therefore, is how to provide all the required info. Of particular concern was the passing of the nidmap and pidmap to each orted so it would both where its peer orteds were located, and what ranks were present on each node. Options considered include:
+    * use a regexp. UTK had done some work in this regard, but encountered difficulties for the general case - the libraries they tested took considerable time to generate the regex from the data. However, it could still work for special cases such as when the nodes are sequentially numbered and/or the ranks are sequentially mapped (byslot or bynode).
+      * '''ACTION''' Ralph will send Thomas some example allocations and mappings for test purposes
+      * '''PROPOSED''' The regex method might be extensible to broader cases if we renumbered the vpids of the daemons to match ordering of nodes in the regex. The vpid of any particular daemon is irrelevant, so this could work. However, coming up with an algorithm for translating a given regex into a proper assignment of daemon vpids could take some work. We decided to let this idea simmer for now.
+    * have each orted compute the job map. This would require providing enough allocation and other info to each orted so that the map could be computed. We decided it could work in certain circumstances - e.g., SLURM passes its environ variables to every process, which includes allocation info. Since we pass all MCA params as well, the orted in this scenario should have enough info to compute the job map.
+      * '''PROPOSED''' Consider making the nidmap/pidmap functions into a framework so it can handle different scenarios. We decided to let this notion simmer for awhile - since the nidmap and pidmaps are currently constructed via calls during the ess, we might be able to simply do this from within that existing framework's components.
+  * Minimize the HNP connections to reduce startup time and socket limit issues. To accomplish this, we need to establish the routed topology at startup of the daemons, as discussed in the above Fully Routable RML section. Several methods for doing this were explored:
+    * regexp + fixed port: see above for the discussion on passing the nidmap via regex. If we combine this with the use of well-known ports for the orteds, then the orteds could establish their topological connections at startup. The issues here are the regex generator and the port re-use, both described above.
+    * xinet.d-based launch. This was a novel twist on the concept of having a permanent daemon on each node. In this approach, mpirun opens a socket to each nodes that causes the system's xinet.d daemon (which is always running) to kickoff a local ompi-helper script. Mpirun would then use its usual PLM to launch an orted on each node. Upon startup, the orted would contact the local ompi-helper to bootstrap the communication network without directly calling back to the HNP.
+      * '''ACTION''' Ralph will explore this option and report back as to its feasibility
+    * wave launch. If the orteds are launched in waves that correspond to the desired final routed topology, then each successive wave can be given the contact info for the daemons in the preceding launch. As each orted starts up, it would establish connection to its "parent", thus allowing it to send its contact info back to the HNP for inclusion in the next launch wave without opening a direct line to the HNP itself. While this method fits well with the existing wave-based ssh launch, it doesn't work as well with mass launch environments such as SLURM. We therefore tabled it for now as perhaps being a good special case for ssh, but not generally applicable.
+  * Directly launch the application procs, thus eliminating the entire orted phase. Preliminary work has been done on this concept for both the Torque and SLURM environments. For both cases, the modex phase was eliminated by pre-profiling of interfaces across the cluster. However, one remaining obstacle is the barrier operations in MPI_Init and MPI_Finalize.
+    * MPI_Finalize barrier could be replaced with an MPI_Barrier
+    * MPI_Init barrier cannot be done with an MPI_Barrier because the proc's do not know if the other side of the MPI interface involved in the barrier operation's send/recv pairs is ready to communicate. For SLURM, use of the PMI_Barrier can remove the need for RML connections. This has been completed and awaits legal review before committing to the trunk. A suitable alternative for Torque has not yet been identified, but options are under discussion with the Torque community.
+      * '''ACTION''' IU had intended to review the LLNL legal opinion regarding the SLURM integration, but hasn't had a chance to do so. LANL will move forward with an internal review as quickly as possible. '''[DONE - REJECTED]'''
+
+We also discussed memory footprint reduction as preliminary estimates show it growing very large for extreme-scale operations. Options discussed mostly revolved around creation of an ORTE shared memory that would allow the orted to share common data across all of its local application procs. In addition, the capability could potentially be shared across multiple orteds from different mpiruns, thus providing improved MPI-2 capabilities. Ideas discussed included:
+  * store nidmap, pidmap, modex info in the shared memory area
+  * MPI procs given required info to access file
+  * ompi_proc_t fields point to shared memory location data where appropriate. George noted that btl_proc_t objects all should point to their related ompi_proc_t data as opposed to copying it
+  * We need to investigate performance penalties of dynamically creating ompi_proc_t objects only for procs we will be communicating to vs current method of creating objects for all known peers. Will need to create object at time of recv, will impact time to process first message from a given peer but not any subsequent comm. This may not impact actual applications very much, but could impact on performance benchmarks.
+  * '''DECISION''' Action on this area was prioritized below other areas for now. George noted that UTK is working on an alternative shared memory implementation for the BTLs. Others are also working on shared memory improvements as well, but a timetable for any of these was not known. It may be possible to take advantage of some of this code for this purpose - remains to be seen.
+
+[[BR]]
+[[BR]]
+
+
+== Moving the BTLs ==
+
+Rich raised the subject of moving the BTLs to a new, semi-independent layer where they could be accessed by the RTE. There was no real opposition to the general idea, but plenty of discussion over the best way to do it. In particular, concerns were raised over the relative hierarchical position of the new layer with respect to the RTE, both in terms of linker dependencies and ability to access various functions.
+  * '''DECISION''' Rich et al will do the BTL move on a side branch (recommended they use the Hg approach now in use across the project)
+  * '''DECISION''' The new BTL layer will sit parallel to the RTE layer, thus allowing the RTE layer to call it and vice versa. Jeff proposed a build system approach that should allow the linker to resolve the cross-connections.
+
+

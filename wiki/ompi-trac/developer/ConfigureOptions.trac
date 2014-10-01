@@ -1,0 +1,31 @@
+A few of OMPI's configure options are specifically targeted at OMPI developers -- they are not generally useful to users, and can add a ton of performance overhead.  Here's some examples:
+
+ * --enable-debug does the following:
+   * adds a bunch of compiler flags for extra compiler checks, -g, etc.
+   * assert() calls are enabled (and NDEBUG is not #defined)
+   * defines the macro OMPI_ENABLE_DEBUG to 1 (otherwise it is set to 0), which enables several more things throughout the OMPI code base:
+     * the OPAL_OUTPUT() macro (and other similar friends) will actually output strings (otherwise OPAL_OUTPUT() is defined to be nothing)
+     * OMPI's OBJ objects have various debugging code inserted; checking for a magic cookie, tracking file/line where OBJs were created, etc.
+     * OPAL lists have some consistency checking code inserted; checking to ensure items are on only 1 list, etc.
+     * OPAL mutexes have some consistency checking code inserted; checking that you're not locking an already-locked mutex, etc.
+     * OPAL hash tables have some consistency checking code inserted; ...
+     * OPAL threads have some consistency checking code inserted; ...
+     * OPAL printf has some consistency checking code inserted; checking for NULL strings passed via %s, etc.
+   * There are several other random places in the code base that check the value of OMPI_ENABLE_DEBUG and do things that are only relevant in developer/debugging builds -- even down in individual components.  This includes (but is not limited to):
+     * Adding members to structs
+     * Adding consistency checking code
+     * Outputting debugging messages
+ * --enable-mem-debug does the following:
+   * defines the macro OMPI_ENABLE_MEM_DEBUG to 1 (otherwise, it is set to 0)
+   * silently replaces malloc, calloc, realloc, and free with opal_malloc, opal_calloc, opal_realloc, and opal_free.  These are trivial wrapper functions that check for bozo cases, such as malloc'ing 0 bytes, etc.  No tracking is done to check for double frees, or anything like that.
+   * a few other places in the code base do some memory scrubbing (e.g., set pointers back to NULL when freeing/destroying objects, etc.).  We're not too consistent about using OMPI_ENABLE_MEM_DEBUG in this manner, but it is a good idea to do so.
+
+Remember that if a .svn or .hg directory is found in the directory where you're invoking configure, configure will assume you're a developer and --enable-debug and --enable-mem-debug for you.  You must specifically --disable-debug and --disable-mem-debug (or better yet, --with-platform=optimized) to disable this stuff.  '''This is critical to know for performance benchmarking! '''
+
+You can tell if an OMPI install has debugging or memory debugging enabled by looking at the output of ompi_info:
+
+{{{
+shell$ ompi_info | grep debug
+  Internal debug support: no
+Memory debugging support: no
+}}}

@@ -1,0 +1,158 @@
+This page assumes the reader is familiar with the 3rd party vendor import section of the SVN book, available here:  http://svnbook.red-bean.com/en/1.2/svn.advanced.vendorbr.html.  Further, many of the instructions are similar to those for importing [wiki:"VendorImportROMIO" ROMIO].
+
+New releases are available from: http://www.monkey.org/~provos/libevent/
+
+Due to libevent's thread model conflicting with Open MPI's thread model, extensive source code editing has occurred in the trunk.  This makes updates slightly more tricky than normal.  Therefore, we use a slightly different import scheme than that proposed by the SVN book.  The general flow is:
+
+  * Import new libevent into subversion (follow the SVN book on this part)
+  * Create copy of main source trunk in temp branch
+  * Perform libevent update in branch, keeping careful notes on conflict resolution
+  * Commit libevent update, even if doesn't compile / work (it's a temp branch!), just don't commit merge conflicts!
+  * Audit libevent code in branch, making changes required to get tree functioning again
+  * Commit changes (call these audit changes)
+  * Perform libevent update into trunk, following your notes on conflict resolution
+  * Apply patch of all your audit changes 
+  * Commit both the libevent updates and the audit updates to the trunk all in one big go.
+
+
+Here's a step-by-step process from a recent update to libevent 1.4.13.  Before you begin, you will need to have a recent (the newer, the better) version of SVN installed, as well as the svn_load_dirs.pl script that is general available in the contrib part of an SVN install. On some systems, you may have to install an extra RPM to get the svn_load_dirs.pl script. 
+
+  * Get the libevent source, and untar
+  * cd into the directory above the libevent tarball
+  * Import the source into the libevent/current directory, with the syntax:  {{{svn_load_dirs -t libevent-[libevent-release] https://svn.open-mpi.org/svn/ompi/vendor/libevent current [libevent release directory]}}}
+{{{
+% svn_load_dirs.pl -t libevent-1.4.13-stable https://svn.open-mpi.org/svn/ompi/vendor/libevent current libevent-1.4.13-stable
+Argument "2.07_02" isn't numeric in subroutine entry at /usr/local/bin/svn_load_dirs.pl line 22.
+Directory libevent-1.4.13-stable will be tagged as libevent-1.4.13-stable
+Please examine identified tags.  Are they acceptable? (Y/n) 
+
+Checking that the base URL is a Subversion repository.
+Running /usr/bin/svn log -r HEAD --non-interactive https://svn.open-mpi.org/svn/ompi/vendor/libevent
+
+Finding the root URL of the Subversion repository.
+Running /usr/bin/svn log -r HEAD --non-interactive https://svn.open-mpi.org
+Running /usr/bin/svn log -r HEAD --non-interactive https://svn.open-mpi.org/svn
+Running /usr/bin/svn log -r HEAD --non-interactive https://svn.open-mpi.org/svn/ompi
+Determined that the svn root URL is https://svn.open-mpi.org/svn/ompi.
+
+Native EOL on this system is \012.
+
+Finding if any directories need to be created in repository.
+Running /usr/bin/svn log -r HEAD --non-interactive https://svn.open-mpi.org/svn/ompi/vendor/libevent/current
+No directories need to be created to prepare repository.
+Checking out https://svn.open-mpi.org/svn/ompi/vendor/libevent/current into /var/folders/9G/9GnckCyuH58O141uJWqaTU+++TQ/-Tmp-/svn_load_dirs_QVSOWCxjOe/my_import_wc
+Running /usr/bin/svn checkout --non-interactive https://svn.open-mpi.org/svn/ompi/vendor/libevent/current my_import_wc
+
+Loading libevent-1.4.13-stable and will save in tag libevent-1.4.13-stable.
+
+The following table lists files and directories that
+exist in either the Subversion repository or the
+directory to be imported but not both.  You now have
+the opportunity to match them up as renames instead
+of deletes and adds.  This is a Good Thing as it'll
+make the repository take less space.
+
+The left column lists files and directories that
+exist in the Subversion repository and do not exist
+in the directory being imported.  The right column
+lists files and directories that exist in the
+directory being imported.  Match up a deleted item
+from the left column with an added item from the
+right column.  Note the line numbers on the left
+which you type into this script to have a rename
+performed.
+
+     Deleted             Added
+   0 compat/sys/_time.h_ compat/sys/_libevent_time.h
+   1 event-config.h_____ Doxyfile
+   2 WIN32-Code/misc.c__ WIN32-Code/event-config.h
+   3 WIN32-Code/misc.h__ WIN32-Prj/libevent.sln
+   4 ___________________ WIN32-Prj/libevent.vcproj
+   5 ___________________ WIN32-Prj/regress/
+   6 ___________________ WIN32-Prj/regress/regress.vcproj
+Enter two indexes for each column to rename, (R)elist, or (F)inish: 0 0
+
+Renaming compat/sys/_time.h to compat/sys/_libevent_time.h.
+Running /usr/bin/svn mv compat/sys/_time.h compat/sys/_libevent_time.h
+
+     Deleted            Added
+   0 event-config.h____ compat/sys/._libevent_time.h.swp
+   1 WIN32-Code/misc.c_ Doxyfile
+   2 WIN32-Code/misc.h_ WIN32-Code/event-config.h
+   3 __________________ WIN32-Prj/libevent.sln
+   4 __________________ WIN32-Prj/libevent.vcproj
+   5 __________________ WIN32-Prj/regress/
+   6 __________________ WIN32-Prj/regress/regress.vcproj
+Enter two indexes for each column to rename, (R)elist, or (F)inish: 0 2
+
+Renaming event-config.h to WIN32-Code/event-config.h.
+Running /usr/bin/svn mv event-config.h WIN32-Code/event-config.h
+
+     Deleted            Added
+   0 WIN32-Code/misc.c_ compat/sys/._libevent_time.h.swp
+   1 WIN32-Code/misc.h_ Doxyfile
+   2 __________________ WIN32-Prj/libevent.sln
+   3 __________________ WIN32-Prj/libevent.vcproj
+   4 __________________ WIN32-Prj/regress/
+   5 __________________ WIN32-Prj/regress/regress.vcproj
+Enter two indexes for each column to rename, (R)elist, or (F)inish: f
+}}}
+Libevent likes to move files around, so the last part takes some care.  It's much easier to deal with renames now than it is during conflict resolution later.
+{{{
+U   signal.c
+U   select.c
+U   poll.c
+Adding to 'mkinstalldirs' property 'svn:executable' with value '*'.
+Adding to 'missing' property 'svn:executable' with value '*'.
+U   min_heap.h
+U   ltmain.sh
+U   log.c
+U   kqueue.c
+Adding to 'install-sh' property 'svn:executable' with value '*'.
+U   http.c
+...
+Running /usr/bin/svn propget svn:eol-style WIN32-Prj/event_test/event_test.dsp@BASE
+Running /usr/bin/svn propget svn:eol-style WIN32-Prj/signal_test/signal_test.dsp@BASE
+Running /usr/bin/svn commit --non-interactive -m Load libevent-1.4.13-stable into vendor/libevent/current.
+
+Running /usr/bin/svn update --non-interactive
+Running /usr/bin/svn cp --non-interactive -m Tag vendor/libevent/current as vendor/libevent/libevent-1.4.13-stable.
+ https://svn.open-mpi.org/svn/ompi/vendor/libevent/current https://svn.open-mpi.org/svn/ompi/vendor/libevent/libevent-1.4.13-stable
+Checking out https://svn.open-mpi.org/svn/ompi/vendor/libevent/libevent-1.4.13-stable into /var/folders/9G/9GnckCyuH58O141uJWqaTU+++TQ/-Tmp-/svn_load_dirs_sTjAGqH7Lb/my_tag_wc_named_libevent-1.4.13-stable
+Running /usr/bin/svn checkout --non-interactive https://svn.open-mpi.org/svn/ompi/vendor/libevent/libevent-1.4.13-stable my_tag_wc_named_libevent-1.4.13-stable
+Running diff -u -x .svn -r libevent-1.4.13-stable /var/folders/9G/9GnckCyuH58O141uJWqaTU+++TQ/-Tmp-/svn_load_dirs_sTjAGqH7Lb/my_tag_wc_named_libevent-1.4.13-stable
+Cleaning up /var/folders/9G/9GnckCyuH58O141uJWqaTU+++TQ/-Tmp-/svn_load_dirs_sTjAGqH7Lb
+}}}
+At this point, the {{{vendor/libevent/current}}} source tree in the repository has been updated to match the {{{libevent-1.4.13}}} source tree, and there is a tag {{{vendor/libevent/libevent-1.4.13-stable}}}, which is identical to the source currently in {{{vendor/libevent/current}}}. Now we are ready to update the copy of Libevent in the OMPI repository (ie, the one in {{{trunk/opal/event}}}).
+
+  * Now we diverge slightly from the Subversion book and ROMIO instructions.  Rather than importing into a copy of the trunk, import into a freshly checkedout temp branch copied from the SVN trunk (it may be helpful to make sure the trunk is currently in a compilable state, but this is not strictly a requirement), merge the changes from the last import to the current import into the source tree:
+{{{
+% svn merge https://svn.open-mpi.org/svn/ompi/vendor/libevent/libevent-1.4.2-rc https://svn.open-mpi.org/svn/ompi/vendor/libevent/current .
+Conflict discovered in 'kqueue.c'.
+Select: (p) postpone, (df) diff-full, (e) edit,
+        (mc) mine-conflict, (tc) theirs-conflict,
+        (s) show all options: p
+--- Merging differences between repository URLs into '.':
+C    kqueue.c
+U    event-internal.h
+   C configure
+U    sample/Makefile.in
+U    sample/signal-test.c
+   C event-config.h
+Skipped 'Makefile.in'
+A    Doxyfile
+U    poll.c
+Conflict discovered in 'evutil.c'.
+Select: (p) postpone, (df) diff-full, (e) edit,
+        (mc) mine-conflict, (tc) theirs-conflict,
+        (s) show all options: p
+C    evutil.c
+   C config.guess
+U    WIN32-Prj/event_test/event_test.dsp
+A    WIN32-Prj/libevent.sln
+U    WIN32-Prj/libevent.dsw
+A    WIN32-Prj/libevent.vcproj
+A    WIN32-Prj/regress
+A    WIN32-Prj/regress/regress.vcproj
+}}}
+The Skipped ... warnings are largely harmlesss. In the case of configure, this file has been removed in the OMPI source, so svn merge is smart enough to not re-add the file every time a new vendor drop is created. If there were any files prefixed with a C, that means a conflict occurred on the file. This conflict must be resolved before the changes can be committed. The proceedure is the same as when doing any other merge -- edit the file to resolve the issue, then run svn resolved on the file. 

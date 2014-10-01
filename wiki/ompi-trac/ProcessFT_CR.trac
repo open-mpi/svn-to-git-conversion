@@ -1,0 +1,8 @@
+= Description =
+
+Checkpoint/restart process fault tolerance was integrated into the development trunk of Open MPI in r14051. Since then numerous bug fixes have occurred. You should use the latest trunk snapshot or snapshot of the release series (v1.3 and later) for the latest developments and bug fixes.
+
+For more information on how to use this system, and up-to-date information on its status see the following website:
+ http://osl.iu.edu/research/ft/ompi-cr/
+
+This webpage also replaces the C/R User's Guide that was previously posted on this website.

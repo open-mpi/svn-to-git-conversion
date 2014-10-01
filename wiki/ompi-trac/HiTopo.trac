@@ -1,0 +1,95 @@
+= Hierachical Topology Framework =
+
+The !HiTopo framework provides an unified way of getting the geographical location of a process or group of processes.
+
+Source code is available here : http://bitbucket.org/jeaugeys/hitopo/.
+
+== Levels ==
+
+!HiTopo defines 8 topology levels. Each MPI process will have an address for each of these levels.
+
+=== 0 : Cluster ===
+
+This level is currently unused (always equal to 0) but could be used in grids to number different clusters of the same computing center.
+
+=== 1 : Island ===
+
+Islands are currently used to group nodes connected by a fat-tree. Islands are connected to each other by a lighter (non fat-tree) network. We currently determine the island number by looking at L2 switches.
+
+But this is just one possible usage. Islands can be used as any level 2 network grouping level.
+
+=== 2 : Switch ===
+
+The switch level is the smallest network grouping level, currently used to reflect the lower level switch (leaf switch).
+
+=== 3 : Node ===
+
+The node level reflects the node name/number.
+
+=== 4 : L2 NUMA ===
+
+This level is used for multi board machines. The L2 NUMA address is the number of the NUMA board.
+
+=== 5 : Socket ===
+
+The socket level indicates on which socket the MPI process is running. On recent AMD/Intel processors, it can also be seen as the L1 NUMA level.
+
+=== 6 : Core ===
+
+The core level indicates the core number.
+
+=== 7 : Hyperthread ===
+
+The HT level is not currently detected, but is used to distinguish two MPI processes running on the same core.
+
+== Components ==
+
+=== slurm ===
+
+'''Depends on :''' SLURM resource manager
+
+The SLURM components retrieves the environment variables provided by SLURM (SLURM_TOPOLOGY_ADDR and SLURM_TOPOLOGY_ADDR_PATTERN) to fill level 3 (node) and potentially level 2 and 1 (switch and island).
+
+=== cpuid (x86 only) ===
+
+''' Depends on :''' x86 processors
+
+Fills levels 5 and 6 (sockets and cores) if the process is bound to a socket/core.
+
+=== gethostname ===
+
+''' Depends on :''' linux
+
+Fills level 3 (node name).
+
+=== openib ===
+
+''' Depends on :''' Open Fabrics Networks
+
+Fills level 4 (L1 IB switch) and may also fill level 5 (island).
+
+
+== Renumbering ==
+
+After each process has determined its own physical address (through the above components), an Allgather operation will be performed. Addresses will be recomputed to number each value from 0 to n.
+
+Example :
+
+ For a job running on cluster0, island2, switch2 to switch 5, one process may have the following raw address :
+  cluster0.island2.switch3.node4.0.3.2 (l2numa 0, socket 3, core 2)
+ which may be renumbered this way :
+  0.0.1.4.0.3.2.0
+ (only one cluster ; one island ; switch2 is 0, so switch3 is 1 ; node4 has index 4 ; and the rest of the address is unchanged, given that all nodes are fully used)
+
+== Interface ==
+
+ hitopo_int_t{{{*}}} ompi_hitopo_getaddr(ompi_communicator_t* comm, int process_rank)
+will return the hitopo address for a given process in a given comm. Note that hitopo addresses may be different depending on the communicator (renumbering will renumber address fields starting at 0).
+
+ hitopo_int_t{{{**}}} ompi_hitopo_getaddrs(ompi_communicator_t* comm)
+will return the full table of the given communicator.
+
+
+
+
+

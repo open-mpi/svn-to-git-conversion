@@ -1,0 +1,126 @@
+This page assumes the reader is familiar with the 3rd party vendor import section of the SVN book, available here: http://svnbook.red-bean.com/en/1.2/svn.advanced.vendorbr.html
+
+Open MPI uses the ROMIO package from Argonne National Laboratory for MPI-2 I/O support.  Initially, ROMIO was released as a standalone project, but is currently only released as part of the MPICH releases.  Over the history of Open MPI, we have pulled ROMIO from a number of sources, including the standalone release, an MPICH-1 release, and (currently) MPICH2 releases.  These have used an ever-changing list of tags:
+
+  * 1.2.5.1: The last standalone ROMIO release
+  * 2005-06-09: The import from MPICH1, where it appeared ROMIO was still having release names
+  * mpich2-1.0.4p1: An import from MPICH2, now tagging based on the MPICH2 release as ROMIO no longer has an actively maintaned version number
+
+Future tags should use the mpich2-<version> tag convention, as it seems to be the only reliable way to differentiate ROMIO releases other than their associated MPICH2 releases.
+
+The remainder of this page walkes through the update from the 2005-06-09 import of ROMIO to the mpich2-1.0.4p1 import.  The import from mpich2-1.0.4p1 to the next release should be similar.  Before you begin, you will need to have a recent (the newer, the better) version of SVN installed, as well as the svn_load_dirs.pl script that is general available in the contrib part of an SVN install.  On some systems, you may have to install an extra RPM to get the svn_load_dirs.pl script.
+
+  * Get the MPICH2/ROMIO source from Argonne: http://www-unix.mcs.anl.gov/mpi/mpich2/
+  * cd into the directory above the romio source, {{{src/mpi}}}
+  * Import the source into the romio/current directory, with the syntax: {{{ svn_load_dirs -t [romio-release] https://svn.open-mpi.org/svn/ompi/vendor/romio current romio}}}
+{{{
+bbarrett@boxtop:pts/2 ~$ cd ...../mpich2-1.0.4p1/src/mpi
+bbarrett@boxtop:pts/2 romio$ svn_load_dirs.pl -t mpich2-1.0.4p1 https://svn.open-mpi.org/svn/ompi/vendor/romio current romio
+Directory romio will be tagged as mpich2-1.0.4p1
+Please examine identified tags.  Are they acceptable? (Y/n) y
+
+Checking that the base URL is a Subversion repository.
+Running /usr/bin/svn log -r HEAD https://svn.open-mpi.org/svn/ompi/vendor/romio
+
+Finding the root URL of the Subversion repository.
+Running /usr/bin/svn log -r HEAD https://svn.open-mpi.org
+Running /usr/bin/svn log -r HEAD https://svn.open-mpi.org/svn
+Running /usr/bin/svn log -r HEAD https://svn.open-mpi.org/svn/ompi
+Determined that the svn root URL is https://svn.open-mpi.org/svn/ompi.
+
+Native EOL on this system is \012.
+
+Finding if any directories need to be created in repository.
+Running /usr/bin/svn log -r HEAD https://svn.open-mpi.org/svn/ompi/vendor/romio/current
+No directories need to be created to prepare repository.
+Checking out https://svn.open-mpi.org/svn/ompi/vendor/romio/current into /tmp/svn_load_dirs_mUCnhoGrKx/my_import_wc
+Running /usr/bin/svn checkout https://svn.open-mpi.org/svn/ompi/vendor/romio/current my_import_wc
+
+Loading romio and will save in tag mpich2-1.0.4p1.
+
+The following table lists files and directories that
+exist in either the Subversion repository or the
+directory to be imported but not both.  You now have
+the opportunity to match them up as renames instead
+of deletes and adds.  This is a Good Thing as it'll
+make the repository take less space.
+
+The left column lists files and directories that
+exist in the Subversion repository and do not exist
+in the directory being imported.  The right column
+lists files and directories that exist in the
+directory being imported.  Match up a deleted item
+from the left column with an added item from the
+right column.  Note the line numbers on the left
+which you type into this script to have a rename
+performed.
+
+     Deleted                  Added
+   0 autom4te.cache/_________ .cvsignore
+   1 adio/common/gencheck.c__ adio/ad_gridftp/.cvsignore
+   2 autom4te.cache/output.0_ adio/ad_hfs/.cvsignore
+   3 autom4te.cache/requests_ adio/ad_nfs/.cvsignore
+   4 autom4te.cache/traces.0_ adio/ad_ntfs/.cvsignore
+Enter two indexes for each column to rename, (R)elist, or (F)inish: f
+}}}
+  After entering `f` that you are done matching file changes (in this case, we entered no file renames, as it is clear that the files deleted and the files added are not related), you will see something that looks very similar to the screen displayed during an svn update, followed by a bunch of import information from svn_load_dirs:
+{{{
+U   localdefs.in
+U   configure.in
+U   configure
+Adding to 'configure' property 'svn:executable' with value '*'.
+U   aclocal.m4
+A   .cvsignore
+Adding to 'util/tarch' property 'svn:executable' with value '*'.
+A   util/.state-cache
+A   util/.cvsignore
+U   test/runtests.in
+U   test/pfcoll_test.f.in
+U   test/file_info.c
+U   test/Mfile.in
+U   test/Makefile.in
+A   test/.state-cache
+...
+Running /usr/bin/svn propget svn:eol-style adio/ad_gridftp/ad_gridftp_close.c
+Running /usr/bin/svn propget svn:eol-style adio/ad_gridftp/ad_gridftp_fcntl.c
+Running /usr/bin/svn propget svn:eol-style adio/ad_gridftp/ad_gridftp_write.c
+Running /usr/bin/svn propget svn:eol-style adio/ad_gridftp/ad_gridftp_delete.c
+Running /usr/bin/svn propget svn:eol-style adio/ad_gridftp/ad_gridftp_resize.c
+Running /usr/bin/svn commit -m Load romio into vendor/romio/current.
+
+Running /usr/bin/svn update
+Running /usr/bin/svn cp -m Tag vendor/romio/current as vendor/romio/mpich2-1.0.4p1.
+ https://svn.open-mpi.org/svn/ompi/vendor/romio/current https://svn.open-mpi.org/svn/ompi/vendor/romio/mpich2-1.0.4p1
+Checking out https://svn.open-mpi.org/svn/ompi/vendor/romio/mpich2-1.0.4p1 into /tmp/svn_load_dirs_mUCnhoGrKx/my_tag_wc_named_mpich2-1.0.4p1
+Running /usr/bin/svn checkout https://svn.open-mpi.org/svn/ompi/vendor/romio/mpich2-1.0.4p1 my_tag_wc_named_mpich2-1.0.4p1
+Running diff -u -x .svn -r romio /tmp/svn_load_dirs_mUCnhoGrKx/my_tag_wc_named_mpich2-1.0.4p1
+Cleaning up /tmp/svn_load_dirs_mUCnhoGrKx
+bbarrett@boxtop:pts/1 mpi$
+}}}
+  At this point, the {{{vendor/romio/current}}} source tree in the repository has been updated to match the mpich2-1.0.4p1 source tree, and there is a tag {{{vendor/romio/mpich2-1.0.4p1}}}, which is identical to the source currently in {{{vendor/romio/current}}}.  Now we are ready to update the copy of ROMIO in the OMPI repository (ie, the one in {{{trunk/ompi/mca/io/romio/romio}}}).
+  * In a fresh, clean checkout of the SVN trunk (it may be helpful to make sure the trunk is currently in a compilable state, but this is not strictly a requirement), merge the changes from the last import to the current import into the source tree:
+{{{
+bbarrett@boxtop:pts/2 ~$ cd ...../ompi-trunk/ompi/mca/io/romio/romio
+bbarrett@boxtop:pts/2 romio$ svn merge https://svn.open-mpi.org/svn/ompi/vendor/romio/2005-06-09 https://svn.open-mpi.org/svn/ompi/vendor/romio/mpich2-1.0.4p1 .
+Skipped 'autom4te.cache'
+U    test/Makefile.in
+U    test/runtests.in
+U    test/file_info.c
+A    test/.cvsignore
+A    test/.state-cache
+U    test/Mfile.in
+U    test/pfcoll_test.f.in
+Skipped missing target: 'configure'
+A    include/.cvsignore
+...
+bbarrett@boxtop:pts/2 romio$
+}}}
+  The {{{Skipped ...}}} warnings are largely harmlesss.  In the case of {{{configure}}}, this file has been removed in the OMPI source, so {{{svn merge}}} is smart enough to not re-add the file every time a new vendor drop is created.  If there were any files prefixed with a {{{C}}}, that means a conflict occurred on the file.  This conflict must be resolved before the changes can be committed.  The proceedure is the same as when doing any other merge -- edit the file to resolve the issue, then run {{{svn resolved}}} on the file.
+  * ROMIO was modified to use Automake and Libtool instead of just Autoconf.  This means that any time a file is added or removed (or an entire directory structure added or removed), the Makefile.am files must be modified by hand.  The `A` and `D` listings in the list of updated files can be used to determine which `Makefile.am` files must be updated.  Note that ROMIO includes a number of files (such as `.cvsignore`) that should not be placed in the distribution, so the `Makefile.am` files do not need to be updated for these additions.
+  * Run some sanity checks, then commit the changes to the trunk.  The commit message should include the tag name to which you are updating, so that `svn log` can be used later to determine the appropriate value to provide to `svn merge`.  Perhaps something like this:
+{{{
+Update ROMIO release to the one included with MPICH2-1.0.5p4, tagged in
+vendor/romio as mpich2-1.0.5p4.
+}}}
+  * Be sure to edit {{{ompi/mca/io/romio/src/io_romio_component.c}}} and set the ROMIO_VERSION_STRING preprocessor macro to a string specifying the version of this ROMIO (it's shown via the io_romio_version MCA info parameter).
+  * Be sure to update the top-level Open MPI NEWS file to reflect that you updated to a new version of ROMIO.  Be specific about the ROMIO version; users always ask what version of ROMIO is in Open MPI.

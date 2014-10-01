@@ -1,0 +1,158 @@
+= June 2012 OMPI Developer's Meeting =
+
+Note, this meeting is mainly expected to discuss and plan the OMPI 1.7 release series re the objective of achieving full MPI-3 compliance
+
+== Logistics ==
+
+ * Dates: '''Jun 6-8, 2012'''
+ * Location: '''Cisco, San Jose, CA, USA'''
+   * All three buildings are literally right next to each other; there is plenty of free parking.  No permits or parking stubs are required.
+   * Free wifi will be provided.
+   * Wed, June 6, 2012: 1-6pm US Pacific time, [http://goo.gl/maps/bIRi Cisco building 1, 3850 Zanker Rd, San Jose, CA 95134] [[BR]]
+   '''There is no receptionist in Cisco building 1.'''  Call or text Jeff (his number will be on a flyer on the door of building 1) when you arrive.
+   * Thu, June 7, 2012: 8am-6pm US Pacific time, [http://goo.gl/maps/ic4x Cisco building 3, 225 E. Tasman Dr, San Jose, CA, 95134] [[BR]]
+   There is a receptionist in Cisco building 3. She will notify Jeff when you arrive.
+   * Fri, June 8, 2012: 8am-12pm US Pacific time, [http://goo.gl/maps/O3rt Cisco building 2, 3800 Zanker Rd, San Jose, CA 95134] [[BR]]
+   There is a receptionist in Cisco building 2. He will notify Jeff when you arrive.
+
+[[Image(ompi-cisco-meeting-june-2012-finished.jpg)]]
+
+Attendees:
+
+ * Jeff Squyres
+ * Ralph Castain
+ * Brian Barrett
+ * Josh Hursey
+ * Samuel Gutierrez
+ * Nathan Hjelm
+ * Yevgeny Kliteynik
+ * Rich Graham
+ * Thomas Herault
+ * Pavel Shamis
+
+== Agenda ==
+
+=== Items ===
+* 1.7.0 release schedule
+ - What needs to be there
+ - When do we do it
+* MPI-2.2 and MPI-3 compliance items
+ - What's in, what's out
+ - Identification of implementation owners
+ - Tests needed?
+* Performance review
+ - Check launch scalability
+ - Check MPI performance
+* Runtime Design and Planning
+ - Redundant links in OOB
+ - Improve daemon collectives
+ - Default routed module selection
+ - Shared memory for data-sharing with apps
+ - Scalable process failure notification
+ - Exascale extensions
+ - Operation Pineapple
+* Thread safety (progress and MPI)
+* BTL Resilience
+  - Failover (PML issue?)
+  - Recovery from resource exhaustion
+  - Flow control
+* PML code-forking issue
+* Using BTLs (maybe PML) outside of OMPI
+* Multiple mpools for shared memory
+* MTT future
+* CR future
+
+== Tentative Agenda ==
+
+=== Wed Jun 6: 1pm-6pm ===
+* 1.7 release schedule  '''(Ralph)'''
+* MPI-2.2 and MPI-3 compliance items  '''(Brian)'''
+* Plan for performance review (who is doing what)  '''(Ralph)'''
+* MTT future  '''(Josh)'''
+* CR future  '''(Josh)'''
+* Thread safety  '''(Brian)'''
+
+=== Thurs Jun 7: 8am-5pm ===
+* Runtime Design and Planning  '''(Ralph)''' - WebEx Available
+* Operation Pineapple '''(Josh)''' - WebEx Available
+* Multiple mpools  '''(Jeff)'''
+* PML code-forking issue  '''(Brian)'''
+* Using BTLs (maybe PML) outside of OMPI (libonet or something along those lines?)  '''(Jeff)'''
+
+=== Fri Jun 8 8am - noon (approx) ===
+* BTL resilience  '''(Ralph, Brian, Jeff)'''
+
+== Notes ==
+
+* [wiki:Releasev17 1.7 release schedule]
+* Performance testing
+  - RTE performance needs testing for launch and wireup scaling
+    - contrib/scaling contains Perl script and codes
+    - Ralph will create scaling wiki page and post Excel spreadsheet for graphing results there
+    - execute scaling.pl with --nodes N --reps M to specify number of nodes in allocation and number of times to repeat each test
+    - script includes one unreported warmup for each test to pre-position binary
+  - MPI performance needs testing
+    - compare against 1.6 for regression
+    - setup wiki page with table tracking history by release
+* [wiki:MPIConformance MPI Conformance]
+* Thread safety
+    - Decided to enable ORTE progress threads by default for now to get broader exposure - includes enabling libevent thread support. '''[DONE]'''
+    - Eventually will remove progress thread enable option so that ORTE progress thread always used.
+    - ORTE state machine should have resolved ORTE thread safety issues, so focus now on MPI layer
+    - Brian/SNL will take lead on non-BTL/PML code, moving OPAL progress to OMPI progress thread/function and removing ORTE from it
+    - Ralph and Sam will take lead on shared memory
+    - Looking for leads on other BTLs
+    - Community-wide involvement required for PML (may be thread safe or close)
+* Long term maintenance
+  - Josh checking to see who might support C/R
+  - Thomas going to look at which parts UTK might want to support
+  - Need to look at 1.7 release speeds
+  - How can we actually make 1.7 lifespan much shorter than the 1.5 lifespan?
+* MTT
+  - connection reset issue the submit script, which has some known issues
+  - Reporter probably as far as it can go...
+  - Bugs on wiki, need work on database and reporter.
+  - Client likely in pretty good shape, could use some ease of use type work
+  - Need to find a summer student (possibly at LANL or Josh) who can write a new reporter that's lower overhead
+* Run-time discussion
+  - we're going to default the OOB to prefer UD when the node having MPIRUN has UD, fall back to TCP '''[DONE]'''
+  - Long term solution is to move matching to the RML and allow multiple OOBs
+  - Make debruijn routed algorithm the default (limits the number of ports that are opened, but has fairly good dispersion properties (no hot spots like the binomial during preconnect) '''[DONE]'''
+  - preconnect stresses the OOB.  Users are using it just because they see it.  Rather than fix it right (and since we're not sure we can remove it for 1.7, but know it's less useful for 1.9 when we have async progress), let's make it a "private" parameter that isn't announced as a supported argument '''[DONE]'''
+* Shared memory for data-sharing with apps
+  - reduce duplicative per-process data storage of process location, modex, etc.
+  - could store in daemon and retrieve via OOB, but shared memory more efficient
+  - store modex info in form that BTLs could just point to (avoid copying it)
+  - look at other data that can be pointed at instead of copied
+* Scalable process failure notification
+  - two methods were implemented in ORCM
+    - detect remote end failure when message attempted to be sent
+    - ORTE alerts all procs of failure when local daemon detects it
+  - Ralph is porting back to ORTE
+    - probably use framework to support multiple methods
+* Dynamic resource allocation
+  - application-directed resource allocations will be supported soon under various RMs that are creating an API for that purpose
+  - includes resource specifications, required files, etc.
+  - blocking and non-blocking API
+  - RAS framework API will be extended for support
+* Exascale extensions
+  - Ralph and some LANL folks are looking at modex elimination and connection formation
+* Operation Pineapple
+  - find new name
+  - make separate project, single framework holding rte components
+  - OMPI/ORTE/OPAL stack is "king" - all others have to follow their lead
+  - use --disable-rte flag to turn "off" ORTE component and "no-build" ORTE
+  - #if out the ORTE pieces in ompi_info, look at re-writing it to dynamically pickup the parameters from various frameworks and components
+  - Ralph will writeup the functionality in the framework .h file, and modify and comment the file when functionality and-or interfaces change so that others can "flag" the change
+* PML consolidation
+  - Long discussion about BFO/OB1.  General consensus that it's very hard with the current OB1 design to do something better with BFO and how to merge them.
+  - CSUM, DR likely to go away due to lack of suppoer
+* Multiple mpools
+  - Turned into a non-issue
+* BTL/PML extraction
+  - How do we deal with the btl_endpoint_t resolution (which needs to be fast)
+  - Bootstrapping problems
+  - If we put it in the pineapple-ish layer, would be able to share with other peers nicely.
+     - Allows things like ONet or PGAS "like" to be implemented on top of BTLs quite nicely
+     - Does mean that we couldn't use BTLs in the OOB
+   - Need further discussion on where proper place for BTLs might be.

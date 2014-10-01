@@ -1,0 +1,60 @@
+= September 2008 Open MPI Developer's Meeting =
+
+== Logistics ==
+
+ * Dates: '''September 1-2, 2008''' (Monday - Tuesday)
+ * Time: '''8:30am-5pm Irish Summer Time (GMT+1)'''
+ * Location: '''Trinity College Dublin (TCD), Ireland'''
+ * Rooms: 0.11 and the CAGLab Meeting room, Lloyd Institute (opposite of O'Reilly Institute) '''Thanks to Brian Coghlan and Stephen Childs'''
+ * TCD Maps & Directions:
+     * Trinity College Dublin Maps: http://www.tcd.ie/Maps/, specifically http://www.tcd.ie/Maps/assets/pdf/pdf_tcdcampus.pdf
+     * Getting from Hotel Montrose (Stillorgan Rd) to Trinity College Dublin
+       ([http://maps.google.com/maps?saddr=Montrose+Hotel+%4053.315258,-6.226704&geocode=&dirflg=&daddr=Trinity+College+Dublin&f=d&dq=Montrose+Hotel,+loc:+Stillorgan+Rd,+Dublin,+Ireland&sll=53.321468,-6.231182&sspn=0.071682,0.076595&cid=53315258,-6226704,11294994765544977831&ie=UTF8&t=h&z=14 Google-Maps]):
+       Bus 46A leaves in front of the Hotel (see http://www.montrosehotel.ie/google_map.html) and stops outside of TCD (about 2.5 miles).
+       Going from Trinity, busses that say "Belfield" (e.g., 10) go into the UCD campus (Belfield Terminus stop).
+       Bus-plan for the 46A is here: http://www.dublinbus.ie/your_journey/viewer.asp?route=46A
+ * Laptops: '''Please mail the MAC-Adress of your Laptop'''
+
+ * Lunch & Coffee: Next to the Lloyd Institute, is a new and good Italian-style Cafe, that we can go to lunch for at 12:00 o'clock); another place is the Hamilton-Cafe.
+
+== Agenda ==
+
+'''To be edited over time.'''
+
+'''NOTE:''' as Josh correctly remarked, there is more on the agenda than can be covered in the allotted time. Priorities are shown as bold for first, italic for second - all other items in plain text are "if time allows".
+
+=== General Consistency ===
+
+ * Naming of configure switches
+ * Base set of required MCA parameters for each framework/component/module
+ * ''Use of output streams, base_verbose vs BASE_VERBOSE''
+
+All of the above should be formalized into writing and used as a foundation
+for a documentation effort (both developer and user).
+
+
+=== Point-to-point discussions ===
+
+ * Discuss how to make current sm btl (and collectives?) scale to manycore; there are some obvious problems with current schemes (e.g., assuming that every process can/will communicate with all other processes, and therefore it sets up and polls ''every'' mailbox).
+ * Should we add a PML option to only poll destinations that have posted receives?  (this may be a no-op for some transports, but could ignore unused endpoints in other transports)
+ * Do we need to separate device identification from initialization?  E.g., establish that there is an MX / TCP / !OpenFabrics device, and then let the PML (or whatever) initialize it?  Reference: MX devices need environment variables set ''before'' initialization to set some configuration options.  Currently, both the MX MTL and BTL are initialized, but they want to use different config options.  Hence, they can only be guaranteed to get the desired options if a user explicitly asks either the MTL or BTL.
+
+=== Some Recurring items ===
+
+ * Thread-safety (possibly sub-groups per framework?)
+    * current status (btls, non-communication code-paths like MPI_attr_*)
+    * design review (i.e., guidance for other developers who want/need to make thread safety stuff)
+    * performance impact of thread-safety
+    * thread safety vs. thread concurrency vs. asynchronous progress
+
+=== Code Stability ===
+
+ * Maintainability: We should look at the codebase and consider where we can consolidate code that is currently duplicated in multiple places (e.g., file handling, error handling, MCA param logic).  We should also take a look to see if there is a better way to handle MCA parameter registration in frameworks and components to make this a bit more uniform.
+ * ''Testing: If testing is the way we judge the health of Open MPI then we should probably explicitly work it into our continual assessment of the development of the project. To do this we need to find a way that uses MTT for the RTE.''
+   * Is it time to implement MTT bug to find "new" test failures, and tie that together with an e-mail saying "new tests X, Y, Z failed, these were the SVN commits since that last test."
+
+=== Future planning ===
+
+ * Discussion of v1.4 issues
+    * See the [milestone:"Open MPI 1.4"] milestone
+ * Missed 1.3 items reevaluated, how/when they can be implemented, whether there are obstacles in the current code base.

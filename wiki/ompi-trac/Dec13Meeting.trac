@@ -1,0 +1,172 @@
+= December 2013 OMPI Developer's Meeting =
+
+This meeting immediately follows the [http://meetings.mpi-forum.org/Dec_2013_logistics.php December 2013 MPI Forum meeting].
+
+== Logistics ==
+
+ * Dates: '''December 12-13, 2013'''
+ * Location: '''[https://www.google.com/maps/preview#!q=Cisco+Systems%2C+Technology+Boulevard%2C+Rosemont%2C+IL&data=!4m15!2m14!1m13!1s0x880fb5fcac973f39%3A0xb33bd2cc29422ac4!3m8!1m3!1d791!2d-87.864704!3d41.974582!3m2!1i1477!2i819!4f13.1!4m2!3d41.974582!4d-87.864704 Cisco office (in Rosemont), Chicago, IL USA]'''
+   * Free wifi will be provided.
+   * Thursday: 2pm-6pm US Central time
+   * Friday: 8am-3pm US Central time
+   * Our conference room is named '''Field Museum'''.  It is located on the first floor in the northeast corner of the building.  Please check in with the Cisco lobby ambassador upon arrival.
+   * If you have any trouble locating or accessing the building, you can reach Dave at +1-217-840-4002 (cell) or Jeff at +1-408-525-0971 (office forwarded to cell) or jsquyres@cisco.com (iMessage).
+
+== Attendees ==
+
+ * Jeff Squyres
+ * Dave Goodell
+ * Ralph Castain
+ * Brian Barrett
+ * Nathan Hjelm
+ * George Bosilca
+ * Alex Mikheev
+ * Rolf vandeVaart
+
+== Topics ==
+
+Primary focus will include updates on progress from June 2013 action items and planning for exascale.
+
+[https://svn.open-mpi.org/trac/ompi/wiki/Jun13Meeting Notes from the June 2013 meeting]
+
+[https://cisco.webex.com/ciscosales/j.php?ED=247030022&UID=0&PW=NZWE3ODRjZDU4&RT=MiM3  Webex link for Thursday] (starts at 12pm US Central time) [[BR]]
+[https://cisco.webex.com/ciscosales/j.php?ED=247030107&UID=0&PW=NOTExOWYxNGRi&RT=MiM3  Webex link for Friday] (starts at 9am US Central time)
+
+=== Not yet completed topics ===
+
+Topics in priority order (first at top) for ALL:
+
+
+
+ * Expanded MPI rank definitions (per MPI_Forum endpoints proposal)
+ * Enhanced connection security (CORAL requires that we only allow messages between "authorized" jobs, but support full MPI-2 dynamics)
+ * Scalability of memory requirements and startup time
+ * Checkpoint/restart support
+    * application-driven and time-driven
+    * integrate to RM when available
+ * Fault (detected, predicted) notification by RM
+    * callback registration with RM for "prepare for reloc/restart"
+ * What do we want to expose via MPI_T perf variables, and how?  
+    * E.g., exposing when OMPI decides to change algorithm under the covers (but how?).  
+    * Use case: perf guys are SC asking for, "We made a tiny change in the app, and suddenly MPI behaves very differently, and we don't know why.  Can you expose something to help us figure out why MPI just decided to change behavior?"
+    * Idea from Chris Samuel -- report sensor framework data via MPI_T
+       * Chris cites coretemp data from {{{/sys/bus/platform/devices/coretemp.${A}/temp${B}_input}}} and {{{/sys/class/thermal/thermal_zone*/temp}}}
+       * Other data can be reported as well (e.g., whatever else the sensor framework is collecting)
+       * Central questions include:
+          * How to get ORTE to read this data (we don't really want to poll it -- just read it on demand)
+          * Where to put the MPI_T reading code in the MPI layer -- ompi/runtime?
+          * Should all procs on a server report the same data?  Or just local rank 0?  Or if affinity is used, each proc reports data from its resources (e.g., core(s))?  Or ...?
+ * !Brian/Nathan: RMA / onesided brain dump
+ * Jeff: Heads up -- there's a possible Windows developer interested...
+
+=== Completed topics ===
+
+ * Out-of-the-box performance
+    * '''Decision:'''
+       * Lots of discussion about all the tradeoffs, unclear of solution, can tweak default binding and mapping
+       * Proposal: default to bind-to core, map-by slot if np=2, map-by socket:balance (balance across sockets on each node) if np > 2
+       * map-by <obj> will imply rank-by <obj> by default (leave default binding as above)
+       * '''Ralph will implement in 1.7.4 [committed to trunk and cmr filed]'''
+ * Brian: per Tuesday teleconf, you were going to look for where -I/usr/include/infiniband is being unconditionally added in v1.7 (e.g., it's visible on a Mac build).  You seemed to recall that this got fixed on the trunk, and were going to look through the SVN logs to see if we forgot to CMR something.
+    * '''Decision:'''
+       * Ralph filed blocker defect on 1.7.4 so we don't roll without this fix
+       * '''Fixed and committed to trunk and 1.7.4'''
+ * Plan for v1.7.4 and v1.7.5
+    * '''Decision:'''
+       * Roll 1.7.4rc1 by Mon, release set for end of week
+       * 1.7.5 HARD feature lock at end Jan, rc1 at start Feb, release by mid-Feb
+       * release 1.8.0 at end March
+       * oshmem delayed to 1.7.5, needs warning cleanup and action items for 1.7/8 given below
+       * may be some Cisco feature additions, subject to meeting feature lock deadline
+       * new ORNL collectives will go as non-default in 1.7.4 if received in time, else will shift to 1.7.5; will be committed as default in trunk so they get tested; may become default in 1.7.5 IF it makes 1.7.4 and doesn't hit too many problems
+ * Discuss cleaning up old/outdated tickets.
+    * '''Decision:'''
+       * Pass made by multiple people and some cleanup done
+ * Thread safety / MPI_THREAD_MULTIPLE
+    * Combined in: threading issues with condition variables turing into posix condition variables when MPI_THREAD_MULTIPLE.
+    * '''Decision:'''
+       * Remove --enable-opal-multi-thread and lock it on. Remove --enable-ompi-progress-threads as stale and unused. Fix existing opal/threads directory so condition variables don't exist when they shouldn't - Brian will do
+       * Lower case opal_mutex_lock/unlock will always be on. Upper case OPAL_THREAD_LOCK/UNLOCK will configure to no-op if thread-multiple was not enabled, will actively do something only if init_thread was called
+       * Will review patch to see if okay to move to 1.7.4, get 1.7.4 to at least get thru MPI_Init_thread
+       * Update web site to truly reflect the current situation
+       * Start getting organizations to add Sun and MPICH threaded tests to nightly MTT
+       * '''Brian has removed Solaris threads from the trunk'''
+ * OpenSHMEM
+    * shmem_init/finalize issues
+       * '''Decision (1.7/8):'''
+          * We will have the BTL's always initialize during MPI_Init, Nathan will move the buffer allocation in openib to the add_procs routine to minimize memory footprint impact, this will ensure that the BTL endpoint info is ready if/when the BTLs are later setup
+          * Still need to modify the BML add_proc routine to handle being called after the MTL add_proc has completed, Brian will take a look on the flight home, else Mellanox will need to do the required revisions
+       * '''Decision (1.9/2.0):'''
+          * Once BTLs are down in OPAL, we will initially continue with above plan, revisit for optimization after George/Ralph optimize the database handling - looking at separate databases for each layer to avoid passing unnecessary info in modex (only need endpoint info)
+    * layout change to merge into ompi tree
+       * '''Decision (1.9):'''
+          * Focus effort on cleaning up warnings, removing code duplication. Will revisit code refactoring into the ompi tree after those efforts are complete
+ * Discuss current status of checkpoint/restart, review the entire design and talk about a fix/re-implementation plan
+    * '''Decision:'''
+       * Josh gave a fabulous overview of the C/R system, sounds like we need to merge the orte/snapc logic into the orte state machine, look at using the filem/raw component in place of the rsh/ssh one
+       * Adrian is working off the github mirror and will checkin with questions as he goes, Ralph will help with the state machine transition
+ * Mapping to NICs - how do we identify them, avoid breaking abstraction, etc.
+    * '''Decision:'''
+       * mindist mapper will map to closest device or device type, add mapping qualifier (ala span) directing that we restrict procs to use that device, if set then treat like RM-provided restriction as below (shoot for 1.7.5)
+       * ORTE RAS receives resource restriction from RM, add pass back to remote procs list of allowed devices/QoS, add ORTE API to retrieve device map/QoS restrictions (1.9)
+       * BTLs will call this new ORTE API asking "Can I use resource XYZ?" (e.g., "can I use eth0?").  Reply will be yes/no, based on RAS info, and will feed into BTL's existing "should I use device XYZ or not" logic.
+       * add ability to manually offset start of mapping to non-zero object (socket, whatever - 1.9)
+ * Nathan: discuss support for detecting non-existent/misspelled MCA variables.
+    * '''Decision:'''
+       * Have multiple levels of reporting, default to warning of errors on mpirun cmd line values only, add option to warn for definitions from files and other sources, MCA parameter to set scope, add FAQ entry for large clusters that you may want to turn this off
+       * Mechanism is if the setting is to check CLI options, then gather all the MCA param names that are set on the mpirun CLI to a comma-delimited list in special env variable that is already picked up (e.g., OMPI_MCA_mpirun_cli_mca_params).  Then, in ompi_mpi_init(), if the CLI option is enabled ''and'' OMPI_MCA_mpirun_cli_mca_params is in the environment, then parse it out and just check the spelling of those MCA params.
+       * Also, change the show_help message to list '''all''' of the misspelled MCA params in a ''single'' show_help message.
+ * MCA params issue: http://www.open-mpi.org/community/lists/devel/2013/12/13343.php
+    * '''Decision:'''
+       * Asking Igor for reproducer
+ * MTL threading models support
+    * '''Decision:'''
+       * Brian doesn't know of any problems, request logic should be okay, each MTL component needs to take care of itself, may be an issue
+ * CUDA support on MTL layer (GPUD)
+    * '''Decision:'''
+       * Should be okay, shouldn't hurt CM, each MTL component can do what it needs/wants 
+ * Jeff: TCP BTL default values for 1G and 10G
+    * '''Decision:'''
+       * Jeff will run some more tests with better parameters
+ * CUDA-specific code in OB1
+    * '''Decision:'''
+       * Would be nice to consolidate into better integration so others (e.g., ugni) could use it, but unclear how to do so just now - needs further thought
+ * openib cpc discussions (udcm, ofacm, rdmacm)
+    * '''Decision:'''
+       * Remove common/ofacm and bcoll/iboffload in v1.7 (which is used by coll/ml)
+       * Rationale: these things don't work in v1.7 anyway -- the API under iboffload has changed, anyway, and has effectively been obsoleted by coll/hcoll.  Specifically: hcoll is supposed to be the way of the future.
+       * Alex needs to check with home base to ensure that this is ok - '''Done and confirmed as OK'''
+       * '''Removed common/ofacm, bcoll/iboffload, and sbgp/ibnet from v1.7.4'''
+       * On trunk, goal is to remove CPC and move/port UDCM over to ofacm
+ * !Jeff/Brian discussion:
+    * When you ./autogen.pl --no-ompi, the ptmalloc copyright file is installed in $prefix/share/openmpi, but everything else is installed in $prefix/share/open-rte.
+    * Should we AC_SUBST(PROJECT_NAME) and put $(PROJECT_NAME) in all the Makefile.ams?  (e.g., opal/mca/memory/linux/Makefile.am for the ptmalloc copyright file, and then all the --with-devel-header file clauses in all the Makefile.am's)?  
+    * '''Decision:'''
+       * Let's just set pkg<whatever> in configure.ac to "openmpi" so that we '''always''' have libdir = $prefix/lib/openmpi (for example).  That should just fix the issue quite easily.  Need to find what the Right value of <whatever> is,     * Brian points out that the real suck is because of the project split stuff -- e.g., if you install OPAL independently and then build ORTE/OMPI against the independent OPAL, we basically have big problems with things like finding help files.  
+    * One possibility might be to actually configure/build each project separately (and have some loose upper-layer glue that can build all projects as a single entity) -- this would really expose all accidental project crossings even harsher than they are now (e.g., we'd have to put in some kind of registration function to identify where to find help files... and probably several other things similar to that).
+    * Or do something else altogether...?
+    * '''Decision:'''
+       * Brian will move his branch across to trunk, stay with single configure script, no solution for finding help files.  Brian will do this today.
+       * Finding help files could be done without too much effort, but no one is interested in doing it right now.  So let's not do it until someone cares.
+ * BTL move down to OPAL
+    * Branch is on bitbucket (somewhere)
+    * Works for TCP
+    * Been trying to figure out how to do modex stuff properly
+    * Discussion about opal DB
+    * '''Decision:'''
+      * Move it down with current functionality, look for future optimization later.  George:
+      * Has moved all the necessary frameworks (including all the BTLs) down to opal in a bitbucket
+      * He knows that the TCP and self BTLs work; all others probably need some work to make them compile and work -- BTL authors are going to be responsible for this
+      * He will update this bitbucket to the current trunk
+      * He will publish this public bitbucket to all of us
+      * He will send BTL authors instructions on what BTL authors need to do
+ * Discussion about atomics
+    * Do we want to use gcc intrinsics?
+    * Long discussion: it gets complicated because we still have libevent consumers (usnic BTL, UDCM, etc.)
+    * '''Decision:'''
+      * So let's not do anything until we can get rid of the libevent consumers that need timers
+ * Trivial: now that Myricom is formally dead, remove MX MTL?
+    * On trunk / v1.9 only -- keep it for v1.7/v1.8
+    * Brice is ok with removing it on trunk
+    * '''Decision:'''
+       * DONE -- removed from trunk

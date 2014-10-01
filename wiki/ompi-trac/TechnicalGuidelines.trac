@@ -1,0 +1,172 @@
+= Open MPI Technical Guidelines =
+
+October 9, 2006
+
+Revision 1.0
+
+= Release frequency =
+
+A major production release (x.y) will happen 1-2 times per year, with one release targeted to coincide with the annual Supercomputing conference.  A second release,  if needed, will be released at an agreed upon time.  The release plan for each year will be planned and authorized by the Administrative Steering Committee at the December meeting each year, at which time all parties will present their needs/plans for the following year.  The plan can be adjusted as the needs of the members and the direction of the code base change.
+
+Minor bug fix releases (x.y.z) will be made as needed.  Minor bug releases must also be planned and authorized by the Administrative Steering Committee.  Emergency bug fixes will be made on demand, and will be the responsibility of the organization needing the fix.  All emergency bug fixes should be rolled into the next minor bug fix release if possible.
+
+= Release procedures =
+
+The Open MPI release process spans the entire life of a given series.  Release processes follow a templated format, but are customized for each series.  The general sequence of events for the release process is:
+
+1.Plan the process.
+
+2.Develop code to meet the release goals.
+
+3.Branch for release.
+
+4.Test the branch until it meets the release criteria.
+
+5.Release.
+
+= Version Numbers =
+
+Open MPI's version numbers are the union of several different values: major, minor, release, and an optional quantifier.
+
+  * Major: The major number is the first integer in the version string (e.g., v1.2.3). Changes in the major number typically indicate a significant change in the code base and/or end-user functionality. The major number is always included in the version number.
+  * Minor: The minor number is the second integer in the version string (e.g., v1.2.3). Changes in the minor number typically indicate a incremental change in the code base and/or end-user functionality. The minor number is always included in the version number.
+  * Release: The release number is the third integer in the version string (e.g., v1.2.3). Changes in the release number typically indicate a bug fix in the code base and/or end-user functionality. If the release number is 0, it is omitted from the version number (e.g., v1.2 has a release number of 0).
+  * Quantifier: Open MPI version numbers sometimes have an arbitrary string affixed to the end of the version number. Common strings include:
+    * aX: Indicates an alpha release. X is an integer indicating the number of the alpha release (e.g., v1.2.3a5 indicates the 5th alpha release of version 1.2.3).
+    * bX: Indicates a beta release. X is an integer indicating the number of the beta release (e.g., v1.2.3b3 indicates the 3rd beta release of version 1.2.3).
+    * rcX: Indicates a release candidate. X is an integer indicating the number of the release candidate (e.g., v1.2.3rc4 indicates the 4th release candidate of version 1.2.3).
+    * rV: Indicates the Subversion repository number string that the release was made from (V is usually an integer, but may have string qualifiers). Although all official Open MPI releases are tied to a single, specific Subversion repository number (which can be obtained from the ompi_info command), only some releases have the Subversion repository number in the version number. Development snapshot tarballs, for example, have the Subversion repository included in the version to reflect that they are a development snapshot of an upcoming release (e.g., v1.2.3r1234 indicates a development snapshot of version 1.2.3 corresponding to Subversion repository number 1234).
+  * Quantifiers may be mixed together -- for example v1.2.3rc7r2345 indicates a development snapshot of an upcoming 7th release candidate for version 1.2.3 corresponding to Subversion repository number 2345.
+
+= Personnel Roles =
+
+There are four roles of people involved in the release process:
+
+1. Developers.  Developers write the code and commit it to the repository per normal development procedures (e.g., on the trunk, temporary branches, etc.).  They also supply bug fixes and patches for release branches.
+
+2. Testers.  Testers run test suites against the code base and identify and report problem issues.
+
+3. Gatekeepers.  Two gatekeepers are designated for each release series and have write permissions to the corresponding release branch in the source repository.  It is best if the gatekeepers are not from the same organization.  After the branch, only the gatekeepers are allowed to write to the release branch.  Gatekeepers ensure that all changes to the release branches have been reviewed and provide at least some level of sanity checking before committing (e.g., ensuring it compiles, running some correctness/performance tests, etc.).
+
+4.Release managers.  Two release managers govern the release process per the decisions made when the release was planned.  It is best if the release managers are not from the same organization.  The release managers generally do everything to make a given release happen – they shepherd the entire process and ensure that all the details that need to happen for a successful release actually do happen:
+
+ * They document and publish the entire process.
+ * Release managers may delegate certain duties if necessary.
+ * On a weekly basis, the release managers track the status towards release (e.g., track bugs, performance issues, etc.) and publish the information where the team has access to it.
+ * The release managers come up with the schedule for the release (e.g., backward planning from the target release date, etc.).
+ * Release managers enforce adherement to the schedule – e.g., what does and what does not make it into the release.  This includes arbitrating the severity, impact, cost, and risk of each issue (e.g., which bugs to fix).
+
+To begin each version series, a core technical group will meet to set a variety of goals and identify key personnel for that series.  This includes the following:
+
+1.Listing all the major features and goals for the A.B.0 release.
+
+ a. Differentiate between “blocking” and “non-blocking” issues.  “Blocking” goals, if not met, will push back the release schedule.
+
+2.Determine a matrix of platforms that must meet all correctness and performance criteria for release.  This is usually more-or-less a union of all the platforms that the members care about / support.  All of these platforms must pass performance and correctness tests before the version can be released.  Note that members who contribute entries to the matrix effectively state that they will be contributing to the effort on that platform in some way (e.g., one or more of testing, debugging, developing).  “Common sense” rules apply to developing this matrix to prevent creating a matrix that is untestable or otherwise would cause an un-releasable target (intentionally left unspecified).  Platforms are typically composed of tuples of the following:
+   
+ a. Architecture / OS
+ b. Compiler
+ c. Network
+
+3.Elect release managers
+
+4.Elect gatekeepers
+
+5.Determine release criteria:
+
+ a. Target release date
+ b. Correctness (e.g., a list of correctness tests and test suites)
+ c. Performance
+
+6.Define critical dates:
+
+ a. Code branch / feature freeze date
+ b. Documentation freeze date
+ c. Legal review date
+ d. Post-release review dates
+
+The following happen at significant dates:
+
+ * Code branch / feature freeze date
+   * All major features and code additions have been completed, and more-or-less “work.”  Debugging is still permitted, but major code additions should have been completed and be somewhat functional.
+   * The head of development is branched to create a new release branch in the repository.  Only the gatekeepers are given write permissions to the new branch.
+   * After this date, “bug fixes” are the only code changes that should be applied to the release branch.  Exceptions must be approved and documented by the release managers.
+
+ * Documentation freeze date
+   * This date is typically after the code branch / feature freeze date in recognition of the fact that documentation typically lags implementation.  It should still be a good amount of time before the target release date in order to provide enough review time.
+   * After this date, “bug fixes” are the only documentation changes that should be applied to the release branch.  Exceptions must be approved and documented by the release managers.
+
+ * Legal review
+   * This date should be after the code branch / feature freeze, but significantly before the target release date.
+   * The goal of the legal review is to ensure that all copyrights are updated and valid, all licenses are valid, and all code that will be included in the release meets the group’s requirements for copyright and licensing.  Particular attention should be paid to 3rd party code that is included in Open MPI (e.g., ensure that all relevant copyrights and license notices are included in the software distribution and/or documentation).
+
+ * Post-release review dates
+   * A series of review dates are created after each release (e.g., 1, 2, 4, and 8 months after the release) to assess the current state of the release branch.  If there are sufficient fixes and/or other improvements to the release branch, the release managers may decide to create a new release (e.g., A.B.1, A.B.2, etc.).
+   * With regular automated testing of the release branch, creating and testing sub-releases may be significantly easier than the first release of a given series because a level of stability may be assumed (depending on the changes that have occurred to the branch since the last release, of course).
+
+= Emergency releases =
+
+It will likely be necessary at times to have an “emergency” release where a critical bug is found that requires an immediate release to fix the problem.  Some emergency releases will involve all members of the project (e.g., a bug in a critical section of the code), or may only involve a single member (e.g., a vendor-specific problem).
+
+For project-wide emergency releases, the release manager will run the release process.  For vendor-specific problems, especially where time is a factor (e.g., must release a fix within 24 hours), members are encouraged to branch off the release branch, apply the fix, release a new version with a differentiating quantifier in the version number to distinguish their release from the project/community release, and then work with the release manager to get the fix back into the main release branch.
+
+= Testing =
+
+== Nightly ==
+
+A sanity test will be performed nightly on the trunk. It will initially consist of a simple compilation of the nightly snapshots. This test is aimed at finding late commits that break remote parts of the tree.
+
+== Periodic ==
+
+An important strength of open-source community effort is the ability to leverage volunteer workforce. Testing tarballs will be build and published periodically, either on a time basis (every 2 weeks) or on a feature basis (after a critical mass of new code has been committed), for public testing. These releases should be distinctively marked as  experimental and are designed to capture the drive of some users to always try the latest and greatest, but not on a nightly basis.
+
+== Release-quality ==
+
+Several criteria should be met during release testing. One of them is portability.  OpenMPI must build and run on a wide set of architectures, OSes, compilers, spawning methods, etc. This represents a significant challenge for the testing infrastructure: MTT will address these requirements by using a client/server design in order to tap testing  resources at various locations, under a wide selection of environments.
+
+The release test process consist in several levels:
+
+ * Build: A multi-dimension compatibility matrix with binary states (work/doesn't work) will be filled. Release-quality thresholds will be defined on a per-release basis.
+ * MPI conformance: All MPI test suites (MPICH/IBM/Intel) must pass.
+ * Micro-benchmarks: Beyond functionality, release testing will look for  performance on various configurations (size, devices). Release-quality threshold on various metrics such as latency, bandwidth, half-bandwidth, overhead, availability/progression, etc, will be defined on a per-release basis.
+ * Applications: Release-quality should include as many real-world applications as possible, as the ultimate sanity checks. However, applications require usually a lot of resources from the testing infrastructure. Valid applications should have a deterministic runtime to help MTT scheduling, self-validating results to detect data corruption, and a simple metric for performance reporting. A good example would be HPL.
+
+== Writing new tests ==
+
+A rich set of tests is essential to reach and sustain the production quality that Open MPI aspire for. In addition to the various MPI conformance tests (MPICH/IBM/Intel test suites), it is strongly recommended that tests checking the sanity, functionality and/or  performance of new internal Open MPI code, are integrated in the testing framework. This philosophy, somewhat time-consuming, should apply more specially to complex software entity. It is also recommended that the tests should be written by a different person than the original developer, in order to improve the test efficiency and as a way to disseminate knowledge about the added internal code.
+
+= Commit procedures =
+
+== Legal ==
+
+A legal review needs to be done, to ensure that only properly licensed code (e.g. using our BSD style license) is included in the released code.
+
+== Mini-test ==
+
+The only non-release branch that will be regulated, is the trunk.  Users are free to do as they wish in their private (or shared) branches.   On the trunk, before code can be checked in, it is mandatory that the code pass a small regression suite (still to be defined), that will be used to give a certain degree of confidence that basic functionality has not been broken.  
+
+== New tests ==
+
+If users develop new tests to check out the new code (as opposed to using existing tests), they should check this code into the repository, for inclusion in the appropriate automated test suites.
+
+== Post-commit ==
+
+In addition, a distributed testing environment will be used to create incremental builds, and run short tests suites on an hourly basis, to increase platform testing, and catch bugs as early as possible, w/o requiring single developers to test on a large number of platforms before checking in new code.  [Note: this test infrastructure is not yet in development.]
+
+== Moving R&D code to production ==
+
+As part of moving code from R&D "status" to production "status" - in the main trunk - a design review is required.  The review committee should include at least two people not involved in the feature development.  It should be announced at least one week in advance, giving anyone interested in participating in the review a chance to participate.  The intent of this review is to help establish requirements (performance and functionality), if any, for inclusion in future release branches, and help identify impacts on other parts of the code as early in the process as possible.  The committee will be responsible for documenting the requirements and impacts, and bringing these before the rest of the collaboration for discussion in one of the weekly teleconference calls, before the code is moved into production.
+
+== Code review ==
+
+For a release branch, it is required to have the code base section leader to review your code before committing.  The Release Manager can require a more rigorous code review process for particular commits based on severity, impact, cost, and risk.
+
+On the trunk, a code review is currently not required, but is strongly recommended, especially for code changes that will likely impact the default build system and any other developer or user.  More rigorous code review processes may be put in place as greater guarantees need to be made on stability.
+
+== Soak time ==
+
+Before moving code from the trunk to a release branch, there may be a minimum amount of soak time required before moving the code.  Soak time measures the amount of time after code has been committed to the trunk.    The minimum amount of time should be 24 hours in most cases.  This allows daily testing on the trunk to catch any regressions caused by the changeset.  In some cases, it is the discretion of the Release Manager and/or Gatekeeper to increase or decrease the amount of soak time for a changeset. A decreased soak time waiver would be granted in cases where a showstopper blocks any progress from occurring on the release branch.  An increased soak time would be required for changesets known to have significant impact and risk on the stability of the release branch.   The code reviewer is responsible for expressing whether the changeset has potential for high impact and risk.  The owner of the changeset request for the branch is responsible for notifying the Release Manager and Gatekeeper if the changeset has high risk or impact.  The Release Manager has the final say regarding soak time.
+
+= Bug management =
+
+The Release Manager shall review the bug list weekly for an upcoming release.  All new bugs from the past week shall be reviewed and the priority shall be adjusted accordingly based on the judgement of the Release Manager taking into consideration the goals of the release.  All bugs with priority Blocker, Critical, or Major shall be assigned an engineer immediately and progress will be reviewed weekly. All bugs with priority Minor or Trivial shall be reviewed periodically for progress, if there is an assigned engineer, and its priority reconsidered as more information is gained or as release goals change.  If a Developer feels that a bug should have its priority changed, the Developer should express this to the Release Manager.  As the release nears, the Release Manager shall review the current set of Blocker, Critical, and Major bugs to determine if addressing any of these bugs should be waived for the release.

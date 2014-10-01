@@ -1,0 +1,186 @@
+= Dec 2008 OMPI-RTE Developer's Meeting =
+
+Note: The topic list for this meeting is too long to cover in the 1.5 days available for this meeting, and the participants cannot extend the meeting at this time. Hence, a follow-on meeting is planned for the Jan/Feb time frame - details on that schedule will come later.
+
+== Logistics ==
+
+ * Dates: '''Dec 17-18, 2008''' (Wednesday - Thursday)
+ * Time: '''Wed 1:00pm-5pm US Pacific''' (roughly), '''Thurs 8:30am-5pm US Pacific''' (roughly)
+ * Location: '''Cisco Building 3, San Jose, CA, USA''' (see below)
+
+This is likely to be a small meeting, probably only attended by Cisco, Indiana U., ORNL, U. Tennessee, Sun, and Los Alamos.  All are free to attend, however.
+
+There may be dial-in portions for those who want to attend only selected portions.
+
+'''You must tell Jeff Squyres ahead of time if you are planning to attend''' (he has to register for guest badges for everyone).  Cisco building 3 is:
+
+  Cisco Building 3[[BR]]
+  225 E. Tasman Drive[[BR]]
+  4th floor, Lake Geneva conference room (far northeast corner)[[BR]]
+  San Jose, CA 95134
+
+Trac unfortunately won't let me embed a Google Maps, but if you [http://maps.google.com/maps?f=q&hl=en&geocode=&q=225+E+Tasman+Dr,+San+Jose,+CA+95134&sll=38.167307,-85.499419&sspn=0.295835,0.679092&g=Louisville,+KY+40299&ie=UTF8&ll=37.415811,-121.934381&spn=0.018679,0.042443&t=h&z=15&iwloc=addr click here], you'll see the red Google pointer bubble is pointing exactly to the front door of Cisco building 3.
+
+Also, [http://maps.google.com/maps/ms?ie=UTF8&hl=en&msa=0&ll=37.414201,-121.93379&spn=0.004423,0.010611&t=h&z=17&msid=108119265954387802600.00045e1869e11281b9776 here's a detailed map] showing how to turn into the proper Cisco parking lot.  Look at the all the bubbles and decide which one is best for you to turn in to.
+
+Call Jeff when you reach the building and he'll come down to escort you to the conference room.  Free wireless networking access will be provided.
+
+There is a huge parking lot with oodles of parking all around building 3.
+
+= Agenda =
+
+== Wed Dec 17 1-5pm (approx) ==
+Several of these topics overlap considerably, so the discussion may range widely at any given time. I am tentatively placing the MCA parameter topic at the beginning of the meeting as this may be of particular interest to Josh, and he has to leave early.
+
+ * MCA parameters
+     * MCA param lookup - can we avoid having every proc on every node read the default MCA param file, which may be sitting on an NFS disk
+       1. mpirun already reads the default MCA param file and applies it to every proc in ORTE-based systems
+         a. what about non-ORTE systems? How do we maintain functionality?
+       1. on hetero clusters, do we need to allow specification of different default params on each node?
+         a. mebbe have a switch between:
+           * non-infrastructure apps only receive mca values via environment vars - could be the common case
+           * non-infrastructure apps receive env vars and read in the mca_param_files files - could be for cases where you need per-host MCA params (for whatever reason)
+     * "interest levels" of mca params (ranging from "casual user" to "developer") and better help messages
+     * non-overridable MCA params
+     * conditional MCA param values
+       1. can we build logic into the MCA param file to cover any node-specific corner cases?
+         a. how do we handle component selection params? or can logic only be used for other purposes?
+         a. sequence of reading in values, particularly as affecting mca_param_files
+
+ * Fully routable RML communications
+   * How to eliminate the direct connection from daemons to HNP
+     1. Startup "phone home"
+        a. potential issues of using well-known ports
+        a. integration with existing environment's daemons (e.g., slurmd's)
+        a. alternatives?
+     1. Shutdown procedure
+        a. eliminate "ack" message back to HNP by using alternative methods for determining when orteds have terminated
+           * '''This has now been completed for SLURM and TM environments'''
+        a. require daemon collective for "ack" message
+        a. alternatives?
+   * Some of the above procedures will work in managed environments, but do not extend to the ssh environment. The question has been raised as to how much distortion is being created in the code base to specifically support ssh - do we need another model for the ssh world?
+     1. Pre-positioning daemons for ssh environments
+        a. root-level "mini-daemons" at boot ala mpd
+        a. LAM-MPI like "ompi-boot"
+     1. alternatives?
+   * Correlation between grpcomm and routed modules. As routed modules become more specialized, the collectives used for daemon, modex, and barrier operations become tuned to match the routed module. Thus, we need to look at ways of ensuring that the two are compatible
+     1. add flags to the grpcomm and routed module structures that indicate which modules or behaviors they support. For example, the routed module might flag that it uses a tree architecture, and the grpcomm could check that flag and not offer itself for selection if it won't work well in such architectures
+     1. merge the grpcomm and routed frameworks so the optimal pairing is always selected together
+
+
+ * Daemon collectives. These currently reside in the odls framework and are designed around a tree architecture. As we add routed modules, it becomes clear that not all routing algorithms are best supported with tree-like collectives. The above bullet deals with the general question of grpcomm vs routed frameworks. This discussion specifically focuses on the question of daemon collectives
+     1. should daemon collectives be moved out of the odls? If so, to where?
+     1. how do we preserve current scalability while dealing with the issue of daemons knowing which daemons are participating in the collective? This is an issue for comm_spawn - while all daemons know about the launch, they don't know if/when a collective operation is being conducted.
+        a. one option is to move collectives such as modex and barrier into the procs. This could perhaps be done by collapsing all participation from procs on a node down to the local_rank=0 proc, and then have all the local_rank=0 procs in a job execute the collective.
+
+== Thurs Dec 17 8:30am-5pm (approx) ==
+
+ * Extreme-scale clusters (i.e., > 100K procs). DOE/NNSA want us to demonstrate an ability to launch 500k procs in under 3 minutes (through MPI_Init) in the next year, and to extend that to 1M procs in the following year (perhaps with a little more time). This has implications not only for launch and wireup, but also for memory footprint as we move to higher core counts/node.
+   * Extreme-scale launch
+     * can we pass launch instructions to the orteds on their cmd line?
+     * how do we encode nidmap/pidmap info for the orteds - can that also go on cmd line?
+        1. do we pass mpirun cmd line back and have each orted compute the map? How does the orted get the allocation, hostfiles, etc?
+     * can we eliminate orted wireup - well-known ports?
+        1. If we re-use those ports, how do we avoid cross-job confusion from in-flight messages sent by the prior job? RML/OOB currently can detect that message is from another job family, but it doesn't reject such messages at this time - instead, it assumes such messages need to be routed via the HNP to support cross-mpirun connect/accept operations. However, we may be able to modify the connect/accept logic to resolve this issue so that messages from another job family can simply be ignored.
+     * can we eliminate the orteds altogether?
+       1. PMI-based wireup for slurm in Hg branch now awaiting completion of legal review
+       1. if we can eliminate modex and use MPI_Barriers, and if ibcm becomes functional, then no RML/OOB is required.
+          a. Can we pass enough info to the procs themselves to meet their startup needs?
+          a. What about our guaranteed MPI envars that are supposed to be there prior to MPI_Init?
+       1. ESS data retrieval - MPI layer depends upon data stored in the ESS.
+          a. How do we get nidmap/pidmap data into the system without the orteds?
+          a. Is there an alternative nidmap/pidmap source that doesn't involve a modex?
+   * MPI layer
+     * BTL wireup schemes
+       1. how do we eliminate modex?
+          a. configuring to pre-define modex info, read it from files - if so, can we consolidate file info to avoid lots of file reading (e.g., what can we do with the carto framework?)
+          a. ompi-profiler: how to pre-discover configuration. Currently, we get lots of info by setting each framework's verbosity to something high, but can we develop an easier-to-use tool for this purpose? What needs to be (usefully) discovered? Can we provide useful results to help trim build configuration?
+            * '''Completed - will be committed to trunk by 12/8/08'''
+       1. alternative collectives or methods for modex?
+          a. comparison of how mvapich vs yod vs ompi does this operation
+     * Eliminate/replace grpcomm barriers - in combination w/modex elimination, rdmacm/ibcm, etc., this would allow elimination of RML/OOB in these scenarios
+       1. can we use MPI_Barrier in MPI_Finalize?
+       1. if we replace modex w/file, can we replace w/MPI_Barrier in MPI_Init?
+          a. pros: allows elimination of RML/OOB in some circumstances
+          a. cons:
+            * forces open connections that may not be used by application
+            * potentially slower MPI_Init due to opening of connections since RML/OOB connections at daemon level are already open
+   * BTL vs proc vs RTE data storage
+     1. currently, each proc stores btl connection info for every proc in each btl, plus proc info for every proc in ompi_proc_t
+     1. the RTE currently stores a complete nidmap and pidmap for the job, plus modex info from every proc in the job
+     1. a quick estimate indicates this will consume a sizable amount of memory on each node for such large systems
+     1. how do we resolve speed vs memory issue, layout who stores what
+
+   * Automated tuning tools
+       1. OTPO?
+       1. Others?
+
+   * do we create an OMPI-RTE shared memory segment
+     * Cross-mpirun coordination
+       1. Allow paffinity in shared node situations
+       1. Shared routing info w/o HNP-based coordination
+     * Share data currently stored independently in procs (e.g., ess pidmap and nidmap)
+       1. Reduce memory footprint
+       1. Daemons can update
+
+   * Cleaning up memory leaks
+
+
+[[BR]][[BR]]
+= Almost Certainly Postponed to Follow-on Meeting =
+
+This is primarily a technical meeting, so we will try to focus on identifying potential technical solutions/approaches to some of these issues - and leave the policy part to another day.
+
+ * Tight environment integration. We have been approached about tightly integrating with environments such as SLURM and TM. By this, they mean replacing mpirun with the ability to launch directly from their environment. For example, instead of getting an allocation any using mpirun to launch on a slurm machine, we would directly srun the MPI processes. Setting aside the design issues, this raises several key points:
+     1. what happens to OMPI behaviors/capabilities that are not currently supported by the cmd lines of these environments? For example, mapping options such as rank-file and topo - can/how are they selected and do their work, can/how is that info to be communicated to the launch environment, etc.
+     1. how do we handle conflicting cmd line options - i.e., where the native launcher uses the same option to mean something totally different?
+     1. how do we retain existing support for MCA parameter options? mpirun currently reads the default param file, but that won't happen now - do we care (IMHO - heck yes!)?
+     1. our philosophy from early on was that OMPI would provide a platform that gave the same behavior (to the extent possible) across platforms. Does this violate/change that philosophy? Do we care?
+
+
+
+ * Notifier framework. There is increasing interest in utilizing the notifier framework to provide alert and information on OMPI-detected problems
+     1. identify and coordinate action to incorporate warnings in code base
+     1. define severity scale
+     1. relation to OPAL_SOS?
+
+ *  Review plans for outstanding items from July meeting
+     1. OPAL_SOS
+     1. Debugger interfaces
+
+ * Support for multiple RTEs
+     1. Where does "glue" code reside - OMPI repo or theirs?
+        a. How to handle differing requirements, release cycles
+        a. Licensing issues - how to protect OMPI from mistakes/oversights
+     1. How to select RTE
+        a. mpirun cmd line RTE - "mpirun -mca rte orte"
+           * requires all RTE's to be built into final libraries?
+        a. configure/build - "module load openmpi-stci"
+           * could create issues with version tracking - might need "module load openmpi-1.3.1-stci-0.1.2"?
+        a. application compile - "mpicc foo -lorte"
+           * mpicc could become a little more complicated as a default rte might be needed for user convenience
+     1. What might the RTE interface look like?
+        a. reserve right to change
+     1. Cross-RTE handling - what to do when a user inadvertently does connect/accept between two mpiruns using different RTEs?
+        a. can we gracefully detect this happening
+           * generate message and return MPI error?
+           * don't want to hang or segv
+     1. Avoiding user surprise
+        a. need a way to internally detect which RTE is being used
+        a. need to detect if mca params for a different RTE have been set - error out or print warnings if they have so user knows they may not get expected behavior
+           * is every RTE required to use mca params?
+        a. how to handle mpirun cmd line options
+           * those that don't work with a given RTE
+           * overlapping option names with different behavior
+     1. Debugger connections
+        a. are we forcing debugger developers to have to figure out multiple ways of dealing with OMPI?
+        a. do we need way for someone to externally detect "which RTE are you using"? How could this be done?
+     1. Development plan
+        a. criteria for committing any required architecture changes to OMPI trunk
+        a. what testing is required to validate the final design/implementation
+
+----
+
+== Pushed Agenda Items ==
+
+(to be edited during the meeting)

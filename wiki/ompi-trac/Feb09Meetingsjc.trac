@@ -1,0 +1,40 @@
+= Feb OMPI Developer's Meeting =
+
+Note, this meeting is mainly expected to discuss upcoming OMPI changes.
+
+== Logistics ==
+
+ * Dates: '''Feb 11, 2009''' (Wednesday)
+ * Time: '''Wed 1:00pm-5pm US Pacific''' (roughly)
+ * Location: '''Cisco Building 3, San Jose, CA, USA''' (see below)
+
+'''You must tell Jeff Squyres ahead of time if you are planning to attend''' (he has to register for guest badges for everyone).  Cisco building 3 is:
+
+  Cisco Building 3[[BR]]
+  225 E. Tasman Drive[[BR]]
+  4th floor, Lake Geneva conference room (far northeast corner)[[BR]]
+  San Jose, CA 95134
+
+Trac unfortunately won't let me embed a Google Maps, but if you [http://maps.google.com/maps?f=q&hl=en&geocode=&q=225+E+Tasman+Dr,+San+Jose,+CA+95134&sll=38.167307,-85.499419&sspn=0.295835,0.679092&g=Louisville,+KY+40299&ie=UTF8&ll=37.415811,-121.934381&spn=0.018679,0.042443&t=h&z=15&iwloc=addr click here], you'll see the red Google pointer bubble is pointing exactly to the front door of Cisco building 3.
+
+Also, [http://maps.google.com/maps/ms?ie=UTF8&hl=en&msa=0&ll=37.414201,-121.93379&spn=0.004423,0.010611&t=h&z=17&msid=108119265954387802600.00045e1869e11281b9776 here's a detailed map] showing how to turn into the proper Cisco parking lot.  Look at the all the bubbles and decide which one is best for you to turn in to.
+
+Call Jeff when you reach the building and he'll come down to escort you to the conference room.  Free wireless networking access will be provided.
+
+There is a huge parking lot with oodles of parking all around building 3.
+
+== Agenda ==
+
+
+= Wed Feb 11 1pm-5pm (approx) =
+
+    * Sun's Predefined Handle padding RFC (discussion lead by Terry)
+       * Any outstanding complaints about RFC
+       * Schedule of RFC putback 
+          * Trunk
+          * 1.3.2 or 1.4
+    * Sun's SM BTL RFC's (discussion lead by Eugene, [http://www.open-mpi.org/~eloh/2009Feb11.pdf slides])
+       * SM Footprint improvements
+       * SM Single Queue improvements
+       * SM Fastpath improvements
+       * Schedule Discussion

@@ -1,0 +1,51 @@
+There are several public and private mailing lists used by the Open MPI development team.
+
+= Public lists =
+
+The public lists are open to all, but every list requires a subscription in order to be able to post (some only allow restricted posting, such as the announcement list).  See http://www.open-mpi.org/community/lists/ompi.php for more detail on the public lists:
+
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/announce Announcements:] For announcements of new releases of Open MPI
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/users User discussions:] For user-level questions / discussions about Open MPI
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/devel Development discussions:] For developer discussions about Open MPI
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/bugs Bug tracking activity:] Mail is sent to this list by the bug tracking system for every activity that happens on a ticket
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/svn Public SVN commits:] Mail is sent to this list for every public SVN commit, but the diff of the change is not included if it is over 40k
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/svn-full Public SVN commits (full):] Mail is sent to this list for every public SVN commit; the diff of the change is ''always'' included in the mail, regardless of size
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mirrors Open MPI web site mirrors:] Low volume mailing list for owners of Open MPI web site mirrors
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/testing Nightly tarball creation results:] Mail is sent to this list every night for each Open MPI nightly snapshot tarball that is created 
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-results MTT Open MPI testing results:] Mail is sent to this list Mon-Thu evenings and Tue-Fri containing the 12 and 24 hour daily Open MPI regression testing results; mail is sent on Monday morning for the weekend Open MPI regression testing results
+
+Sub-projects:
+
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-announce MTT announcements:] For announcements of new releases of the MPI Testing Tool (MTT)
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-users MTT users:] For user-level questions / discussions about MTT
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-devel MTT devel:] For developer discussions about MTT
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-bugs MTT bug tracking activity:] Mail is sent to this list by the bug tracking system for every activity that happens on an MTT ticket
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/mtt-svn MTT commits (full):] Mail is sent to this list for every SVN commit; the diff of the change is ''always'' included in the mail, regardless of size
+
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/hwloc-announce Hwloc announcements:] For announcements of new releases of the Hardware Locality (hwloc)
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/hwloc-users Hwloc users:] For user-level questions / discussions about Hwloc
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/hwloc-devel Hwloc devel:] For developer discussions about Hwloc
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/hwloc-bugs Hwloc bug tracking activity:] Mail is sent to this list by the bug tracking system for every activity that happens on an Hwloc ticket
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/hwloc-svn Hwloc commits:] Mail is sent to this list for every SVN commit
+
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/pmix-announce PMIx announcements:] For announcements of new releases of the PMIx library
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/pmix-users PMIx users:] For user-level questions / discussions about PMIx
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/pmix-devel PMIx devel:] For developer discussions about PMIx
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/pmix-bugs PMIx bug tracking activity:] Mail is sent to this list by the bug tracking system for every activity that happens on a PMIx ticket
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/pmix-svn PMIx commits:] Mail is sent to this list for every SVN commit
+
+
+= Private lists =
+
+Why are there private lists in an open source project?  There are a few reasons:
+
+ 1. The administrative group's duties include, among other things, resolving conflicts.  These conversations are not intended to be public.
+ 1. Since the core development group contains several academics who rely on the "publish or perish" philosophy of competitive research, some discussions must be kept private until conference/journal papers can be written and published.
+ 1. Non-public information needs to be distributed among the core group that would not be good to be "Google-able", such as teleconference phone numbers/codes, trade show planning, etc.
+
+Here are the private lists (admission to these lists is restricted):
+
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/admin Administrative:] The administrative steering group for Open MPI (see [wiki:"Admistrative rules"])
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/devel-core Development core:] Development group core
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/svn-private Private SVN commits:] Private SVN commits, including the OMPI SVN /tmp branches and the OMPI documents tree (for academic / not-yet-published papers), but the diff of the change is not included if it is over 40k
+ * [http://www.open-mpi.org/mailman/listinfo.cgi/svn-private-full Private SVN commits (full):] Private SVN commits, including the OMPI SVN /tmp branches and the OMPI documents tree (for academic / not-yet-published papers); the diff of the change is ''always'' included in the mail, regardless of size

@@ -1,0 +1,122 @@
+As has been widely discussed, the I/O Forwarding subsystem in OpenRTE leaves a lot to be desired. It is overly complex, not thread safe, suffers from "spaghetti code" disease, and very hard to maintain. That said, it was implemented with much grander design goals in mind than we actually ever used. For example, it assumed that users would be directly referencing ORTE
+frameworks from their code (e.g., there would be ORTE apps), we would have tools that would want to directly interface to app procs, etc. As we geared down to having ORTE solely supporting OMPI, much of this went away.
+
+In fact, there is no way for an MPI app today to access most of the functionality inside of the IOF, short of calling ORTE directly. This is something we don't encourage nor support, so it makes no sense to continue dragging along all the complexity required to support unusable functionality.
+
+Given the changes in design scope for the IOF, it seems appropriate that we revamp its design and cleanup the implementation. At the July technical meeting in Louisville, several of us discussed this subject at some length and arrived at a proposed new IOF design. In revising the design, we tried to retain the core functionality we actually do support, plus the small added bits that Jeff and a few tool developers have requested. We have stripped away all the added stuff, which removes some flexibility but also a ton of complexity.
+
+As a quick review of how we currently use IOF, remember that:
+
+ * when an orted fork/exec's an application process, we automatically wire stdout/err and the new stddiag to pipes tied to the orted. We wire stdin for rank=0 to a pipe to the orted, and stdin for all other ranks to /dev/null. This is non-optionable - it is always done.
+
+ * nothing in the MPI bindings utilizes the IOF. All file related activity in that layer is handled by the OMPI file code per the MPI_xxx function calls. There is no MPI layer support that would allow a user to directly "fd = open" a file, tie it to an IOF stream, and send it to other procs - nor do did anyone at the meeting believe we should support such a model.
+
+Our proposal would change the description in iof.h to that shown in the code block below. In brief, the proposal would:
+
+ * remove the publish/subscribe interfaces. Every proc makes its stdout/err/diag available at time of fork/exec, just like today. This just eliminates some unnecessary and confusing bookkeeping.
+
+ * continue to auto-wire the stdout/err/diag interfaces by default as we do today. We will add cmd line options to mpirun that allow a user to specify which stdout/err/diag they do -not- want forwarded - in those cases, the orted will locally drop any data from the stream, but will not tie the stream to /dev/null. This leaves open the option for a tool to subsequently obtain access to the stream.
+
+ * add a cmd line option to mpirun to allow stdin to be tied to more than just rank=0. For now, the option will be limited to connecting stdin to all processes vs just rank=0. The current default will remain: stdin of rank=0 will remain connected to stdin of mpirun, and stdin of all other ranks will be tied to /dev/null. Comm_spawn'd processes do not inherit these new cmd line options, but will process new MPI_Info args to allow specification of behavior. By default, all comm_spawn'd processes will have stdin tied to /dev/null.
+
+ * allow a tool to "pull" stdout/err/diag from any process. The request to "pull" will go to mpirun, which will be responsible for forwarding the requested stream to the tool. Orteds will no longer serve as global servers, but will only forward their stream data to mpirun - mpirun will act as the "switchyard" for any other requestors.
+
+ * allow tools to use the "push" API to connect to the stdin of rank=0, or to the stdin of any process if-and-only-if the user specified on the cmd line that the stdin was to be left available. The user is fully responsible for all timing issues that may occur due to multiple sources pushing data into stdin.
+
+ * add a cmd line option to mpirun to tag all forwarded output (stdout/err/diag) with [process rank] and perhaps other things as specified by the user. Output will default to tagging by fragment since ORTE has no idea if/when an output is "complete". Further options will allow the user to specify tagging-by-line along with a max line length we should wait before re-tagging the output. If comm_spawn is called, the default tagging will add the jobid - i.e., the tag will become [jobid,rank]. Tagging will default to only a prefix, but a cmd line option will allow addition of a suffix. Finally, a cmd line option will specify that the tags are to be provided in xml format.
+
+ * create a new tool that can be fork/exec'd to obtain stdout/err/diag from any specified rank. The user will provide on the tool's cmd line the pid of the mpirun and the rank(s) from which the data is to be obtained. The tool will lookup the corresponding contact info, connect to mpirun, "pull" the desired output, and relay it via its own stdout/err to the originating process. This allows tools to tap into ORTE's IOF without themselves having to compile against Open MPI, call orte_init, etc. This tool can obviously also be used standalone to simply monitor the stdout/err/diag of a rank in a running job.
+
+So the main change really is to get rid of the pub/sub stuff, and clean up the unnecessary complexity caused by trying to allow random file operations. As you can see below, the API becomes -very- simple, with base functions providing the required wireup.
+
+Note that only two components are now required:
+
+ * hnp - used by mpirun, this component will forward output to the local stdout/err; maintain a list of requestors for stdout, stderr, and stddiag streams and provide the corresponding switchyard functions; forwards stdin to the specified process ranks; 
+
+ * orted - used by the orted, this component simply reads data from the pipes attached to its local processes; packages and forwards that data to mpirun; receives any stdin data from mpirun and writes it to the specified local process.
+
+In all cases, the RML magic that uses the event library and ORTE_MESSAGE_EVENT macro will be utilized to break recursion. We will also maintain our current flow control to avoid pulling big data buffers into the orteds and/or mpirun.
+
+Modified iof.h comments (not the APIs):
+{{{
+/**
+* @file
+*
+* I/O Forwarding Service
+* The I/O forwarding service (IOF) is used to connect stdin, stdout, and
+* stderr file descriptor streams from MPI processes to the user
+*
+* The design is fairly simple: when a proc is spawned, the IOF establishes
+* connections between its stdin, stdout, and stderr to a
+* corresponding IOF stream. In addition, the IOF designates a separate
+* stream for passing OMPI/ORTE internal diagnostic/help output to mpirun.
+* This is done specifically to separate such output from the user's
+* stdout/err - basically, it allows us to present it to the user in
+* a separate format for easier recognition. Data read from a source
+* on any stream (e.g., printed to stdout by the proc) is relayed
+* by the local daemon to the other end of the stream - i.e., stdin
+* is relayed to the local proc, while stdout/err is relayed to mpirun.
+* Thus, the eventual result is to connect ALL streams to/from
+* the application process and mpirun.
+*
+* Note: By default, data read from stdin is forwarded -only- to rank=0.
+* Stdin for all other procs is tied to "/dev/null".
+*
+* External tools can, if they choose, "pull" copies of stdout/err and
+* the diagnostic stream from mpirun for any process. In this case,
+* mpirun will send a copy of the output to the "pulling" process. Note
+* that this requires that the external tool call orte_init so that the
+* required connection can be established! Also note that external tools
+* cannot "push" something into stdin unless the user specifically directed
+* that stdin remain open, nor under any conditions "pull" a copy of the
+* stdin being sent to rank=0.
+*
+* Thus, mpirun acts as a "switchyard" for IO, taking input from stdin
+* and passing it to rank=0 of the job, and taking stdout/err/diag from all
+* ranks and passing it to its own stdout/err/diag plus any "pull"
+* requestors.
+*
+* Streams are identified by ORTE process name (to include wildcards,
+* such as "all processes in ORTE job X") and tag.  There are
+* currently only 4 allowed predefined tags:
+*
+* - ORTE_IOF_STDIN (value 0)
+* - ORTE_IOF_STDOUT (value 1)
+* - ORTE_IOF_STDERR (value 2)
+* - ORTE_IOF_INTERNAL (value 3): for "internal" messages
+*   from the infrastructure, just to differentiate them from user job
+*   stdout/stderr
+*
+* Note that since streams are identified by ORTE process name, the
+* caller has no idea whether the stream is on the local node or a
+* remote node -- it's just a stream.
+*
+* IOF components are selected on a "one of many" basis, meaning that
+* only one IOF component will be selected for a given process.
+* Details for the various components are given in their source code
+* bases.
+*
+* Each IOF component must support the following API:
+*
+* push: Tie a local file descriptor (*not* a stream!) to the stdin
+* of the specified process. If the user has not specified that stdin
+* of the specified process is to remain open, this will return an error.
+*
+* pull: Tie a local file descriptor (*not* a stream!) to a stream.
+* Subsequent input that appears via the stream will
+* automatically be sent to the target file descriptor until the
+* stream is "closed" or an EOF is received on the local file descriptor.
+* Valid source values include ORTE_IOF_STDOUT, ORTE_IOF_STDERR, and
+* ORTE_IOF_INTERNAL
+*
+* close: Closes a stream, flushing any pending data down it and
+* terminating any "push/pull" connections against it. Unclear yet
+* if this needs to be blocking, or can be done non-blocking.
+*
+* flush: Block until all pending data on all open streams has been
+* written down local file descriptors and/or completed sending across
+* the OOB to remote process targets.
+*
+*/
+}}}
+

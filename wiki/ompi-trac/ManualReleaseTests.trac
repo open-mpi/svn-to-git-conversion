@@ -1,0 +1,16 @@
+A random list of manual tests that should be conducted with a release tarball before the actual release:
+
+ * default configure and build; ensure basic functionality with compiling all examples and running them
+ * configure and install --with-devel-headers; verify that all the developer headers, executable, and man pages are installed
+ * configure and install --with-ft; verify that all the tools and man pages are installed
+ * run ompi_info, ompi_info --all; ensure they run properly
+ * run "man MPI_Send" and ensure page renders correctly (check header and footer)
+ * check output of "make" to ensure that man pages were '''not''' generated during the process (all man pages should be included in the tarball)
+ * run "make -j 4" to ensure parallel builds still work
+   * no need to test vpath builds; these are checked every night via "make distcheck"
+
+Repeat all above tests after running autogen.sh in a release tarball.
+
+Also:
+
+ * check README, INSTALL, HACKING, LICENSE, and VERSION: ensure they have recent dates and copyright notices

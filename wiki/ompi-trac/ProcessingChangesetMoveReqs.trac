@@ -1,0 +1,50 @@
+= Processing Changeset Move Requests (CMRs) a.k.a Gatekeeper HOWTO =
+
+Since only gatekeepers have write permissions to release branches in the Open MPI repository, developers must [wiki:SubmittingChangesetMoveReqs submit "changeset move requests" (CMR)] to get commits on release branches.  CMRs are just like normal tickets except that they have the special '''"changeset move request"''' type (as opposed to "defect" or "enhancement").  This wiki page will document what are the best practices for actually performing the gatekeeper duties with respect to CMRs.
+
+== Principles and Best Practices ==
+
+ * It is valid for the gatekeeper to reject a CMR that does not merge cleanly to the release branch.  It is the responsibility of the developer (not the gatekeeper) to make/supply a patchfile or other remediation.  This is simply due to the larger number of developers vs. one (plus backup) gatekeeper.
+ * If a merge conflict is found by the gatekeeper, it is helpful to post the the ticket the source (r#) of the conflict, if it can be found quickly.
+ * The gatekeeper should periodically (daily) check Trac report {10} for new CMRs.  It is also good to subscribe to the [http://www.open-mpi.org/mailman/listinfo.cgi/bugs Bug activity mailing list].
+ * Maintain a single clean and up-to-date svn checkout of the release branch that is used for CMR merges.
+
+== General Procedure ==
+ 1. Notice a new CMR, or a changed state of a CMR ticket
+ 1. Verify that our branch checkout is clean and up-to-date: {{{ cd clean-branch; svn up; svn st }}}
+ 1. Do a test merge (possibly before being RM-approved or Reviewed):
+    a. if a set of r# were supplied, do {{{ ompi-merge rXYZ rWXY }}} and watch for any conflicts
+    a. if a patchfile was supplied, do {{{ patch -p 0 --dry-run < ~/Downloads/patchfile }}} and watch for any errors... don't forget to run again without {{{ --dry-run }}} later
+ 1. Based on the merge success/failure do one of these:
+    a. Mark the ticket as "rXYZ merges cleanly, awaiting Review and/or RM-approval"
+    a. Or, mark the ticket with "rXYZ has a merge conflict on the/file/that/conflicted, (possibly) caused by rABC" and change the 
+       i. It may be obvious which r# is missing, or it may not be obvious... it is the gatekeeper's call as to how much time, if any, to search for the source of the conflict.
+       i. I use a combination of browsing the source via trac, {{{ svn blame the/file/that/conflicted }}}, and {{{ svn log --stop-on-copy the/file/that/conflicted }}}.
+ 1. If there was a merge conflict, or the CMR has not been reviewed or RM-approved yet, then {{{ svn revert -R . }}} to back out the test merge.
+ 1. Change the owner of the ticket to
+    a. The '''submitter''' if there was a merge conflict, or no reviewer was suggested/supplied
+    a. The '''reviewer''' if it hasn't been reviewed yet
+    a. The '''primary RM''' if it is awaiting RM-approval
+    a. The '''gatekeeper''' (yourself) if everything is in place
+ 1. If the CMR has been reviewed, RM-approved and test merged, then check-in the changes
+    a. If it was a patchfile, actually apply it: {{{ patch -p 0 < ~/Downloads/patchfile }}}
+    a. Verify that our branch checkout only contains the desired changes: {{{ svn st }}} and sometimes {{{ svn diff }}}
+    a. {{{ svn ci }}} with a commit log following the standard format:
+{{{
+Closes #JKL: One-line summary
+
+Submitted by username1, Reviewed by username2, RM-approved by username3
+
+Optional longer description if the individual commit logs are inadequate.
+
+rXYZ:
+svn log entry for rXYZ
+
+rWXY:
+svn log entry for rWXY
+
+Patch applied corresponding to rDEF:
+svn log entry for rDEF
+}}}
+   1. Verify that the correct CMR ticket got closed, and that the commit log was attached to the ticket.
+   1. Repeat until no CMRs are owned by yourself, or "enough" CMRs have been applied for one day's worth of MTT

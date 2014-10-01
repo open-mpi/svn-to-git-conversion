@@ -1,0 +1,74 @@
+= July 2008 Open MPI Developer's Meeting =
+
+== Logistics ==
+
+ * Dates: '''July 15-17, 2008''' (Tuesday - Thursday)
+ * Time: '''8:30am-5pm US Eastern''' (roughly)
+ * Location: '''Cisco offices, Louisville, KY'''
+
+This is likely to be a small meeting, probably only attended by Cisco, Indiana U., U. Tennessee, and Los Alamos.  All are free to attend, however.
+
+There may be dial-in portions for those who want to attend only selected portions.
+
+Details on Cisco offices location:
+
+ *  12910 Shelbyville Rd, Suite 210, Louisville, KY 40243
+ * [http://maps.google.com/maps?f=q&hl=en&geocode=&q=12910+shelbyville+rd&sll=38.1628,-85.520074&sspn=0.301793,0.729218&ie=UTF8&ll=38.24327,-85.516119&spn=0.009421,0.022788&z=16&iwloc=addr Google Maps of the address]
+ * It's a shared office building; Cisco's office is on the 2nd floor.  If you get lost, call me.  If you're driving in on I64, Google recommends that once you get into Looieville, take I264N from I64 and then take Shelbyville Road (KY-60) east until you get to the Cisco offices.  You can do this, but there are many stoplights on Shelbyville.  Instead, it's a little faster to take 64 east and take I265N to the first exit: Shelyville Rd/KY-60 and go a short distance west to reach the Cisco offices.
+ * Beware in the prior paragraph: I264 is distinct from I265.  Look on a map and it's pretty obvious: I264 is the "inner loop" in Louisville; I265 is the "outer loop".
+ * Note, too, that the office building is set back from the road and not easily visible while driving -- there's no Cisco logo/sign out on the road or anything.  The turn into the office building is at a stoplight intersection that has an Applebee's restaurant on the NW corner.
+
+= Agenda =
+
+== Tuesday ==
+
+Morning:
+ * Expected behavior of standard MCA parameters (-mca fwrk xxx,yyy,!^zzz) (Invalid)
+ * '''#1291: Expected behavior of new standard MCA options ('all/any', 'none')'''
+ * '''MCA framework selection logic - dealing with "none", and with "only if manually directed to select this one"'''
+
+Afternoon:
+ * Planned ORTE Directions
+  * Launch performance - where we are, where we want to be, what comes next
+  * ''New sparse routed component designs and the associated changes to the launch system to support them''
+  * ''Modex decision logic - avoiding a modex if at all possible.'' Ralph will bring new data showing how this could be done with IB BTL.
+ * MCA improvements:
+  * ''#1270: have orted "warmup" DSOs/filesystem''
+  * ''#1271: cache DSO filenames''
+ * #1269 Orted prolog and epilog hooks
+
+== Wednesday ==
+
+Morning:
+ * (8:30 - 10 am) Discussion of v1.4 issues: Additional debugger capabilities
+   * '''Debugger interfaces to support co-locating debugger daemons at time of job launch, dynamically launching co-located debugger daemons during job execution.''' This has been requested by several debuggers in the last few weeks. Defining a standardized solution will help with faster adoption and easier maintenance. Part of the discussion can focus on how best to engage these groups in defining these standards, possibly to involve various MPI implementations so the result could span a bigger audience. Ralph will provide update on the situation.
+ * IOF
+   * '''API design for revamped IOF'''
+   * #1204: if we don't fix this properly, orted can (and will) drop output at the end of an app's run.  Example: IBCM timers output during openib BTL finalize; if don't put a sleep(1) after MPI_FINALIZE / before exit(0), only see the timers from ''some'' of the nodes.
+   * '''How to support different output models such as XML, which require various re-formatting of info for stdout/err/diag'''
+
+Afternoon:
+ * Error handling and reporting: (See [wiki:ErrorMessages Error Messages] for more info)
+   * Short: Better error messages (strategy to align/structure them) (revamping IOF?)
+   * Long: It would be nice if Open MPI had a known way to express errors that may involve cascading failures of functionality. We should also make an effort to clean up (implement) error messages so that
+       1. users can start to figure out what is going wrong,
+       1. we can help them diagnose problems on the users list.
+
+== Thursday ==
+
+Morning:
+ * Error handling and reporting:
+   * Internal mechanisms for dealing with failure (i.e., ORTE !ErrMgr)
+     * [wiki:ErrorMessages Results of this discussion]
+   * What does/should happen in process & node loss scenarios?
+
+Afternoon:
+ * MPI-2 Dynamics
+    * ''Discuss multi-threaded aspects of the MPI-2 dynamics: e.g., is it legal to have multiple threads blocking on MPI_COMM_ACCEPT on the same port?  (vs. "is it supported ...")''
+
+
+----
+
+== Pushed Agenda Items ==
+
+(to be edited over time; please see the upcoming Dublin meeting)

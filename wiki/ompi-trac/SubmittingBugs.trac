@@ -1,0 +1,40 @@
+= Submitting Bugs and Enhancements =
+
+Currently, only authenticated Open MPI developers can submit bugs.  Login and then click on the "New Ticket" button in the top-right navigation.
+
+== Information to fill in ==
+
+ * Be sure to specify whether this is a defect or an enhancement (if this is a changeset move request, [wiki:SubmittingChangesetMoveReqs see this page]).
+ * A good "short summary" title for the bug.  This should be a one-sentence/phrase concisely describing the issue you are reporting, such that if someone looks at it with zero other context, it should be at least reasonably clear as to what the ticket is about.  '''NEVER''' leave a title blank.
+ * A good full description for the bug.  ''Include as much information as possible! ''  No developer has ever said, "Wow, this guy included too much information on the ticket."  Remember that we are not sitting there at your console to see the problem and therefore have no context other than what you include on the bug.  So include information.  Lots of it.  For example, be sure to include at least the following:
+   * What version of Open MPI you are using (e.g., a release version, or a SVN branch and r number).  If this problem spans more than one version, include all versions that you are aware of where the problem occurs (or, conversely, state that you have not tested / do not know if the problem occurs in other versions, etc.)
+   * What architecture and compiler you are using
+   * Describe what the problem is -- include all relevant outputs and supplemental information
+   * If you have any suggested fixes, describe those as well (perhaps even attaching a patch!)
+ * Pick a priority: "blocker" should be reserved for issues that will hold up a release, "minor" is for trivial things.  For other issues, use your discression for the priorities between these two extremes.
+ * "Version" is the version where this problem was discovered.  It will be the trunk, a release branch, or a released version.
+ * If you know who to assign this bug to, go ahead and do so.
+ * The Milestone is the first version where this defece/enhancement will be fixed/created.  By definition, it is impossible to apply fixes/new functionality to versions that have already been released.
+ * Fill in any relevant keywords; they help when searching for tickets.
+ * Fill in any relevant e-mail addresses for those who want to be informed whenever the ticket status changes
+
+== How do I add attachments? ==
+
+It's weird, but you can't add attachments when you are initially creating a ticket.  You can only add attachments ''after'' the ticket has been created.  There's a simple "Attach File" button on existing tickets that allow you to upload files and attach them to the ticket.
+
+== Who gets mails? ==
+
+E-mails are sent out for most changes to the ticket (e.g., if you add a comment or change any of the fields).  The only change that does ''not'' generate an e-mail is when you add or remove an attachment.  Keep that in mind -- if you add an attachment to an existing ticket, you might also want to add a comment ("I just added attachment foo.c") so that anyone on the e-mail list will be asynchronously notified that you did it.
+
+ * The person who files the bug
+ * Whoever is listed in the CC line of the bug (it can be a comma-delimited list of e-mail addresses)
+ * Whoever the ticket is assigned to
+ * Whoever is on the bugs@open-mpi.org mailing list (you can sign up at this URL: http://www.open-mpi.org/mailman/listinfo.cgi/bugs)
+
+== Some best practices ==
+
+ * Please ''please'' '''please''' read WikiFormatting to see how to format text
+ * If a user reports a bug, it is customary to include the user's e-mail address on the CC line of the ticket so that they can be notified its progress
+ * Do '''not''' cut-n-paste raw code or shell prompts in bugs unless you escape them properly in WikiFormatting ({{{ {{{ }}} and {{{ }}} }}} )
+ * If you want to attach a patch, do not paste it directly in the bug -- use the "attach" mechanism (you can't attach anything when creating the bug; you have to create the bug and then you can attach it)
+ * Once a defect is fixed or the enhancement is created, '''close the ticket.'''  If you need to move it over to a release branch, '''DO NOT''' convert the existing ticket to a changeset move request.  Instead, please file one or more new changeset move request tickets and include those ticket numbers in the defect ticket's text when you close the defect.  This solidifies the fact that fixing bugs is a different action than moving code to release branches, and it keeps tickets short and simple. Putting the changeset move request ticket numbers in the defect ticket gives a forward reference to track the state of the code movement to the release branch(es).

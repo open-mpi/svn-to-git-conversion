@@ -1,0 +1,866 @@
+= Error Message Reporting =
+
+AKA "OPAL_SOS" (for wiki searchability: OPAL_SOS)
+
+SOS = Save Our !Stream/State/Software/System/... :)
+
+== Table of Contents ==
+
+ * [wiki:ErrorMessages#Introduction Introduction]
+ * [wiki:ErrorMessages#ErrorEvents Error Events]
+   * [wiki:ErrorMessages#Severities Severities]
+ * [wiki:ErrorMessages#ReportingErrors Reporting Errors]
+   * [wiki:ErrorMessages#SOSAPI SOS API]
+   * [wiki:ErrorMessages#OtherOptions Other Options]
+ * [wiki:ErrorMessages#Examples Examples]
+   * [wiki:ErrorMessages#LowLevelFunction Low Level Function]
+   * [wiki:ErrorMessages#UpperLevel Upper Level]
+   * [wiki:ErrorMessages#ExampleOutput Example Output]
+ * [wiki:ErrorMessages#DevelopmentNotes Development Notes]
+
+[attachment:OPAL_SOS.pdf Here's the presentation from the April 13, 2010 teleconf].
+
+== Introduction ==
+
+Error checking is critical to the overall stability of the software project.  All return codes should be checked for successful completion, and on unsuccessful completion the code should take action of some sort to react to this situation.  Typically the action taken is to print an error message and pass the error up.  There are two annoyances with this method:
+
+ * As you go up the call stack, an error message is printed at each level -- ''cascading error messages''.
+ * The code becomes harder to read since the normal logic is liberally sprinkled with error checking code.
+
+For example:
+
+{{{
+#!c
+int foo_lower_level(...) {
+   int ret;
+   if (0 != (ret = syscall(...))) {
+     ORTE_ERROR_LOG();
+     opal_output(0, "Foo error code: %d", foo);
+     return ORTE_ERROR;
+   }
+}
+}}}
+
+What if we could do the above functionality -- ''and much more'' -- with the same or fewer lines of code?
+
+What the SOS system does is best described through a simple example:
+
+ 1. User application invokes MPI_SEND.
+ 1. MPI_SEND invokes function A(), which invokes function B(), which invokes function C().
+ 1. Function C() encounters an error, and needs to report it up the stack.
+ 1. Function C() invokes an OPAL_SOS macro:
+    1. The macro creates a new error event
+    1. It also records the following data tuple: (error_code, function_name, file_name, line_number, descriptive_string)
+    1. The descriptive string is printed out
+    1. Finally, the macro returns an encoded version of error_code (that contains a handle to the error event)
+ 1. Function C() then returns the encoded error code
+ 1. Function B() sees that the return value from C() is not OMPI_SUCCESS.
+ 1. Function B() calls an OPAL_SOS macro:
+    1. The macro attaches B's data tuple to the event: (error_code, function_name, file_name, line_number, descriptive_string)
+    1. The descriptive string is printed out ''only if B's error is more severe than C's''
+    1. Finally, the macro returns an encoded version of error_code (that contains a handle to the error event)
+ 1. Function B() then returns the encoded error code
+ 1. Function A() sees that the return value from B() is not OMPI_SUCCESS.
+ 1. Function A() calls an OPAL_SOS function to print out the entire chain of tuples on the error event.
+ 1. Function A() then handles the error and processing continues.
+
+SOS will print the descriptive string at the initial error location, but will only print the descriptive strings further up the stack if one of two conditions are met:
+
+ * If the severity of the error is promoted (e.g., the original event was a "warning", but an upper layer promotes the event to an "error")
+ * If explicitly told to print out the entire event tuple chain
+
+More generally, the SOS system is a framework for capturing error information (including descriptive strings) as errors are propagated up the stack.  SOS provides flexibility to decide what to do with the error event (and its associated chain of data tuples).  For example, errors can continue to propagate upward, or error events can be discarded.
+
+SOS also uses the ORTE notifier system to multiplex the output of messages of different severities.  Messages of one severity can be sent one place where messages of a different severity can be sent to a different place.
+
+Note that SOS is most useful when it is useful to print (or associate) a string when a notable event (such as an error) occurs.  Utility functions that return non-SUCCESS error codes as part of normal processing (e.g., if FILE_NOT_FOUND is a non-fatal error) generally don't need to use the SOS system.
+
+The OPAL SOS framework therefore tries to meet the following objectives:
+
+ 1. Reduce the cascading error messages and the amount of code needed to print an error message.
+ 1. Build and aggregate stacks of encountered errors and define relationships between related individual errors.
+ 1. Allow registration of custom callbacks to intercept error events. 
+
+== Error Events ==
+
+An error event is distinguished by its:
+
+ 1. error code,
+ 1. severity, and
+ 1. descriptive string error message
+
+=== Severities ===
+
+Each event falls under one of these severities:
+
+ * EMERG
+ * ALERT
+ * CRIT
+ * ERROR
+ * WARN
+ * NOTICE
+ * INFO
+ * DEBUG 
+
+Since these severities are mapped to those of syslog's, check [[http://www.manpages.info/linux/syslog.3.html syslog(3) ]] for a brief description  on what the equivalent severity levels in syslog mean.
+
+== Reporting Errors ==
+
+By default, only messages of severity WARN or higher are printed (an MCA parameter can be set to enable printing of lower severity messages).
+
+Events are created by invoking OPAL_SOS_* macros.  The following macro, for example, creates a WARN severity event:
+
+{{{
+#!c
+
+OPAL_SOS_WARN((int errnum, bool show_stack, char *errmsg, ...varargs...))
+
+  Description:
+    Log an error with severity OPAL_SOS_SEVERITY_WARN in the SOS framework.
+  Parameters:
+    int errnum:
+      Encoded or native error code (e.g., OMPI_ERROR, OMPI_ERR_NOT_FOUND)
+    bool show_stack:
+      Display the current call stack.
+    char *errmsg:
+      The error message to be displayed.
+      It is the responsibility of the caller to allocate and free this string if necessary.
+    ...varargs...:
+      Any additional arguments corresponding to the printf-style format specifiers in errmsg.
+
+  Return:
+    int:
+      Encoded error code that does not conflict with native error codes.
+
+  Note:
+    Since the stack trace (when "show_stack" is 'true') is appended to the "errmsg" as a string,
+    it is advisable to set "show_stack" to 'true' only at the lower levels to log the entire event
+    stack trace only once. Events with lesser severity can be reported with this set to 'false'.  
+
+  Example:
+        int ret;
+	char *err_str = opal_show_help_string("help-opal-util.txt", "stacktrace signal override", true, 10, 10, 10, "15");
+	ret = OPAL_SOS_WARN((OPAL_ERR_BAD_PARAM, false, err_str));
+        free(err_str);
+        return ret;
+}}}
+
+The OPAL_SOS macros for all the other severities are listed below for completeness.  The description and parameters for these are the same as OPAL_SOS_WARN().
+
+{{{
+#!c
+OPAL_SOS_EMERG((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_ALERT((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_CRIT((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_ERROR((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_NOTICE((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_INFO((int errnum, bool show_stack, char* errmsg, ...varargs...))
+OPAL_SOS_DEBUG((int errnum, bool show_stack, char* errmsg, ...varargs...))
+}}}
+
+=== SOS API ===
+
+For each error event that is logged in the framework, OPAL SOS allocates an
+error event object which stores relevant information (the data tuple).  These error event objects are 
+indexed by their error numbers.  As such, events need to be freed when they are no longer needed:
+
+{{{
+#!c
+OPAL_SOS_FREE(int* errnum)
+  Description:
+     Free the error event object associated with the encoded error number error_code.
+     The encoded error code is however set back to the base error code associated with it.
+  Parameters:
+     int* errnum:
+     Pointer to the encoded error code
+  Return:
+     Nothing. errnum is however set back to the native error code associated with errnum.
+}}}
+
+This macro prints out the entire event chain:
+
+{{{
+#!c
+OPAL_SOS_PRINT(int errnum, bool show_history)
+  Description:
+      Print an error trace denoted by the encoded error number error_code only if the severity
+      of the current error is higher than the severity of the following error in the stack. 
+      If show_history is true, the entire cascading error stack is printed (irrespective of the
+      severity level of each error) on the output stream. 
+  Parameters:
+     int errnum:
+      Encoded error code
+     bool show_history:
+      Display the logged error history 
+  Return:
+     Nothing
+}}}
+
+Sometimes multiple errors come from multiple, different code paths.  These event histories therefore need to be merged together to present a complete history of what errors have occurred:
+
+{{{
+#!c
+OPAL_SOS_ATTACH(int errornum1, int errornum2)
+  Description:
+      Attach the error history from one error code to another error code. Returns the target 
+      encoded error code errornum1 with history of errnum2 associated to it.
+  Parameters:
+     int errnum1:
+       Target error code to copy the history too
+     int errnum2:
+       Source error code to copy the history from
+  Return:
+     int:
+       Target error code after the history from source error code is attached.
+  Note:
+     The existing error history of the target error code errnum2 is lost in the process of attaching
+     source error code errnum1's history to it.
+}}}
+
+After merging two events, it can be useful to extract some of the original data:
+
+{{{
+#!c
+OPAL_SOS_GET_ATTACHED_INDEX(int errnum)
+  Description:
+      Returns the originating index of the error history attached to errnum.
+  Parameters:
+     int errnum:
+       Encoded error code
+  Return:
+     int:
+       Originating (encoded) error code of the error history attached with errnum.
+}}}
+
+Remember that encoded error codes are passed up the stack.  The only code that is unmodified is OPAL_SUCCESS (and ORTE_SUCCESS and OMPI_SUCCESS) -- those remain 0.  Hence, it is still safe to check a return code for OMPI_SUCCESS (etc.).  If the error code is not OMPI_SUCCESS, then you need to extract the "native" error code out of the encoded error code using the following macro:
+
+{{{
+#!c
+OPAL_SOS_GET_ERROR_CODE(int errnum)
+  Description:
+      Returns the native error code for the given encoded error code errnum. 
+      errnum can be a native error code itself, in which case errnum is returned as-is.
+  Parameters:
+     int errnum:
+        Encoded or native error code
+  Return:
+     int:
+        Native error code (e.g., OMPI_ERROR) associated with errnum
+}}}
+
+It may be necessary to simply change the native error code in the encoded error code:
+
+{{{
+#!c
+OPAL_SOS_SET_ERROR_CODE(int errnum, int nativeerr)
+  Description:
+      Sets the native error code for a potentially encoded error code.
+      If errnum is a native error code instead, it remains unchanged.
+  Parameters:
+     int errnum:
+        Encoded or native error code
+     int nativeerr:
+        Native error code
+  Return:
+     int:
+        Return error code after encoding the native error code in it.
+  Note:
+     This macro just "sets" the error code for an already encoded error
+     code (encoded using one of the reporter macros described above). 
+}}}
+
+Since incorporating OPAL_SOS throughout the code base may take a long time, the following helper can be useful in knowing if an error code is encoded or native:
+
+{{{
+#!c
+OPAL_SOS_IS_NATIVE(int errnum)
+  Description:
+     Check if the error code errnum is a native error code or
+     an OPAL SOS encoded error.
+  Parameters:
+     int errnum:
+       Encoded or native error code
+  Return:
+     bool:
+        Boolean to indicate if the error is native or not.
+}}}
+
+This macro extracts the severity of the event from an encoded error code:
+
+{{{
+#!c
+OPAL_SOS_GET_SEVERITY(int errnum)
+  Description:
+     Returns the encoded severity level for the potentially encoded error code.
+  Parameters:
+      int errnum:
+        Encoded error code
+  Return:
+      int:
+        Severity of the error represented by error code errnum.
+}}}
+
+Similar to SET_ERROR_CODE, this macro resets the severity of an event:
+
+{{{
+#!c
+OPAL_SOS_SET_SEVERITY(int errnum, int severity)
+  Description:
+      Sets the severity level for a given error code. 
+  Parameters:
+      int errnum:
+        Encoded error code
+      int severity:
+        Severity level to be associated with the error represented by errnum
+  Return:
+      int:
+        Encoded error code after setting the severity level for the given error code
+  Note:
+      This macro does not do any sort of error checking to ensure that the specified
+      severity level is indeed one of the permissible severity levels.
+}}}
+
+This macro returns a string version of a severity:
+
+{{{
+#!c
+OPAL_SOS_SEVERITY2STR(int severity)
+  Description:
+     Get the encoded error severity level as a string.
+  Parameters:
+     int severity:
+        Numeric value of the severity level
+  Return:
+     string:
+        String representing the numeric severity level
+  Note:
+     The result is returned in a static buffer that should not be freed with free().
+}}}
+
+
+{{{
+#!c
+OPAL_SOS_LOG(int errnum)
+  Description:
+     Log (print and free) the entire error stack originating from encoded error code errnum.
+  Parameters:
+     int errnum:
+        Encoded SOS error code
+}}}
+
+=== Other options ===
+
+There is an additional MCA parameter, '''opal_sos_print_low''' to preserve the existing eager error reporting
+behavior in Open MPI. When '''opal_sos_print_low''' is enabled, the SOS framework reports the error as soon as 
+it is encountered, on all of its active output channels. 
+
+{{{
+  opal_sos_print_low
+
+  Set this flag to non-zero to enable the print-at-bottom preference for OPAL SOS. Enabling this option prints out the errors, warnings or info messages eagerly as and when they are encountered. 
+}}}
+
+== Examples ==
+
+=== Low Level Function ===
+
+The following are several examples of a "low" level function on the call stack.  This is the function where an initial error occurs; it is the responsibility of this function to both print a message and propagate the error up the stack.
+
+The following example logs an error with a fixed/constant error string:
+
+{{{
+#!c
+int foo_lower_level(...) {
+   int ret;
+   if( 0 != (ret = syscall(...)) ) {
+     return OPAL_SOS_ERROR(OMPI_ERR_OUT_OF_RESOURCE, true,
+                           "my error string");
+   }
+}
+}}}
+
+The following example logs an error with a host/pid-prefixed string (i.e., the output of opal_output_string()).  Note that the string is freed after the call to OPAL_SOS_ERROR().
+
+{{{
+#!c
+int foo_lower_level(...) {
+   int ret, errnum;
+   char *errstr;
+   if( 0 != (ret = syscall(...)) ) {
+     errstr = opal_output_string("my error string %d", ret);
+     errnum = OPAL_SOS_ERROR(OMPI_ERR_OUT_OF_RESOURCE, true, errstr);
+     free(errstr);
+     return errnum;
+   }
+}
+}}}
+
+The following example logs an error with a detailed help message from the show_help subsystem (i.e., the output of opal_show_help_string()).  Note that the string is freed after the call to OPAL_SOS_ERROR().
+
+{{{
+#!c
+int foo_lower_level(...) {
+   int ret, errnum;
+   char *errstr;
+   if( 0 != (ret = syscall(...)) ) {
+     errstr = opal_show_help_string("file", "topic", ...);
+     errnum = OPAL_SOS_ERROR(OMPI_ERR_OUT_OF_RESOURCE, true, errstr);
+     free(errstr);
+     return errnum;
+   }
+}
+}}}
+
+The following example logs an error with an asprintf-generated string.  Like the above examples, it is freed after the call to OPAL_SOS_ERROR():
+
+{{{
+#!c
+int foo_lower_level(...) {
+   int ret, new_rtn;
+   if( 0 != (ret = syscall(...)) ) {
+     char * err_str = NULL;
+     asprintf(&err_str, "foo: Error %d", ret);
+     new_rtn = OPAL_SOS_ERROR(OMPI_ERR_OUT_OF_RESOURCE, true, err_str);
+     free(err_str);
+     return new_rtn; // or "goto error;"
+   }
+}
+}}}
+
+Example of a low level function that does not use the SOS since its errors are not worth printing, but are the implicit responsibility of the next layer up.
+
+{{{
+#!c
+int find_in_list(opal_list_t *mylist, opal_list_item_t *search_item) {
+    for (i = ...; ...; ...) {
+       if (match(i, search_item)) {
+           return OPAL_SUCCESS;
+       }
+    }
+    return OPAL_ERR_NOT_FOUND;
+}
+}}}
+
+=== Upper Level ===
+
+The following are several examples of "upper" level functions; some of the examples show a corresponding example "lower" level function (where the error originated); others have a lower level function implied.
+
+The following example shows a single lower layer function where the original error occurs and two possible upper layer functions.  One upper layer "promotes" the event from a warning to an error; the other "demotes" the event from a warning to an info message.
+
+{{{
+#!c
+int foo_lower_level(--) {
+  if( !systemcall() ) {
+     return OPAL_SOS_WARN(OMPI_ERROR, true, mystring);
+  }
+}
+
+int bar_upper_level_promote(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     // Promote to Error -- SOS will print the new message.
+     return OPAL_SOS_ERROR(ret, true, mystring);
+  }
+}
+
+int bar_upper_level_demote(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     // Demote to Info -- Nothing printed
+     // (severity change not preserved since we do not save demoting)
+     return OPAL_SOS_INFO(ret, true, mystring);
+  }
+}
+}}}
+
+Note that return codes are still int's; so it is possible to simply pass the int return value up the stack and do nothing with it.
+
+{{{
+#!c
+int bar_upper_level(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     return ret;
+  }
+  ...
+}
+}}}
+
+Example of clearing the error if it is recognized as informative to the calling function.
+
+{{{
+#!c
+int bar_upper_level(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     if( OPAL_EXISTS == OPAL_SOS_GET_ERROR_CODE(ret) ) {
+          // Error is cleared and forgotten.
+          OPAL_SOS_FREE(&ret);
+          return OMPI_SUCCESS:
+     } else {
+         // Mark as Error -- May print if promoting previous value to an Error
+         return OPAL_SOS_ERROR(ret, true, mystring);
+     }
+  }
+}
+}}}
+
+Masking, demoting, or promoting the error code depending on the error code returned by the called function.
+{{{
+#!c
+int bar_upper_level_mask(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     if( OPAL_EXISTS == OPAL_SOS_GET_ERROR_CODE(ret) ) {
+        // Error is cleared and forgotten.
+        OPAL_SOS_FREE(&ret);
+        return OMPI_SUCCESS;
+     }
+     else if( OPAL_ERROR == OPAL_SOS_GET_ERROR_CODE(ret) ) {
+        // Pass through the error code
+        return ret;
+     }
+     else {
+        // Mark as Error -- May print if promoting previous value to error
+        return OPAL_SOS_ERROR(ret, true, mystring);
+     }
+  }
+  ...
+}
+}}}
+
+Without changing the severity or history of the returned error code, adjust the error code encoded in the return value.
+{{{
+#!c
+int bar_upper_level(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     if( OPAL_EXISTS == OPAL_SOS_GET_ERROR_CODE(ret) ) {
+         // Change the Error Code -- Preserves history and severity
+         OPAL_SOS_SET_ERROR_CODE(OMPI_ERROR, ret);
+         // Pass through without trying to print anything new
+         return ret;
+     } else {
+         // Mark as Error -- May print if promoting previous value to error
+         return OPAL_SOS_ERROR(ret, true, mystring);
+     }
+  }
+}
+}}}
+
+Adjust the error code encoded in the return value. Severity may change determined by the history of the previous error code.
+{{{
+#!c
+int bar_upper_level(--) {
+  int ret = foo_lower_level();
+  if( OMPI_SUCCESS != ret ) {
+     if( OPAL_EXISTS == OPAL_SOS_GET_ERROR_CODE(ret) ) {
+         // Change the Error Code
+         OPAL_SOS_SET_ERROR_CODE(OMPI_ERROR, ret);
+     }
+     // Mark as Error -- May print if promoting previous value to error
+     return OPAL_SOS_ERROR(ret, true, mystring);
+  }
+}
+}}}
+
+Example use of SOS_ATTACH in PML/BTL:
+
+{{{
+        PML
+         | err3 = SOS_ERROR(OMPI_ERROR, ...)
+         | SOS_ATTACH(err2, err1);
+         | SOS_ATTACH(err3, err2);
+         | return err3;
+     +-----+-----+
+     |       |
+BTL(ib)      BTL(sm)
+{/* Cannot    { /* Failed comm, return
+ * Comm.         * so PML can retry on BTL(ib)
+ */              */
+ return err2;    return err1;
+}             }
+}}}
+
+=== Example output ===
+
+The following is a bit more comprehensive of an example; we use this program to test the OPAL_SOS implementation.  The output produced by this test code is shown below.
+
+{{{
+#!c
+    int errnum1 = 0, errnum2 = 0;
+    char *err_str;
+
+    errnum1 = OPAL_SOS_GET_ERROR_CODE(OMPI_ERR_OUT_OF_RESOURCE);
+
+    OPAL_SOS_SET_ERROR_CODE(errnum1, OMPI_ERR_IN_ERRNO);
+
+    /* Check if OMPI_ERR_OUT_OF_RESOURCE is a native error code or
+     * not. Since OMPI_ERR_OUT_OF_RESOURCE is native, this should
+     * return true. */
+    test_verify("failed", true ==
+                OPAL_SOS_IS_NATIVE(OMPI_ERR_OUT_OF_RESOURCE));
+
+    test_verify("failed", true == OPAL_SOS_IS_NATIVE(errnum1));
+
+    /* Encode a native error (OMPI_ERR_OUT_OF_RESOURCE) by
+     * logging it in the SOS framework using one of the SOS
+     * reporter macros. This returns an encoded error code
+     * (errnum1) with information about the native error such
+     * as the severity, the native error code, the attached
+     * error index etc. */
+    errnum1 = OPAL_SOS_INFO((OMPI_ERR_OUT_OF_RESOURCE, false,
+                             "Error %d: out of resource",
+                             OMPI_ERR_OUT_OF_RESOURCE));
+
+    /* Check if errnum1 is native or not. This should return false */
+    test_verify("failed", false == OPAL_SOS_IS_NATIVE(errnum1));
+    test_verify("failed", 
+                OPAL_SOS_SEVERITY_INFO == OPAL_SOS_GET_SEVERITY(errnum1));
+
+    /* Extract the native error code out of errnum1. This should
+     * return the encoded native error code associated with errnum1
+     * (i.e. OMPI_ERR_OUT_OF_RESOURCE). */
+    test_verify("failed", OMPI_ERR_OUT_OF_RESOURCE ==
+                OPAL_SOS_GET_ERROR_CODE(errnum1));
+
+    /* We log another error event as a child of the previous error
+     * errnum1. In the process, we decide to raise the severity
+     * level from INFO to WARN. */
+    err_str = opal_output_string(0, 0, "my error string -100");
+    errnum1 = OPAL_SOS_WARN((errnum1, false, err_str));
+    test_verify("failed",
+                OPAL_SOS_SEVERITY_WARN == OPAL_SOS_GET_SEVERITY(errnum1));
+
+    test_verify("failed", OMPI_ERR_OUT_OF_RESOURCE ==
+                OPAL_SOS_GET_ERROR_CODE(errnum1));
+    free(err_str);
+
+    /* Let's report another event with severity ERROR using
+     * OPAL_SOS_ERROR() and in effect promote errnum1 to
+     * severity 'ERROR'. */
+    err_str = opal_show_help_string("help-opal-util.txt",
+                                    "stacktrace signal override",
+                                    false, 10, 10, 10, "15");
+    errnum1 = OPAL_SOS_ERROR((errnum1, false, err_str));
+    test_verify("failed",
+                OPAL_SOS_SEVERITY_ERROR == OPAL_SOS_GET_SEVERITY(errnum1));
+    free(err_str);
+
+    /* Check the native code associated with the previously encoded
+     * error. This should still return (OMPI_ERR_OUT_OF_RESOURCE)
+     * since the entire error history originates from the native 
+     * error OMPI_ERR_OUT_OF_RESOURCE */
+    test_verify("failed", OMPI_ERR_OUT_OF_RESOURCE ==
+                OPAL_SOS_GET_ERROR_CODE(errnum1));
+
+    /* We start off another error history stack originating with a 
+     * native error, ORTE_ERR_FATAL. */
+    asprintf(&err_str, "Fatal error occurred in ORTE %d", errnum1);
+    errnum2 = OPAL_SOS_ERROR((ORTE_ERR_FATAL, true, err_str));
+    free(err_str);
+    test_verify("failed",
+                OPAL_SOS_SEVERITY_ERROR == OPAL_SOS_GET_SEVERITY(errnum2));
+    test_verify("failed", OMPI_ERR_FATAL ==
+                OPAL_SOS_GET_ERROR_CODE(errnum2));
+
+    /* Registering another error with severity ERROR.
+     * There is no change in the severity */
+    errnum2 = OPAL_SOS_ERROR((errnum2, false, "this process must die."));
+    test_verify("failed",
+                OPAL_SOS_SEVERITY_ERROR == OPAL_SOS_GET_SEVERITY(errnum2));
+    test_verify("failed", OMPI_ERR_FATAL ==
+                OPAL_SOS_GET_ERROR_CODE(errnum2));
+
+    /* We attach the two error traces originating from errnum1
+     * and errnum2. The "attached error index" in errnum1 is
+     * set to errnum2 to indicate that the two error stacks
+     * are forked down from this point on. */
+    OPAL_SOS_ATTACH(errnum1, errnum2);
+
+    OPAL_SOS_PRINT(errnum1, true);
+    /* Cleanup */
+    OPAL_SOS_FREE(&errnum1);
+    OPAL_SOS_FREE(&errnum2);
+}}}
+
+==== Output ====
+
+{{{
+|  --------------------------------------------------------------------------
+| |--<ERROR> at opal_sos.c:123:opal_sos_test():
+| |  Open MPI was inserting a signal handler for signal 10 but noticed
+| |  that there is already a non-default handler installed.  Open MPI's
+| |  handler was therefore not installed; your job will continue.  This
+| |  warning message will only be displayed once, even if Open MPI
+| |  encounters this situation again.
+| |  To avoid displaying this warning message, you can either not install
+| |  the error handler for signal 10 or you can have Open MPI not try to
+| |  install its own signal handler for this signal by setting the
+| |  "opal_signals" MCA parameter.
+| |    Signal: 10
+| |    Current opal_signal value: 15
+| |  *
+| |  
+| |--<WARNING> at opal_sos.c:109:opal_sos_test():
+| |  my error string -100
+| |  
+| |--<INFO MESSAGE> at opal_sos.c:92:opal_sos_test():
+| |  Error -2: out of resource
+| |  
+|  --------------------------------------------------------------------------
+|  --------------------------------------------------------------------------
+| |--<ERROR> at opal_sos.c:147:opal_sos_test():
+| |  this process must die.
+| |  
+| |--<ERROR> at opal_sos.c:138:opal_sos_test():
+| |  Fatal error occurred in ORTE -805775362
+| |  [STACK TRACE]:
+| |  ./opal_sos [0x40121f]
+| |  ./opal_sos [0x400d83]
+| |  /lib64/libc.so.6(__libc_start_main+0xf4) [0x386f81d994]
+| |  ./opal_sos [0x400ca9]
+| |  
+|  --------------------------------------------------------------------------
+}}}
+
+
+== Development Notes (preserved for posterity purposes only -- most people should stop reading here!) ==
+
+=== Requirements ===
+
+ * Must preserve 0 (i.e., OMPI_SUCCESS) in the encoded range.
+ * Encoding must be able to seamlessly deal with being passed a 'native' error code and an 'encoded' error code.
+ * Must be able to fit in a 'int' type as to not require the change of any function signatures.
+
+=== Encoded error event ===
+[[Image(sos_encoded_err.png)]]
+
+=== Example Pseudo Code ===
+{{{
+#!c
+
+// If this is a malloc failure, then show_stack should be set to false so that we don't try to call malloc when printing the stack
+
+#define OPAL_SOS_INFO(err_code, show_stack, string)
+   opal_sos_reporter((err_code), (show_stack), (string), OPAL_SOS_INFO, __FILE__, __LINE__)
+#define OPAL_SOS_WARN(err_code, show_stack, string)
+   opal_sos_reporter((err_code), (show_stack), (string), OPAL_SOS_WARN, __FILE__, __LINE__)
+#define OPAL_SOS_ERR(err_code, show_stack, string)
+   opal_sos_reporter((err_code), (show_stack), (string), OPAL_SOS_ERROR, __FILE__, __LINE__)
+
+int opal_sos_get_err_code(long err_code);
+opal_sos_severity_t opal_sos_get_severity(long err_code);
+opal_sos_severity_t opal_sos_get_severity_printed(long err_code);
+
+#define OPAL_SOS_GET_ERROR_CODE
+#define OPAL_SOS_SET_ERROR_CODE
+
+typedef enum {
+    OPAL_SEVERITY_NONE,
+    OPAL_SEVERITY_INFO,
+    OPAL_SEVERITY_WARN,
+    OPAL_SEVERITY_ERROR
+} opal_sos_severity_t;
+
+/* Reserve two bits for what severity has already been printed */
+int opal_sos_reporter(int err_code, bool show_stack, char *string, opal_sos_severity_t severity, const char *file, int line) {
+    if (!OPAL_SOS_ALREADY_PRINTED(err_code, severity)) {
+        // If string is NULL - should we print anything? = ORTE_ERROR_LOG approx. eq.
+        if (!show_stack) {
+         opal_show_help("opal_sos_reporter.txt", "general message", 
+                                    (INFO == severity) ? "event" :
+                                    (WARN == severity) ? "warning" : "error",
+                                    file, line, SEVERITY_TO_STRING(severity), string);
+        } else { 
+         opal_show_help("opal_sos_reporter.txt", "general message with stack", 
+                                    (INFO == severity) ? "event" :
+                                    (WARN == severity) ? "warning" : "error",
+                                    file, line, SEVERITY_TO_STRING(severity), string, get_stack_string());
+        }
+        // Encode which severity and was displayed
+        err_code = ENCODE_SEVERITY_WAS_ALREADY_DISPLAYED(err_code, severity);
+    }
+    return err_code;
+}
+}}}
+
+{{{
+######################################################################
+[general message]
+The following %s occurred; please send the following information to the OMPI developers:
+
+File: %s
+Line: %d
+Severity: %s
+
+%s (message)
+######################################################################
+[general message with stack]
+The following %s occurred; please send the following information to the OMPI developers:
+
+File: %s
+Line: %d
+Severity: %s
+
+%s (message)
+
+Stack trace of where the problem occurred:
+
+%s
+######################################################################
+}}}
+
+== Additional Meeting Notes Feb 2009 ==
+
+Below are some additional meeting notes from the [wiki:Feb09Meeting].
+
+ * Developer guidance on messages: Messages are meant to be conscience, developer level messages not user level messages.
+ * Need to write up developer guidance about what it means for INFO/WARN/ERR
+   * Maybe INFO will end of replacing much of what is currently encoded in opal_output_verbose at the moment.
+ * Would like a sigaction-like replacement of opal_sos functions. This will enable another layer or framework to listen to and act upon the error messages as they are generated. Specifically thinking about the Notifier framework and possibly orte_show_help.
+ * Since we want to track a large amount of additional data we will need the 'int' key to be a reference into a lower level table/hash/list/... which stores the data in a thread safe manner.
+ * The 'int' key returned should have information encoded to differentiate between the base errors and a SOS encoded error. Such as setting the upper 2 bits.
+   * Need init/finalize routines to setup and free any structures.
+ * We need to track '''{{{file:line:msg}}}''' for every call into OPAL_SOS.
+ * By default we only print the stack when explicitly requested using {{{OPAL_SOS_PRINT()}}}. This is a print-at-top preference. We will have a print-at-bottom MCA option that behaves much like the original proposal.
+ * Maybe high level SOS_PRINT uses an hg-graph-like style of printing associated/attached histories.
+
+Some new functionality that was requested:
+
+{{{
+#!c
+
+#define OPAL_SOS_PRINT(err_code, show_stack, show_history, string)
+   opal_sos_print((err_code), (show_stack), (show_history), (string), __FILE__, __LINE__)
+
+int opal_sos_print(int err_code, bool show_stack, bool show_history, char *string, const char *file, int line)
+{
+  if (!show_stack && !show_history) {
+    opal_show_help("opal_sos_reporter.txt", "print message", 
+                   file, line, string);
+  } else if (!show_stack) {
+    opal_show_help("opal_sos_reporter.txt", "print message with stack", 
+                   file, line, string, get_stack_string());
+  } else if (!show_history) {
+    opal_show_help("opal_sos_reporter.txt", "print message with history", 
+                   file, line, string, get_history_string());
+  } else { 
+    opal_show_help("opal_sos_reporter.txt", "print message with history and stack",
+                   file, line, string, get_stack_string(), get_history_string());
+  }
+}
+
+/*
+ * Attach the history from one error code to another error code
+ * Returns 'err_code_target' with history of 'err_code_to_attach' associated
+ */
+int OPAL_SOS_ATTACH(err_code_target, err_code_to_attach)
+
+/*
+ * Explicitly free an error code
+ * Returns base error code from encoded err_code
+ */
+#define OPAL_SOS_FREE(&err_code)
+
+}}}

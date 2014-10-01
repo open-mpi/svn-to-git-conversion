@@ -1,0 +1,1388 @@
+This page describes an effort to extract the BTL code into a new layer that depends on a subset of OpenMPI.  Successful completion of this work will allow the BTL and associated code to be reused in other projects such as STCI.
+
+These are working notes.  Comments and suggestions are welcome!  (contact: Greg Koenig, koenig =AT= ornl.gov)
+
+In order to extract the BTL code, we will create a new OpenMPI Network subsystem ("ONET") which will modularize code according to a philosophy similar to OMPI, ORTE, and OPAL.  ONET will sit side-by-side with ORTE (or, eventually, STCI), and both of these layers are expected to freely call into each other as well as into the OPAL layer below.  Obviously the BTL code will be migrated into this layer along with any direct dependency code.
+
+The (working) view of the envisioned directory structure:
+ * ompi/...
+ * orte/...
+ * onet/mca/btl
+ * onet/mca/common
+ * onet/mca/allocator
+ * onet/mca/mpool
+ * onet/mca/rcache
+ * onet/class/...          <-- move data structures from .../ompi/class/... into here??
+ * opal/...
+
+The general plan of attack on how to accomplish this project:
+ 1.  Rename #define values that encode the prefix "OMPI_" to instead encode the prefix "OPAL_" throughout the entire source code base.  Also, eliminate unnecessary #include lines from files that will eventually be moved into the "/onet/..." directory structure (specifically, in the "/onet/mca/btl/..." tree).  Because the improvements being made in this step correct holdovers from when the three existing layers of OpenMPI were developed together before being split apart, these changes are a direct benefit to the OpenMPI project independent of the effort to extract the BTL code.  Hopefully these changes can be committed back into the OpenMPI Subversion repository soon after being made.  (Probably they will be done via a large sed script, so one can envision doing a checkout/modification/checkin as a quick process.)
+ 2.  Move simple data structures, utility code, and BTLs to new "onet/..." directory structure.  Add/rename #define values that encode the prefix "OMPI_" for things like function return values to instead encode the prefix "ONET_".  Resolve build changes, #include path changes, etc.  Dependencies between BTLs and ORTE/BML/? are still unresolved at this stage.
+ 3.  Resolve the dependencies on things other than OPAL.  This will require some changes to the OMPI and ORTE layers.
+ 4.  Add support for bootstrapping to BTLs that can support it.
+
+There needs to be some extensive plan for correctness testing as well as performance testing because these changes are clearly very invasive to OpenMPI.
+
+We are coordinating work on this project using Mercurial (hg).  An svn checkout of the OpenMPI trunk (revision 20259) has been imported into hg using the technique described in https://svn.open-mpi.org/trac/ompi/wiki/UsingMercurial, and clones of this hg repository are available from Greg Koenig.
+
+----
+
+Needed for Item 1 above:
+
+['''NOTE:''' This information came from Jeff Squyres via a phone conversation on January 16, 2009.]
+
+ * From .../configure.ac, look for values created with AC_DEFINE and AC_DEFINE_UNQUOTED.  These are updated to change the OMPI_ prefix to OPAL_ throughout the entire source code base.  (Notice that not all values are changed here; what is possible to change comes directly from Jeff.)
+     * OMPI_NEED_C_BOOL
+     * OMPI_HAVE_WEAK_SYMBOLS
+     * OMPI_C_HAVE_WEAK_SYMBOLS
+     * OMPI_USE_STDBOOL_H
+     * OMPI_HAVE_SA_RESTART
+     * OMPI_HAVE_VA_COPY
+     * OMPI_HAVE_UNDERSCORE_VA_COPY
+     * OMPI_PTRDIFF_TYPE   (also, ompi_ptrdiff_t)
+     * OMPI_ALIGN_WORD_SIZE_INTEGERS
+     * OMPI_WANT_LIBLTDL   (also, OMPI_ENABLE_DLOPEN_SUPPORT)
+     * OMPI_STDC_HEADERS
+     * OMPI_HAVE_SYS_TIME_H
+     * OMPI_HAVE_LONG_LONG
+     * OMPI_HAVE_SYS_SYNCH_H
+     * OMPI_SIZEOF_BOOL
+     * OMPI_SIZEOF_INT
+
+ * From .../config/ompi_check_attributes.m4.
+     * OMPI_HAVE_ATTRIBUTE   (also, ompi_cv___attribute__)
+     * OMPI_HAVE_ATTRIBUTE_ALIGNED   (also, ompi_cv___attribute__aligned)
+     * OMPI_HAVE_ATTRIBUTE_ALWAYS_INLINE   (also, ompi_cv___attribute__always_inline)
+     * OMPI_HAVE_ATTRIBUTE_COLD   (also, ompi_cv___attribute__cold)
+     * OMPI_HAVE_ATTRIBUTE_CONST   (also, ompi_cv___attribute__const)
+     * OMPI_HAVE_ATTRIBUTE_DEPRECATED   (also, ompi_cv___attribute__deprecated)
+     * OMPI_HAVE_ATTRIBUTE_FORMAT   (also, ompi_cv___attribute__format)
+     * OMPI_HAVE_ATTRIBUTE_HOT   (also, ompi_cv___attribute__hot)
+     * OMPI_HAVE_ATTRIBUTE_MALLOC   (also, ompi_cv___attribute__malloc)
+     * OMPI_HAVE_ATTRIBUTE_MAY_ALIAS   (also, ompi_cv___attribute__may_alias)
+     * OMPI_HAVE_ATTRIBUTE_NO_INSTRUMENT_FUNCTION   (also, ompi_cv___attribute__no_instrument_function)
+     * OMPI_HAVE_ATTRIBUTE_NONNULL   (also, ompi_cv___attribute__nonnull)
+     * OMPI_HAVE_ATTRIBUTE_NORETURN   (also, ompi_cv___attribute__noreturn)
+     * OMPI_HAVE_ATTRIBUTE_PACKED   (also, ompi_cv___attribute__packed)
+     * OMPI_HAVE_ATTRIBUTE_PURE   (also, ompi_cv___attribute__pure)
+     * OMPI_HAVE_ATTRIBUTE_SENTINEL   (also, ompi_cv___attribute__sentinel)
+     * OMPI_HAVE_ATTRIBUTE_UNUSED   (also, ompi_cv___attribute__unused)
+     * OMPI_HAVE_ATTRIBUTE_VISIBILITY   (also, ompi_cv___attribute__visibility)
+     * OMPI_HAVE_ATTRIBUTE_WARN_UNUSED_RESULT   (also, ompi_cv___attribute__warn_unused_result)
+     * OMPI_HAVE_ATTRIBUTE_WEAK_ALIAS   (also, ompi_cv___attribute__weak_alias)
+
+ * From .../config/ompi_check_ident.m4.
+     * OMPI_$1_USE_PRAGMA_IDENT   (also, ompi_pragma_ident_happy)
+     * OMPI_$1_USE_IDENT   (also, ompi_ident_happy)
+     * OMPI_$1_USE_PRAGMA_COMMENT   (also, ompi_pragma_comment_happy)
+     * OMPI_$1_USE_CONST_CHAR_IDENT   (also, ompi_static_const_char_happy)
+
+ * From .../config/ompi_check_pthreads_pids.m4.
+     * OMPI_THREADS_HAVE_DIFFERENT_PIDS
+
+ * From .../config/ompi_check_visibility.m4.
+     * OMPI_C_HAVE_VISIBILITY
+
+ * From .../config/ompi_config_asm.m4.
+     * OMPI_ASM_TEXT   (also, ompi_cv_asm_text)
+     * OMPI_ASM_GLOBAL   (also, ompi_cv_asm_global)
+     * OMPI_ASM_LSYM   (also, ompi_cv_asm_lsym)
+     * OMPI_ASM_GSYM   (also, ompi_cv_asm_gsym)
+     * OMPI_ASM_LABEL_SUFFIX   (also, ompi_cv_asm_latel_suffix)
+     * OMPI_ASM_ALIGN_LOG
+     * OMPI_ASM_TYPE   (also, ompi_cv_asm_type)
+     * OMPI_ASM_SIZE   (also, ompi_asm_size)
+     * OMPI_POWERPC_R_REGISTERS   (also, ompi_cv_asm_powerpc_r_reg)
+     * OMPI_C_GCC_INLINE_ASSEMBLY
+     * OMPI_C_DEC_INLINE_ASSEMBLY
+     * OMPI_C_XLC_INLINE_ASSEMBLY
+     * OMPI_WANT_SMP_LOCKS
+     * OMPI_ASM_SUPPORT_64BIT
+     * OMPI_ASSEMBLY_FORMAT
+     * OMPI_ASSEMBLY_ARCH
+     * OMPI_HAVE_ASM_FILE
+
+ * From .../config/ompi_config_threads.m4.
+     * OMPI_HAVE_POSIX_THREADS
+     * OMPI_HAVE_SOLARIS_THREADS
+     * OMPI_THREADS_HAVE_DIFFERENT_PIDS
+     * OMPI_ENABLE_MPI_THREADS
+     * OMPI_ENABLE_PROGRESS_THREADS
+
+ * From .../config/ompi_functions.m4.
+     * OMPI_ARCH
+
+ * From .../config/ompi_setup_cc.m4.
+     * OMPI_C_HAVE_BUILTIN_EXPECT
+     * OMPI_C_HAVE_BUILTIN_PREFETCH
+     * OMPI_CC
+
+ * From .../config/ompi_configure_options.m4.
+     * OMPI_ENABLE_MEM_DEBUG
+     * OMPI_ENABLE_MEM_PROFILE
+     * OMPI_ENABLE_DEBUG
+     * OMPI_WANT_PRETTY_PRINT_STACKTRACE
+     * OMPI_ENABLE_PTY_SUPPORT
+     * OMPI_ENABLE_HETEROGENEOUS_SUPPORT
+     * OMPI_WANT_HOME_CONFIG_FILES
+
+ * From .../opal/include/opal_config_bottom.h.
+     * OMPI_HAVE_THREADS
+     * OMPI_HAVE_THREAD_SUPPORT
+     * OMPI_ALIGNMENT_CHAR
+     * OMPI_ALIGNMENT_SHORT
+     * OMPI_ALIGNMENT_INT
+     * OMPI_ALIGNMENT_LONG
+     * OMPI_PATH_MAX
+     * OMPI_DISABLE_ENABLE_MEM_DEBUG
+     * OMPI_DEBUG_ZERO
+     * OMPI_HAVE_BROKEN_QSORT
+
+ * Due to changing the values set in the above steps, the .m4 configure macro files are probably now named inappropriately.  Therefore, update the following filenames and change the configure scripts to point to the correct new names.
+     * .../config/ompi_check_attributes.m4   to   .../config/opal_check_attributes.m4
+     * .../config/ompi_check_ident.m4   to   .../config/opal_check_ident.m4
+     * .../config/ompi_check_pthread_pids.m4   to   .../config/opal_check_pthread_pids.m4
+     * .../config/ompi_check_visibility.m4   to   .../config/opal_check_visibility.m4
+     * .../config/ompi_config_asm.m4   to   .../config/opal_config_asm.m4
+     * .../config/ompi_config_threads.m4   to   .../config/opal_config_threads.m4
+     * .../config/ompi_functions.m4   to   .../config/opal_functions.m4
+     * .../config/ompi_setup_cc.m4   to   .../config/opal_setup_cc.m4
+     * .../config/ompi_configure_options.m4   to   .../config/opal_configure_options.m4
+
+ * Remove unnecessary #include lines from source code files (under BTL and dependency directories) that are not needed.
+     * #include "ompi/mca/pml/oml.h"   from BTL source code files
+
+-----
+
+Needed for Item 2 above:
+
+ * Create new #define values for function return codes (OMPI_* and ORTE_* to ONET_*).
+     * OMPI_SUCCESS
+     * OMPI_ERROR
+     * OMPI_ERR_BAD_PARAM
+     * OMPI_ERR_FATAL
+     * OMPI_ERR_IN_ERRNO
+     * OMPI_ERR_NOT_AVAILABLE
+     * OMPI_ERR_NOT_FOUND
+     * OMPI_ERR_NOT_IMPLEMENTED
+     * OMPI_ERR_NOT_SUPPORTED
+     * OMPI_ERR_OUT_OF_RESOURCE
+     * OMPI_ERR_RESOURCE_BUSY
+     * OMPI_ERR_TEMP_OUT_OF_RESOURCE
+     * OMPI_ERR_UNREACH
+     * OMPI_ERR_VALUE_OUT_OF_BOUNDS
+     * ORTE_SUCCESS
+     * ORTE_ERR_OUT_OF_RESOURCE
+
+ * Rename #define values for major/minor/revision codes (OMPI_* to ONET_*).
+     * OMPI_MAJOR_VERSION
+     * OMPI_MINOR_VERSION
+     * OMPI_RELEASE_VERSION
+
+ * Rename #define values for OMPI_DECLSPEC and OMPI_MODULE_DECLSPEC (OMPI_* to ONET_*).  These simply match what is used currently in OMPI_*.
+
+ * Rename #define values OMPI_* under .../ompi/mca/common.
+     * OMPI_MCA_COMMON_MX_H
+     * OMPI_MCA_COMMON_PORTALS_H
+     * OMPI_PORTALS_UTCP
+     * OMPI_PORTALS_CRAYXT3
+     * OMPI_BTL_PORTALS_SEND_TABLE_ID
+     * OMPI_BTL_PORTALS_RDMA_TABLE_ID
+     * OMPI_MTL_PORTALS_SEND_TABLE_ID
+     * OMPI_MTL_PORTALS_READ_TABLE_ID
+     * OMPI_MTL_PORTALS_ACK_TABLE_ID
+     * ==> OMPI_PORTALS_CRAYXT3_MODEX (do not change -- will do when changing modex later)
+
+ * Move/rename simple data structure dependencies.
+     * ompi_bitmap
+     * ompi_convertor (from ompi/datatype/convertor.c)
+     * ompi_free_list
+
+-----
+
+Needed for Item 3 above:
+
+ * ompi_proc structure needs major fixing
+
+
+
+----
+----
+Dependency of Open MPI layer into ORTE functions/data structures:
+{{{
+./attribute/attribute_predefined.c:95:#include "orte/util/proc_info.h"
+./attribute/attribute_predefined.c:178:    if (orte_process_info.app_num >= 0) {
+./attribute/attribute_predefined.c:179:        ret = set_f(MPI_APPNUM, orte_process_info.app_num);
+./class/ompi_free_list.c:25:#include "orte/util/show_help.h"                                                                     <<<<< Not required
+./class/ompi_seq_tracker.c:23:#include "orte/util/show_help.h"                                                                   <<<<< Not required
+./communicator/comm.c:28:#include "orte/util/name_fns.h"
+./communicator/comm.c:33:#include "orte/util/show_help.h"                                                                        <<<<< Not required
+./communicator/comm.c:990:    orte_std_cntr_t size_len;
+./communicator/comm.c:1022:        if (ORTE_SUCCESS != (rc = opal_dss.unload(sbuf, &sendbuf, &size_len))) {        ?????
+./communicator/comm.c:1090:        rc = ORTE_ERROR;
+./communicator/comm.c:1094:    if (ORTE_SUCCESS != (rc = opal_dss.load(rbuf, recvbuf, rlen))) {
+./communicator/comm.c:1164:    orte_ns_cmp_bitmask_t mask;
+./communicator/comm.c:1206:        mask = ORTE_NS_CMP_JOBID | ORTE_NS_CMP_VPID;
+./communicator/comm.c:1207:        rc = orte_util_compare_name_fields(mask, &(ourproc->proc_name), &(theirproc->proc_name));
+./communicator/comm_cid.c:27:#include "orte/types.h"
+./communicator/comm_cid.c:39:#include "orte/mca/rml/rml.h"
+./communicator/comm_cid.c:714:    orte_process_name_t *remote_leader=NULL;
+./communicator/comm_cid.c:715:    orte_std_cntr_t size_count;
+./communicator/comm_cid.c:718:    remote_leader = (orte_process_name_t*)rleader;
+./communicator/comm_cid.c:748:        if (ORTE_SUCCESS != (rc = opal_dss.pack(sbuf, tmpbuf, (orte_std_cntr_t)count, OPAL_INT))) {
+./communicator/comm_cid.c:753:            if (0 > (rc = orte_rml.send_buffer(remote_leader, sbuf, OMPI_RML_TAG_COMM_CID_INTRA, 0))) {
+./communicator/comm_cid.c:756:            if (0 > (rc = orte_rml.recv_buffer(remote_leader, rbuf, OMPI_RML_TAG_COMM_CID_INTRA, 0))) {
+./communicator/comm_cid.c:761:            if (0 > (rc = orte_rml.recv_buffer(remote_leader, rbuf, OMPI_RML_TAG_COMM_CID_INTRA, 0))) {
+./communicator/comm_cid.c:764:            if (0 > (rc = orte_rml.send_buffer(remote_leader, sbuf, OMPI_RML_TAG_COMM_CID_INTRA, 0))) {
+./communicator/comm_cid.c:769:        if (ORTE_SUCCESS != (rc = opal_dss.unpack(rbuf, outbuf, &size_count, OPAL_INT))) {
+./communicator/communicator.h:32:#include "orte/mca/rml/rml_types.h"
+./communicator/communicator.h:391:                                            orte_rml_tag_t tag,
+./datatype/copy_functions_heterogeneous.c:15:#include "orte/util/show_help.h"                                                     <<<<< Not required
+./datatype/datatype_internal.h:26:#include "orte/util/show_help.h"                                                                <<<<< Not required
+./debuggers/ompi_debuggers.c:74:#include "orte/mca/errmgr/errmgr.h"
+./debuggers/ompi_debuggers.c:75:#include "orte/mca/rml/rml.h"
+./debuggers/ompi_debuggers.c:76:#include "orte/runtime/orte_globals.h"
+./debuggers/ompi_debuggers.c:176:#if ORTE_DISABLE_FULL_SUPPORT
+./debuggers/ompi_debuggers.c:179:    debugger = orte_in_parallel_debugger;
+./debuggers/ompi_debuggers.c:217:    if (ORTE_DISABLE_FULL_SUPPORT) {
+./debuggers/ompi_debuggers.c:235:        if (0 != ORTE_PROC_MY_NAME->vpid) {
+./debuggers/ompi_debuggers.c:241:        rc = orte_rml.recv_buffer(ORTE_NAME_WILDCARD, &buf, 
+./debuggers/ompi_debuggers.c:242:                                  ORTE_RML_TAG_DEBUGGER_RELEASE, 0);
+./debuggers/ompi_debuggers.c:249:                        (long)ORTE_PROC_MY_NAME->vpid, ORTE_ERROR_NAME(rc));
+
+./errhandler/errhandler_predefined.c:31:#include "orte/util/show_help.h"                                                         <<< That's correct!
+./errhandler/errhandler_predefined.c:32:#include "orte/runtime/orte_globals.h"
+./errhandler/errhandler_predefined.c:39:#include "orte/runtime/runtime.h"
+./errhandler/errhandler_predefined.c:178:    asprintf(&prefix, "[%s:%d]", orte_process_info.nodename,
+./errhandler/errhandler_predefined.c:179:             (int) orte_process_info.pid);
+./errhandler/errhandler_predefined.c:191:        orte_show_help("help-mpi-errors.txt", 
+./errhandler/errhandler_predefined.c:197:        orte_show_help("help-mpi-errors.txt", 
+./errhandler/errhandler_predefined.c:284:    if (orte_help_want_aggregate && ompi_mpi_initialized && 
+
+./file/file.c:28:#include "orte/util/show_help.h"                                                                                <<<<< Not required
+./group/group.h:31:#include "orte/util/show_help.h"                                                                              <<<<< Not required
+./include/ompi/constants.h:22:#include "orte/constants.h"
+./include/ompi/constants.h:24:#define OMPI_ERR_BASE   ORTE_ERR_MAX
+./include/ompi/constants.h:30:    OMPI_SUCCESS                  = ORTE_SUCCESS,
+./include/ompi/constants.h:32:    OMPI_ERROR                    = ORTE_ERROR,
+./include/ompi/constants.h:33:    OMPI_ERR_OUT_OF_RESOURCE      = ORTE_ERR_OUT_OF_RESOURCE,
+./include/ompi/constants.h:34:    OMPI_ERR_TEMP_OUT_OF_RESOURCE = ORTE_ERR_TEMP_OUT_OF_RESOURCE,
+./include/ompi/constants.h:35:    OMPI_ERR_RESOURCE_BUSY        = ORTE_ERR_RESOURCE_BUSY,
+./include/ompi/constants.h:36:    OMPI_ERR_BAD_PARAM            = ORTE_ERR_BAD_PARAM,
+./include/ompi/constants.h:37:    OMPI_ERR_FATAL                = ORTE_ERR_FATAL,
+./include/ompi/constants.h:38:    OMPI_ERR_NOT_IMPLEMENTED      = ORTE_ERR_NOT_IMPLEMENTED,
+./include/ompi/constants.h:39:    OMPI_ERR_NOT_SUPPORTED        = ORTE_ERR_NOT_SUPPORTED,
+./include/ompi/constants.h:40:    OMPI_ERR_INTERUPTED           = ORTE_ERR_INTERUPTED,
+./include/ompi/constants.h:41:    OMPI_ERR_WOULD_BLOCK          = ORTE_ERR_WOULD_BLOCK,
+./include/ompi/constants.h:42:    OMPI_ERR_IN_ERRNO             = ORTE_ERR_IN_ERRNO,
+./include/ompi/constants.h:43:    OMPI_ERR_UNREACH              = ORTE_ERR_UNREACH,
+./include/ompi/constants.h:44:    OMPI_ERR_NOT_FOUND            = ORTE_ERR_NOT_FOUND,
+./include/ompi/constants.h:45:    OMPI_EXISTS                   = ORTE_EXISTS, /* indicates that the specified object already exists */
+./include/ompi/constants.h:46:    OMPI_ERR_TIMEOUT              = ORTE_ERR_TIMEOUT,
+./include/ompi/constants.h:47:    OMPI_ERR_NOT_AVAILABLE        = ORTE_ERR_NOT_AVAILABLE,
+./include/ompi/constants.h:48:    OMPI_ERR_PERM                 = ORTE_ERR_PERM,
+./include/ompi/constants.h:49:    OMPI_ERR_VALUE_OUT_OF_BOUNDS  = ORTE_ERR_VALUE_OUT_OF_BOUNDS,
+./include/ompi/constants.h:50:    OMPI_ERR_FILE_READ_FAILURE    = ORTE_ERR_FILE_READ_FAILURE,
+./include/ompi/constants.h:51:    OMPI_ERR_FILE_WRITE_FAILURE   = ORTE_ERR_FILE_WRITE_FAILURE,
+./include/ompi/constants.h:52:    OMPI_ERR_FILE_OPEN_FAILURE    = ORTE_ERR_FILE_OPEN_FAILURE,
+./include/ompi/constants.h:54:    OMPI_ERR_RECV_LESS_THAN_POSTED      = ORTE_ERR_RECV_LESS_THAN_POSTED,
+./include/ompi/constants.h:55:    OMPI_ERR_RECV_MORE_THAN_POSTED      = ORTE_ERR_RECV_MORE_THAN_POSTED,
+./include/ompi/constants.h:56:    OMPI_ERR_NO_MATCH_YET               = ORTE_ERR_NO_MATCH_YET,
+./include/ompi/constants.h:57:    OMPI_ERR_BUFFER                     = ORTE_ERR_BUFFER,
+./include/ompi/constants.h:58:    OMPI_ERR_REQUEST                    = ORTE_ERR_REQUEST,
+./include/ompi/constants.h:59:    OMPI_ERR_NO_CONNECTION_ALLOWED      = ORTE_ERR_NO_CONNECTION_ALLOWED,
+./include/ompi/constants.h:60:    OMPI_ERR_CONNECTION_REFUSED         = ORTE_ERR_CONNECTION_REFUSED   ,
+./include/ompi/constants.h:61:    OMPI_ERR_CONNECTION_FAILED          = ORTE_ERR_CONNECTION_FAILED,
+./include/ompi/constants.h:62:    OMPI_PACK_MISMATCH                  = ORTE_ERR_PACK_MISMATCH,
+./include/ompi/constants.h:63:    OMPI_ERR_PACK_FAILURE               = ORTE_ERR_PACK_FAILURE,
+./include/ompi/constants.h:64:    OMPI_ERR_UNPACK_FAILURE             = ORTE_ERR_UNPACK_FAILURE,
+./include/ompi/constants.h:65:    OMPI_ERR_COMM_FAILURE               = ORTE_ERR_COMM_FAILURE,
+./include/ompi/constants.h:66:    OMPI_UNPACK_INADEQUATE_SPACE        = ORTE_ERR_UNPACK_INADEQUATE_SPACE,
+./include/ompi/constants.h:67:    OMPI_UNPACK_READ_PAST_END_OF_BUFFER = ORTE_ERR_UNPACK_READ_PAST_END_OF_BUFFER,
+./include/ompi/constants.h:68:    OMPI_ERR_TYPE_MISMATCH              = ORTE_ERR_TYPE_MISMATCH,
+./include/ompi/constants.h:69:    OMPI_ERR_COMPARE_FAILURE            = ORTE_ERR_COMPARE_FAILURE,
+./include/ompi/constants.h:70:    OMPI_ERR_COPY_FAILURE               = ORTE_ERR_COPY_FAILURE,
+./include/ompi/constants.h:71:    OMPI_ERR_UNKNOWN_DATA_TYPE          = ORTE_ERR_UNKNOWN_DATA_TYPE,
+./include/ompi/constants.h:72:    OMPI_ERR_DATA_TYPE_REDEF            = ORTE_ERR_DATA_TYPE_REDEF,
+./include/ompi/constants.h:73:    OMPI_ERR_DATA_OVERWRITE_ATTEMPT     = ORTE_ERR_DATA_OVERWRITE_ATTEMPT
+./info/info.c:36:#include "orte/util/show_help.h"                                                                                <<<<< Not required
+./mca/bml/base/bml_base_btl.h:26:#include "orte/util/show_help.h"                                                                <<<<< Not required
+./mca/bml/r2/bml_r2.c:28:#include "orte/util/show_help.h"
+./mca/bml/r2/bml_r2.c:36:#include "orte/util/name_fns.h"
+./mca/bml/r2/bml_r2.c:406:        orte_show_help("help-mca-bml-r2.txt",
+./mca/bml/r2/bml_r2.c:409:                       ORTE_NAME_PRINT(&(ompi_proc_local_proc->proc_name)),
+./mca/bml/r2/bml_r2.c:412:                       ORTE_NAME_PRINT(&(unreach_proc->proc_name)),
+./mca/bml/r2/bml_r2.c:715:    return ORTE_ERR_NOT_IMPLEMENTED;                                                                   ??? Why, we're in the OMPI layer... Function mca_bml_base_module_add_btl_fn_t/mca_bml_r2_add_btl    is called by WHO?? (no explanation in bml.h, Not called from anywhere, AS it is not implemented ;-)
+
+./mca/bml/r2/bml_r2_ft.c:27:#include "orte/util/show_help.h"
+./mca/bml/r2/bml_r2_ft.c:37:#include "orte/mca/rml/rml.h"
+./mca/bml/r2/bml_r2_ft.c:38:#include "orte/mca/grpcomm/grpcomm.h"
+./mca/bml/r2/bml_r2_ft.c:156:            if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {                                    <<<< This would need reimplemented barrier!!
+./mca/bml/r2/bml_r2_ft.c:157:                opal_output(0, "bml:r2: ft_event(Restart): Failed in orte_grpcomm.barrier (%d)", ret);
+./mca/bml/r2/bml_r2_ft.c:229:        if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {
+./mca/bml/r2/bml_r2_ft.c:230:            opal_output(0, "bml:r2: ft_event(Restart): Failed in orte_grpcomm.barrier (%d)", ret);
+./mca/bml/r2/bml_r2_ft.h:24:#include "orte/util/show_help.h"
+
+./mca/coll/base/coll_base_comm_select.c:32:#include "orte/util/show_help.h"                                                        <<<< That's correct!
+./mca/coll/base/coll_base_comm_select.c:124:        orte_show_help("help-mca-coll-base",
+./mca/coll/base/coll_base_comm_unselect.c:27:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/base/coll_base_find_available.c:29:#include "orte/util/show_help.h"
+./mca/coll/base/coll_base_find_available.c:132:        orte_show_help("help-mca-base", "find-available:none-found", true,
+./mca/coll/base/coll_base_open.c:24:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/base/coll_base_open.c:29:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_allgather.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_allgatherv.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_allreduce.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_alltoall.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_alltoallv.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_alltoallw.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_barrier.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_bcast.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_exscan.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_gather.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_gatherv.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_reduce.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_reduce_scatter.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_scan.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_scatter.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/demo/coll_demo_scatterv.c:23:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/hierarch/coll_hierarch_allreduce.c:27:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/hierarch/coll_hierarch_barrier.c:26:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/hierarch/coll_hierarch_bcast.c:25:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/hierarch/coll_hierarch_reduce.c:27:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/inter/coll_inter_bcast.c:25:#include "orte/util/show_help.h"                                                      <<<<< Not required
+./mca/coll/sm2/coll_sm2_component.c:37:#include "orte/mca/rml/rml.h"                                                         ?????
+./mca/coll/sm2/coll_sm2_module.c:39:#include "orte/mca/rml/rml.h"                                                            ?????
+./mca/coll/sm2/coll_sm2_module.c:40:#include "orte/util/proc_info.h"                                                         ?????
+./mca/coll/sm2/coll_sm2_module.c:232:                "%s"OPAL_PATH_SEP"sm_coll_v2_%0d_%0d",orte_process_info.job_session_dir,?????
+./mca/coll/sm2/coll_sm2_module.c:280:            rc=orte_rml.send(&(comm_proc_list[p]->proc_name),iov,3,                     ?????
+./mca/coll/sm2/coll_sm2_module.c:284:                    "allocate_shared_file: orte_rml.send failed to %lu with errno=%d\n",
+./mca/coll/sm2/coll_sm2_module.c:302:        rc=orte_rml.recv(&(comm_proc_list[0]->proc_name),iov,3,                         ?????
+./mca/coll/sm2/coll_sm2_module.c:305:            opal_output(0, "allocate_shared_file: orte_rml.recv failed from %ld with errno=%d\n",            
+./mca/coll/sm2/coll_sm2_module.c:317:                "%s"OPAL_PATH_SEP"sm_coll_v2_%0d_%0d",orte_process_info.job_session_dir,          !!!job_session_dir???
+./mca/coll/sm2/coll_sm2_module.c:388:        rc=orte_rml.recv(&(comm_proc_list[child_rank]->proc_name),&iov,1,
+./mca/coll/sm2/coll_sm2_module.c:401:        rc=orte_rml.send(&(comm_proc_list[my_fanout_parent]->proc_name),&iov,1,
+./mca/coll/sm2/coll_sm2_module.c:418:        rc=orte_rml.recv(&(comm_proc_list[my_fanout_parent]->proc_name),&iov,1,
+./mca/coll/sm2/coll_sm2_module.c:433:        rc=orte_rml.send(&(comm_proc_list[child_rank]->proc_name),&iov,1,
+./mca/coll/sm2/coll_sm2_module.c:985:            "%s"OPAL_PATH_SEP"sm_coll_v2%s_%0d\0",orte_process_info.job_session_dir,
+./mca/coll/sm2/coll_sm2_module.c:986:            orte_process_info.nodename,ompi_comm_get_cid(comm));
+./mca/coll/sm2/coll_sm2_service.c:36:#include "orte/mca/rml/rml.h"
+./mca/coll/sm/coll_sm_component.c:31:#include "orte/util/show_help.h"
+./mca/coll/sm/coll_sm_component.c:219:        orte_show_help("help-coll-sm.txt", 
+./mca/coll/sm/coll_sm_component.c:225:        orte_show_help("help-coll-sm.txt", 
+./mca/coll/sm/coll_sm.h:28:#include "orte/types.h"
+./mca/coll/sm/coll_sm.h:88:        orte_process_name_t mcsbck_rank0_name;
+./mca/coll/sm/coll_sm_module.c:48:#include "orte/util/proc_info.h"
+./mca/coll/sm/coll_sm_module.c:49:#include "orte/util/name_fns.h"
+./mca/coll/sm/coll_sm_module.c:521:    orte_proc_info();
+./mca/coll/sm/coll_sm_module.c:522:    fullpath = opal_os_path( false, orte_process_info.job_session_dir,
+./mca/coll/sm/coll_sm_module.c:563:                   sizeof(orte_process_name_t));
+./mca/coll/sm/coll_sm_module.c:591:    orte_process_name_t *rank0;                                                           <<<< Replace?
+./mca/coll/sm/coll_sm_module.c:611:                OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,              ????OPAL_EQUAL???
+./mca/coll/sm/coll_sm_module.c:738:               sizeof(orte_process_name_t));                                              ??? sizeof....
+./mca/coll/tuned/coll_tuned_component.c:34:#include "orte/util/show_help.h"                                                  <<<<< Not required
+./mca/coll/tuned/coll_tuned_component.c:36:#include "orte/util/show_help.h"                                                  <<<<< Not required
+./mca/coll/tuned/coll_tuned_dynamic_file.c:29:#include "orte/util/show_help.h"                                               <<<<< Not required
+./mca/crcp/base/base.h:24:#include "orte/mca/rml/rml.h"                                                                      <<<<< Not required?????
+
+# Of course, the CRCP is heavily integrated into the RTE:
+./mca/crcp/base/crcp_base_close.c:22:#include "orte/util/show_help.h"                                                        <<<<< Not required
+./mca/crcp/base/crcp_base_fns.c:31:#include "orte/util/show_help.h"                                                          <<<<< Not required
+./mca/crcp/base/crcp_base_open.c:22:#include "orte/util/show_help.h"                                                         <<<<< Not required
+./mca/crcp/base/crcp_base_open.c:25:#include "orte/util/show_help.h"                                                         <<<<< Not required
+./mca/crcp/base/crcp_base_select.c:22:#include "orte/util/show_help.h"
+./mca/crcp/bkmrk/crcp_bkmrk_btl.c:26:#include "orte/util/output.h"
+./mca/crcp/bkmrk/crcp_bkmrk_module.c:112:    return ORTE_SUCCESS;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:32:#include "orte/runtime/orte_globals.h"
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:33:#include "orte/util/name_fns.h"
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:34:#include "orte/mca/grpcomm/grpcomm.h"
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:303:static ompi_crcp_bkmrk_pml_peer_ref_t* find_peer(orte_process_name_t proc);
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:345:                                  orte_process_name_t* sender,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:347:                                  orte_rml_tag_t tag,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:418:                                     orte_process_name_t* sender,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:420:                                     orte_rml_tag_t tag,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:699:    peer_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:700:    peer_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:726:    peer_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:727:    peer_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:835:    msg_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:836:    msg_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:862:    msg_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:863:    msg_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:895:    msg_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:896:    msg_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:926:    msg_ref->proc_name.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:927:    msg_ref->proc_name.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:945:    msg_ack_ref->peer.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:946:    msg_ack_ref->peer.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:952:    msg_ack_ref->peer.jobid  = ORTE_JOBID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:953:    msg_ack_ref->peer.vpid   = ORTE_VPID_INVALID;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:1068:    orte_std_cntr_t n = count;                                                 \
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:1069:    if (ORTE_SUCCESS != (ret = opal_dss.unpack(buffer, &(var), &n, type)) ) {  \
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:1479:                        ORTE_NAME_PRINT(&(procs[i]->proc_name)));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:2353:        exit_status = ORTE_ERROR;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3008:            orte_grpcomm.barrier();
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3023:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3076:            orte_grpcomm.barrier();
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3099:            cur_peer_ref->proc_name.jobid = ORTE_PROC_MY_NAME->jobid;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3158:    int ret, exit_status = ORTE_SUCCESS;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3202:                           ORTE_JOBID_INVALID,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3203:                           ORTE_VPID_INVALID);
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3274:    int ret, exit_status = ORTE_SUCCESS;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3368:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3469:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3470:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3497:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3498:                             ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3575:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3576:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3744:    int ret, exit_status = ORTE_SUCCESS;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:3890:            if( OPAL_EQUAL != orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4102:static ompi_crcp_bkmrk_pml_peer_ref_t * find_peer(orte_process_name_t proc)
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4112:        if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4214:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4241:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4273:        if( OPAL_EQUAL != orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4274:                                                        (ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4381:    int my_idx    = ORTE_PROC_MY_NAME->vpid;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4425:        sleep(ORTE_PROC_MY_NAME->vpid);
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4430:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4433:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4451:                                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4470:        if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4471:                                                        (ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4479:        if( ORTE_PROC_MY_NAME->vpid < peer_ref->proc_name.vpid ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4493:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4494:                            ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4507:                                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4508:                                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4521:                                ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4540:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4541:                            ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4554:                                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4555:                                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4567:                                ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4588:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4589:                            ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4602:                                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4603:                                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4615:                                ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4634:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4635:                            ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4648:                                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4649:                                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4662:                                ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4687:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4700:        if( OMPI_SUCCESS != (ret = orte_rml.recv_buffer_nb( &drain_msg_ack->peer,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4707:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4708:                        ORTE_NAME_PRINT(&(drain_msg_ack->peer)));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4717:                                     orte_process_name_t* sender,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4719:                                     orte_rml_tag_t tag,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4743:            if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4750:                                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4751:                                    ORTE_NAME_PRINT(sender) ));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4759:                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4760:                ORTE_NAME_PRINT(sender) );
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4781:        if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4782:                                                        (ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4846:        if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4847:                                                        (ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4893:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4894:                                 ORTE_NAME_PRINT(&(cur_peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4924:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4925:                             ORTE_NAME_PRINT(&(drain_msg_ref->proc_name)) ));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4938:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4939:                         ORTE_NAME_PRINT(&(drain_msg_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4950:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4951:                    ORTE_NAME_PRINT(&(drain_msg_ref->proc_name)) );
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4969:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) );
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:4980:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) );
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5002:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5031:        if( OPAL_EQUAL == orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5032:                                                        (ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5046:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5047:                                 ORTE_NAME_PRINT(&(cur_peer_ref->proc_name)) ));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5058:            if ( 0 > ( ret = orte_rml.send_buffer(&(cur_peer_ref->proc_name), buffer, OMPI_CRCP_COORD_BOOKMARK_TAG, 0)) ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5147:                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5186:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5220:    orte_process_name_t peer_name;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5229:    peer_name.jobid  = ORTE_PROC_MY_NAME->jobid;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5242:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5243:                         ORTE_NAME_PRINT(&peer_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5260:    if ( 0 > ( ret = orte_rml.send_buffer(&peer_name, buffer, OMPI_CRCP_COORD_BOOKMARK_TAG, 0)) ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5263:                    ORTE_NAME_PRINT(&peer_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5283:    orte_process_name_t peer_name;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5289:    peer_name.jobid  = ORTE_PROC_MY_NAME->jobid;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5292:    if ( 0 > (ret = orte_rml.recv_buffer_nb(&peer_name,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5299:                    ORTE_NAME_PRINT(&peer_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5317:                                  orte_process_name_t* sender,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5319:                                  orte_rml_tag_t tag,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5325:    orte_vpid_t peer_idx;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5350:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5351:                         ORTE_NAME_PRINT(sender),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5415:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5416:                        ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5477:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5478:                        ORTE_NAME_PRINT(&(peer_ref->proc_name))));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5551:    if ( 0 > ( ret = orte_rml.send_buffer(&peer_ref->proc_name, buffer,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5555:                    ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5571:        exit_status = ORTE_ERROR;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5578:    if ( 0 > (ret = orte_rml.recv_buffer(&peer_ref->proc_name, buffer,
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5582:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5583:                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5669:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5670:                        ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5690:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5691:                        ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5702:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5703:                             ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5720:                        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5721:                        ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5746:        exit_status = ORTE_ERROR;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5753:    if ( 0 > (ret = orte_rml.recv_buffer(&peer_ref->proc_name, buffer, OMPI_CRCP_COORD_BOOKMARK_TAG, 0) ) ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5756:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5757:                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5816:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5817:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5839:                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5840:                    ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5889:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5890:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5974:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:5975:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6023:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6024:                                     ORTE_NAME_PRINT(&(peer_ref->proc_name)) ));
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6032:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6033:                                     ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6091:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6092:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6128:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6129:                         ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6162:    if ( 0 > ( ret = orte_rml.send_buffer(&peer_ref->proc_name, buffer, OMPI_CRCP_COORD_BOOKMARK_TAG, 0)) ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6165:                    ORTE_NAME_PRINT(&peer_ref->proc_name),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6224:    if( 0 != ORTE_PROC_MY_NAME->vpid ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6229:            orte_grpcomm.barrier();
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6250:        orte_grpcomm.barrier();
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6270:    if( 0 != ORTE_PROC_MY_NAME->vpid && timing_enabled < 3 ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6472:    if( root_only && orte_process_info.my_name.vpid != 0 ) {
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6475:        sleep(orte_process_info.my_name.vpid * 2);
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6480:                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.c:6481:                ORTE_NAME_PRINT(&(peer_ref->proc_name)),
+./mca/crcp/bkmrk/crcp_bkmrk_pml.h:230:        orte_process_name_t proc_name;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.h:270:        orte_process_name_t peer;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.h:311:        orte_process_name_t proc_name;
+./mca/crcp/bkmrk/crcp_bkmrk_pml.h:378:        orte_process_name_t proc_name;
+
+
+# Of course the Dynamic Process Management Interface is heavily integrated into the RTE:
+./mca/dpm/base/base.h:70:#if !ORTE_DISABLE_FULL_SUPPORT
+./mca/dpm/base/base.h:94:int ompi_dpm_base_null_open_port(char *port_name, orte_rml_tag_t given_tag);
+./mca/dpm/base/base.h:96:                                  char **hnp_uri, char **rml_uri, orte_rml_tag_t *tag);
+./mca/dpm/base/base.h:97:int ompi_dpm_base_null_route_to_port(char *rml_uri, orte_process_name_t *rproc);
+./mca/dpm/base/dpm_base_close.c:22:#include "orte/util/show_help.h"
+./mca/dpm/base/dpm_base_common_fns.c:224:    orte_jobid_t jobids[OMPI_DPM_BASE_MAXJOBIDS], thisjobid;
+./mca/dpm/base/dpm_base_null_fns.c:37:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_null_fns.c:51:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_null_fns.c:69:int ompi_dpm_base_null_open_port(char *port_name, orte_rml_tag_t given_tag)
+./mca/dpm/base/dpm_base_null_fns.c:71:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_null_fns.c:75:                                  char **hnp_uri, char **rml_uri, orte_rml_tag_t *tag)
+./mca/dpm/base/dpm_base_null_fns.c:77:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_null_fns.c:80:int ompi_dpm_base_null_route_to_port(char *rml_uri, orte_process_name_t *rproc)
+./mca/dpm/base/dpm_base_null_fns.c:82:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_null_fns.c:87:    return OMPI_ERR_NOT_SUPPORTED;
+./mca/dpm/base/dpm_base_open.c:22:#include "orte/util/show_help.h"
+./mca/dpm/base/dpm_base_open.c:25:#include "orte/util/show_help.h"
+./mca/dpm/base/dpm_base_select.c:22:#include "orte/util/show_help.h"
+./mca/dpm/dpm.h:42:#define OMPI_RML_TAG_INVALID                        ORTE_RML_TAG_INVALID
+./mca/dpm/dpm.h:44:#define OMPI_RML_TAG_BASE                           ORTE_RML_TAG_MAX
+./mca/dpm/dpm.h:118:typedef int (*ompi_dpm_base_module_open_port_fn_t)(char *port_name, orte_rml_tag_t tag);
+./mca/dpm/dpm.h:125:                                                      orte_rml_tag_t *tag);
+./mca/dpm/dpm.h:131:typedef int (*ompi_dpm_base_module_route_to_port_t)(char *rml_uri, orte_process_name_t *rproc);
+./mca/dpm/orte/dpm_orte.c:28:#include "orte/util/show_help.h"
+./mca/dpm/orte/dpm_orte.c:33:#include "orte/mca/errmgr/errmgr.h"
+./mca/dpm/orte/dpm_orte.c:34:#include "orte/mca/grpcomm/grpcomm.h"
+./mca/dpm/orte/dpm_orte.c:35:#include "orte/mca/plm/plm.h"
+./mca/dpm/orte/dpm_orte.c:36:#include "orte/mca/rml/rml.h"
+./mca/dpm/orte/dpm_orte.c:37:#include "orte/mca/rml/base/rml_contact.h"
+./mca/dpm/orte/dpm_orte.c:38:#include "orte/mca/routed/routed.h"
+./mca/dpm/orte/dpm_orte.c:39:#include "orte/util/name_fns.h"
+./mca/dpm/orte/dpm_orte.c:40:#include "orte/runtime/orte_globals.h"
+./mca/dpm/orte/dpm_orte.c:41:#include "orte/runtime/orte_data_server.h"
+./mca/dpm/orte/dpm_orte.c:42:#include "orte/runtime/orte_wait.h"
+./mca/dpm/orte/dpm_orte.c:51:#include "dpm_orte.h"
+./mca/dpm/orte/dpm_orte.c:55:static orte_rml_tag_t next_tag;
+./mca/dpm/orte/dpm_orte.c:58:static orte_process_name_t carport;
+./mca/dpm/orte/dpm_orte.c:61:static void recv_cb(int status, orte_process_name_t* sender,
+./mca/dpm/orte/dpm_orte.c:63:                    orte_rml_tag_t tag, void *cbdata);
+./mca/dpm/orte/dpm_orte.c:78:static int open_port(char *port_name, orte_rml_tag_t given_tag);
+./mca/dpm/orte/dpm_orte.c:80:                           orte_rml_tag_t *tag);
+./mca/dpm/orte/dpm_orte.c:81:static int route_to_port(char *rml_uri, orte_process_name_t *rproc);
+./mca/dpm/orte/dpm_orte.c:88:ompi_dpm_base_module_t ompi_dpm_orte_module = {
+./mca/dpm/orte/dpm_orte.c:120:    orte_std_cntr_t num_vals;
+./mca/dpm/orte/dpm_orte.c:121:    orte_std_cntr_t rnamebuflen = 0;
+./mca/dpm/orte/dpm_orte.c:128:    orte_process_name_t port;
+./mca/dpm/orte/dpm_orte.c:129:    orte_rml_tag_t tag=ORTE_RML_TAG_INVALID;
+./mca/dpm/orte/dpm_orte.c:137:                         "%s dpm:orte:connect_accept with port %s %s",
+./mca/dpm/orte/dpm_orte.c:138:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:154:        if (ORTE_SUCCESS != (rc = parse_port_name(port_string, &hnp_uri, &rml_uri, &tag))) {
+./mca/dpm/orte/dpm_orte.c:155:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:159:        if (ORTE_SUCCESS != (rc = orte_rml_base_parse_uris(rml_uri, &port, NULL))) {
+./mca/dpm/orte/dpm_orte.c:160:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:165:        if (ORTE_SUCCESS != (rc = route_to_port(hnp_uri, &port))) {
+./mca/dpm/orte/dpm_orte.c:166:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:185:        if (ORTE_SUCCESS != (rc = opal_dss.pack(nbuf, &size, 1, OPAL_INT))) {
+./mca/dpm/orte/dpm_orte.c:186:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:199:                                 "%s dpm:orte:connect_accept adding %s to proc list",
+./mca/dpm/orte/dpm_orte.c:200:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:201:                                 ORTE_NAME_PRINT(&proc_list[i]->proc_name)));
+./mca/dpm/orte/dpm_orte.c:218:                                 "%s dpm:orte:connect_accept sending first to %s",
+./mca/dpm/orte/dpm_orte.c:219:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:220:                                 ORTE_NAME_PRINT(&port)));
+./mca/dpm/orte/dpm_orte.c:221:            rc = orte_rml.send_buffer(&port, nbuf, tag, 0);
+./mca/dpm/orte/dpm_orte.c:224:                                 "%s dpm:orte:connect_accept waiting for response",
+./mca/dpm/orte/dpm_orte.c:225:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:227:            rc = orte_rml.recv_buffer_nb(ORTE_NAME_WILDCARD, tag,
+./mca/dpm/orte/dpm_orte.c:228:                                         ORTE_RML_NON_PERSISTENT, recv_cb, NULL);
+./mca/dpm/orte/dpm_orte.c:230:            ORTE_PROGRESSED_WAIT(recv_completed, 0, 1);
+./mca/dpm/orte/dpm_orte.c:232:                                 "%s dpm:orte:connect_accept got data from %s",
+./mca/dpm/orte/dpm_orte.c:233:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:234:                                 ORTE_NAME_PRINT(&carport)));
+./mca/dpm/orte/dpm_orte.c:238:                                 "%s dpm:orte:connect_accept recving first",
+./mca/dpm/orte/dpm_orte.c:239:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:242:            rc = orte_rml.recv_buffer_nb(ORTE_NAME_WILDCARD, tag,
+./mca/dpm/orte/dpm_orte.c:243:                                         ORTE_RML_NON_PERSISTENT, recv_cb, NULL);
+./mca/dpm/orte/dpm_orte.c:245:            ORTE_PROGRESSED_WAIT(recv_completed, 0, 1);
+./mca/dpm/orte/dpm_orte.c:248:                                 "%s dpm:orte:connect_accept sending info to %s",
+./mca/dpm/orte/dpm_orte.c:249:                                 ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:250:                                 ORTE_NAME_PRINT(&carport)));
+./mca/dpm/orte/dpm_orte.c:251:            rc = orte_rml.send_buffer(&carport, nbuf, tag, 0);
+./mca/dpm/orte/dpm_orte.c:254:        if (ORTE_SUCCESS != (rc = opal_dss.unload(cabuf, &rnamebuf, &rnamebuflen))) {
+./mca/dpm/orte/dpm_orte.c:255:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:269:                         "%s dpm:orte:connect_accept bcast buffer length",
+./mca/dpm/orte/dpm_orte.c:270:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:293:                         "%s dpm:orte:connect_accept bcast proc list",
+./mca/dpm/orte/dpm_orte.c:294:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:305:    if ( ORTE_SUCCESS != ( rc = opal_dss.load(nrbuf, rnamebuf, rnamebuflen))) {
+./mca/dpm/orte/dpm_orte.c:306:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:311:    if (ORTE_SUCCESS != (rc = opal_dss.unpack(nrbuf, &rsize, &num_vals, OPAL_INT))) {
+./mca/dpm/orte/dpm_orte.c:312:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:322:                         "%s dpm:orte:connect_accept unpacked %d new procs",
+./mca/dpm/orte/dpm_orte.c:323:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), new_proc_len));
+./mca/dpm/orte/dpm_orte.c:329:        orte_namelist_t *name;
+./mca/dpm/orte/dpm_orte.c:335:                name = OBJ_NEW(orte_namelist_t);
+./mca/dpm/orte/dpm_orte.c:339:                                     "%s dpm:orte:connect_accept send first adding %s to allgather list",
+./mca/dpm/orte/dpm_orte.c:340:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:341:                                     ORTE_NAME_PRINT(&name->name)));
+./mca/dpm/orte/dpm_orte.c:344:                name = OBJ_NEW(orte_namelist_t);
+./mca/dpm/orte/dpm_orte.c:348:                                     "%s dpm:orte:connect_accept send first adding %s to allgather list",
+./mca/dpm/orte/dpm_orte.c:349:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:350:                                     ORTE_NAME_PRINT(&name->name)));
+./mca/dpm/orte/dpm_orte.c:355:                name = OBJ_NEW(orte_namelist_t);
+./mca/dpm/orte/dpm_orte.c:359:                                     "%s dpm:orte:connect_accept recv first adding %s to allgather list",
+./mca/dpm/orte/dpm_orte.c:360:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:361:                                     ORTE_NAME_PRINT(&name->name)));
+./mca/dpm/orte/dpm_orte.c:364:                name = OBJ_NEW(orte_namelist_t);
+./mca/dpm/orte/dpm_orte.c:368:                                     "%s dpm:orte:connect_accept recv first adding %s to allgather list",
+./mca/dpm/orte/dpm_orte.c:369:                                     ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:370:                                     ORTE_NAME_PRINT(&name->name)));
+./mca/dpm/orte/dpm_orte.c:375:        if (OMPI_SUCCESS != (rc = orte_grpcomm.modex(&all_procs))) {
+./mca/dpm/orte/dpm_orte.c:376:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:499:    orte_job_t *jdata;
+./mca/dpm/orte/dpm_orte.c:500:    orte_app_context_t *app;
+./mca/dpm/orte/dpm_orte.c:528:    jdata = OBJ_NEW(orte_job_t);
+./mca/dpm/orte/dpm_orte.c:533:        app = OBJ_NEW(orte_app_context_t);
+./mca/dpm/orte/dpm_orte.c:535:            ORTE_ERROR_LOG(ORTE_ERR_OUT_OF_RESOURCE);
+./mca/dpm/orte/dpm_orte.c:538:            return ORTE_ERR_OUT_OF_RESOURCE;
+./mca/dpm/orte/dpm_orte.c:548:            ORTE_ERROR_LOG(ORTE_ERR_OUT_OF_RESOURCE);
+./mca/dpm/orte/dpm_orte.c:551:            return ORTE_ERR_OUT_OF_RESOURCE;
+./mca/dpm/orte/dpm_orte.c:572:            ORTE_ERROR_LOG(ORTE_ERR_OUT_OF_RESOURCE);
+./mca/dpm/orte/dpm_orte.c:575:            return ORTE_ERR_OUT_OF_RESOURCE;
+./mca/dpm/orte/dpm_orte.c:594:            ORTE_ERROR_LOG(ORTE_ERR_OUT_OF_RESOURCE);
+./mca/dpm/orte/dpm_orte.c:597:            return ORTE_ERR_OUT_OF_RESOURCE;
+./mca/dpm/orte/dpm_orte.c:632:             * behavior as --prefix option to orterun)
+./mca/dpm/orte/dpm_orte.c:647:             * the specified app is to be launched by the local orted as a
+./mca/dpm/orte/dpm_orte.c:652:                jdata->controls |= ORTE_JOB_CONTROL_LOCAL_SPAWN;
+./mca/dpm/orte/dpm_orte.c:660:                jdata->controls |= ORTE_JOB_CONTROL_NON_ORTE_JOB;
+./mca/dpm/orte/dpm_orte.c:669:                    jdata->stdin_target = ORTE_VPID_WILDCARD;
+./mca/dpm/orte/dpm_orte.c:671:                    jdata->stdin_target = ORTE_VPID_INVALID;
+./mca/dpm/orte/dpm_orte.c:682:                ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:696:    rc = orte_plm.spawn(jdata);
+./mca/dpm/orte/dpm_orte.c:699:    if (ORTE_SUCCESS != rc) {
+./mca/dpm/orte/dpm_orte.c:700:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:733:static int open_port(char *port_name, orte_rml_tag_t given_tag)
+./mca/dpm/orte/dpm_orte.c:741:    if (NULL == orte_process_info.my_hnp_uri) {
+./mca/dpm/orte/dpm_orte.c:742:        rc = ORTE_ERR_NOT_AVAILABLE;
+./mca/dpm/orte/dpm_orte.c:743:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:747:    if (NULL == (rml_uri = orte_rml.get_contact_info())) {
+./mca/dpm/orte/dpm_orte.c:748:        rc = ORTE_ERROR;
+./mca/dpm/orte/dpm_orte.c:749:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:753:    if (ORTE_RML_TAG_INVALID == given_tag) {
+./mca/dpm/orte/dpm_orte.c:761:    len = strlen(orte_process_info.my_hnp_uri) + strlen(rml_uri) + strlen(tag);
+./mca/dpm/orte/dpm_orte.c:770:    snprintf(port_name, MPI_MAX_PORT_NAME, "%s+%s:%s", orte_process_info.my_hnp_uri, rml_uri, tag);
+./mca/dpm/orte/dpm_orte.c:788:    orte_message_event_t *mev = (orte_message_event_t*)data;
+./mca/dpm/orte/dpm_orte.c:793:static void recv_ack(int status, orte_process_name_t* sender,
+./mca/dpm/orte/dpm_orte.c:794:                     opal_buffer_t* buffer, orte_rml_tag_t tag,
+./mca/dpm/orte/dpm_orte.c:806:    ORTE_MESSAGE_EVENT(sender, buffer, tag, release_ack);    
+./mca/dpm/orte/dpm_orte.c:809:static int route_to_port(char *rml_uri, orte_process_name_t *rproc)
+./mca/dpm/orte/dpm_orte.c:812:    orte_rml_cmd_flag_t cmd = ORTE_RML_UPDATE_CMD;    
+./mca/dpm/orte/dpm_orte.c:818:    if (ORTE_JOB_FAMILY(rproc->jobid) == ORTE_JOB_FAMILY(ORTE_PROC_MY_NAME->jobid)) {
+./mca/dpm/orte/dpm_orte.c:821:                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:824:        if (ORTE_SUCCESS != (rc = orte_rml.set_contact_info(rml_uri))) {
+./mca/dpm/orte/dpm_orte.c:825:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:828:        if (ORTE_SUCCESS != (rc = orte_routed.update_route(rproc, rproc))) {
+./mca/dpm/orte/dpm_orte.c:829:            ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:843:    opal_dss.pack(&route, &cmd, 1, ORTE_RML_CMD);
+./mca/dpm/orte/dpm_orte.c:850:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:851:                         ORTE_NAME_PRINT(rproc),
+./mca/dpm/orte/dpm_orte.c:852:                         ORTE_NAME_PRINT(ORTE_PROC_MY_HNP)));
+./mca/dpm/orte/dpm_orte.c:854:    if (0 > (rc = orte_rml.send_buffer(ORTE_PROC_MY_HNP, &route,
+./mca/dpm/orte/dpm_orte.c:855:                                       ORTE_RML_TAG_RML_INFO_UPDATE, 0))) {
+./mca/dpm/orte/dpm_orte.c:856:        ORTE_ERROR_LOG(rc);
+./mca/dpm/orte/dpm_orte.c:865:    rc = orte_rml.recv_buffer_nb(ORTE_NAME_WILDCARD, ORTE_RML_TAG_UPDATE_ROUTE_ACK,
+./mca/dpm/orte/dpm_orte.c:866:                                 ORTE_RML_NON_PERSISTENT, recv_ack, NULL);
+./mca/dpm/orte/dpm_orte.c:868:    ORTE_PROGRESSED_WAIT(ack_recvd, 0, 1);
+./mca/dpm/orte/dpm_orte.c:873:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
+./mca/dpm/orte/dpm_orte.c:884:                           orte_rml_tag_t *ptag)
+./mca/dpm/orte/dpm_orte.c:895:        rc = ORTE_ERR_NOT_FOUND;
+./mca/dpm/orte/dpm_orte.c:908:        rc = ORTE_ERR_NOT_FOUND;
+./mca/dpm/orte/dpm_orte.c:920:    return ORTE_SUCCESS;
+./mca/dpm/orte/dpm_orte.c:956:                         "%s dpm:orte:dyn_init with port %s",
+./mca/dpm/orte/dpm_orte.c:957:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/dpm/orte/dpm_orte.c:997:static void recv_cb(int status, orte_process_name_t* sender,
+./mca/dpm/orte/dpm_orte.c:999:                    orte_rml_tag_t tag, void *cbdata)
+./mca/dpm/orte/dpm_orte.c:1010:    ORTE_MESSAGE_EVENT(sender, buffer, tag, process_cb);
+./mca/dpm/orte/dpm_orte.c:1016:    orte_message_event_t *mev = (orte_message_event_t*)data;
+./mca/dpm/orte/dpm_orte_component.c:22:#include "dpm_orte.h"
+./mca/dpm/orte/dpm_orte_component.c:24:static int dpm_orte_component_open(void);
+./mca/dpm/orte/dpm_orte_component.c:25:static int dpm_orte_component_close(void);
+./mca/dpm/orte/dpm_orte_component.c:26:static int dpm_orte_component_query(mca_base_module_t **module, int *priority);
+./mca/dpm/orte/dpm_orte_component.c:28:ompi_dpm_base_component_t mca_dpm_orte_component = {
+./mca/dpm/orte/dpm_orte_component.c:35:      "orte", /* MCA component name */
+./mca/dpm/orte/dpm_orte_component.c:39:      dpm_orte_component_open,  /* component open */
+./mca/dpm/orte/dpm_orte_component.c:40:      dpm_orte_component_close, /* component close */
+./mca/dpm/orte/dpm_orte_component.c:41:      dpm_orte_component_query  /* component query */
+./mca/dpm/orte/dpm_orte_component.c:50:int dpm_orte_component_open(void)
+./mca/dpm/orte/dpm_orte_component.c:55:int dpm_orte_component_close(void)
+./mca/dpm/orte/dpm_orte_component.c:60:static int dpm_orte_component_query(mca_base_module_t **module, int *priority)
+./mca/dpm/orte/dpm_orte_component.c:63:    *module = (mca_base_module_t *) &ompi_dpm_orte_module;
+./mca/dpm/orte/dpm_orte_component.c:64:    return ORTE_SUCCESS;
+./mca/dpm/orte/dpm_orte.h:19:#ifndef OMPI_DPM_ORTE_H
+./mca/dpm/orte/dpm_orte.h:20:#define OMPI_DPM_ORTE_H
+./mca/dpm/orte/dpm_orte.h:24:#include "orte/types.h"
+./mca/dpm/orte/dpm_orte.h:31:extern ompi_dpm_base_module_t ompi_dpm_orte_module;
+./mca/dpm/orte/dpm_orte.h:33:OMPI_MODULE_DECLSPEC extern ompi_dpm_base_component_t mca_dpm_orte_component;
+
+
+./mca/io/base/io_base_delete.c:30:#include "orte/util/show_help.h"
+./mca/io/base/io_base_file_select.c:29:#include "orte/util/show_help.h"
+./mca/io/base/io_base_find_available.c:28:#include "orte/util/show_help.h"
+./mca/io/base/io_base_open.c:24:#include "orte/util/show_help.h"
+./mca/io/base/io_base_open.c:29:#include "orte/util/show_help.h"
+
+
+./mca/mpool/rdma/mpool_rdma_module.c:27:#include "orte/util/proc_info.h"
+./mca/mpool/rdma/mpool_rdma_module.c:28:#include "orte/util/name_fns.h"
+./mca/mpool/rdma/mpool_rdma_module.c:29:#include "orte/runtime/orte_globals.h"
+./mca/mpool/rdma/mpool_rdma_module.c:443:                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/mpool/sm/mpool_sm_component.c:32:#include "orte/util/proc_info.h"
+./mca/mpool/sm/mpool_sm_component.c:274:                    orte_process_info.job_session_dir,                                   <<<< Probably easy
+./mca/mpool/sm/mpool_sm_component.c:275:                    orte_process_info.nodename );                                        <<<< Probably easy
+./mca/mtl/base/mtl_base_component.c:23:#include "orte/util/show_help.h"
+./mca/mtl/base/mtl_base_component.c:25:#include "orte/util/show_help.h"
+./mca/mtl/mx/mtl_mx_component.c:23:#include "orte/util/show_help.h"
+./mca/mtl/mx/mtl_mx_endpoint.c:24:#include "orte/util/show_help.h"
+./mca/mtl/portals/mtl_portals_component.c:23:#include "orte/util/show_help.h" 
+./mca/mtl/portals/mtl_portals_recv_short.c:23:#include "orte/util/show_help.h"
+./mca/mtl/portals/mtl_portals_send_short.c:21:#include "orte/util/show_help.h"
+
+# WHAT THE HECK????
+./mca/mtl/psm/mtl_psm.c:91:    generated_key = getenv("OMPI_MCA_orte_precondition_transports");                        <<<< What's this env-var? Why do we do it this way???
+./mca/mtl/psm/mtl_psm.c:97:        opal_output(0, "Error obtaining unique transport key from ORTE "
+./mca/mtl/psm/mtl_psm.c:98:                       "(orte_precondition_transpots %s the environment)\n", 
+./mca/mtl/psm/mtl_psm_component.c:24:#include "orte/util/show_help.h"
+./mca/mtl/psm/mtl_psm_endpoint.c:25:#include "orte/mca/oob/base/base.h"
+./mca/mtl/psm/mtl_psm_endpoint.c:26:#include "orte/mca/rml/rml.h"
+./mca/mtl/psm/mtl_psm_endpoint.c:27:#include "orte/mca/errmgr/errmgr.h"
+./mca/mtl/psm/mtl_psm_endpoint.c:28:#include "orte/util/show_help.h"
+./mca/op/base/op_base_find_available.c:33:#include "orte/util/show_help.h"
+./mca/op/base/op_base_op_select.c:38:#include "orte/util/show_help.h"
+./mca/osc/base/osc_base_open.c:24:#include "orte/util/show_help.h"
+./mca/osc/osc.h:65: * @retval ORTE_SUCCESS Component successfully initialized                                                    <<<< Why an ORTE-error?
+./mca/osc/osc.h:66: * @retval ORTE_ERROR   An unspecified error occurred
+./mca/osc/osc.h:80: * @retval ORTE_SUCCESS Component successfully finalized
+./mca/osc/osc.h:81: * @retval ORTE_ERROR   An unspecified error occurred
+./mca/osc/osc.h:132: * @retval ORTE_SUCCESS Component successfully selected
+./mca/osc/osc.h:133: * @retval ORTE_ERROR   An unspecified error occurred
+./mca/osc/osc.h:180: * @retval ORTE_SUCCESS Component successfully selected
+./mca/osc/osc.h:181: * @retval ORTE_ERROR   An unspecified error occurred
+
+
+
+
+
+./mca/osc/pt2pt/osc_pt2pt_data_move.c:26:#include "orte/util/show_help.h"                                                        <<<< Not necessary??
+./mca/osc/rdma/osc_rdma_data_move.c:27:#include "orte/util/show_help.h"
+./mca/pml/base/pml_base_open.c:29:#include "orte/util/show_help.h"
+./mca/pml/base/pml_base_open.c:31:#include "orte/util/show_help.h"
+./mca/pml/base/pml_base_select.c:23:#include "orte/util/show_help.h"                                                             <<<< Required here
+./mca/pml/base/pml_base_select.c:29:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/base/pml_base_select.c:30:#include "orte/util/name_fns.h"
+./mca/pml/base/pml_base_select.c:31:#include "orte/runtime/orte_globals.h"
+./mca/pml/base/pml_base_select.c:170:        orte_show_help("help-mca-base.txt", "find-available:none-found", true, "pml");
+./mca/pml/base/pml_base_select.c:177:            orte_errmgr.abort(1, "PML %s cannot be selected", tmp_val);
+./mca/pml/base/pml_base_select.c:180:            orte_errmgr.abort(2, "No pml component available.  This shouldn't happen.");
+./mca/pml/base/pml_base_select.c:296:    if (modex_reqd && 0 == ORTE_PROC_MY_NAME->vpid) {
+./mca/pml/base/pml_base_select.c:343:    if (0 == ORTE_PROC_MY_NAME->vpid) {
+./mca/pml/base/pml_base_select.c:380:                        ORTE_NAME_PRINT(&ompi_proc_local()->proc_name),
+./mca/pml/base/pml_base_select.c:381:                        my_pml, ORTE_NAME_PRINT(&procs[0]->proc_name),
+./mca/pml/base/pml_base_select.c:386:                        ORTE_NAME_PRINT(&ompi_proc_local()->proc_name),
+./mca/pml/base/pml_base_select.c:387:                        my_pml, ORTE_NAME_PRINT(&procs[0]->proc_name),
+./mca/pml/crcpw/pml_crcpw_component.c:23:#include "orte/util/show_help.h"                                                        <<<< Not necessary??
+./mca/pml/crcpw/pml_crcpw_module.c:30:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/dr/pml_dr.c:37:#include "orte/util/name_fns.h"
+./mca/pml/dr/pml_dr.c:38:#include "orte/runtime/orte_globals.h"
+./mca/pml/dr/pml_dr.c:39:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/dr/pml_dr.c:171:            return OMPI_ERR_NOT_SUPPORTED;
+./mca/pml/dr/pml_dr.c:237:        if(orte_util_compare_name_fields(ORTE_NS_CMP_ALL,
+./mca/pml/dr/pml_dr.c:238:                           ORTE_PROC_MY_NAME,
+./mca/pml/dr/pml_dr_recvfrag.c:40:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/dr/pml_dr_recvfrag.c:211:                        orte_errmgr.abort(-1, NULL);
+./mca/pml/dr/pml_dr_recvfrag.c:244:                    orte_errmgr.abort(-1, NULL);
+./mca/pml/dr/pml_dr_recvfrag.c:293:                    orte_errmgr.abort(-1, NULL);
+./mca/pml/dr/pml_dr_recvreq.c:30:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/dr/pml_dr_sendreq.c:30:#include "orte/mca/errmgr/errmgr.h" 
+./mca/pml/dr/pml_dr_sendreq.c:123:            orte_errmgr.abort(-1, NULL);
+./mca/pml/dr/pml_dr_vfrag.c:23:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/dr/pml_dr_vfrag.c:171:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1.c:41:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/ob1/pml_ob1.c:42:#include "orte/mca/grpcomm/grpcomm.h"
+./mca/pml/ob1/pml_ob1.c:43:#include "orte/runtime/orte_globals.h"
+./mca/pml/ob1/pml_ob1.c:47:#include "orte/mca/rml/rml.h"
+./mca/pml/ob1/pml_ob1.c:549:    orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1.c:567:            orte_grpcomm.barrier();
+./mca/pml/ob1/pml_ob1.c:578:                orte_grpcomm.barrier();
+./mca/pml/ob1/pml_ob1.c:622:         *    orte_grpcomm.purge_proc_attrs();                                                  !!!!!! Why in comment???
+./mca/pml/ob1/pml_ob1.c:665:            /* JJH Cannot barrier here due to progress engine -- orte_grpcomm.barrier();*/      !!!!!!
+./mca/pml/ob1/pml_ob1.c:672:                orte_grpcomm.barrier();
+./mca/pml/ob1/pml_ob1.c:682:            if (OMPI_SUCCESS != (ret = orte_grpcomm.modex(NULL))) {                             !!!!!!
+./mca/pml/ob1/pml_ob1.c:699:            if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {
+./mca/pml/ob1/pml_ob1.c:715:                orte_grpcomm.barrier();
+./mca/pml/ob1/pml_ob1.c:728:        if (OMPI_SUCCESS != (ret = orte_grpcomm.modex(NULL))) {
+./mca/pml/ob1/pml_ob1.c:745:        if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {
+./mca/pml/ob1/pml_ob1_endpoint.h:24:#include "orte/util/show_help.h"                                                        <<<<< Not necessary!!!
+./mca/pml/ob1/pml_ob1_rdma.c:24:#include "orte/util/proc_info.h"
+./mca/pml/ob1/pml_ob1_rdma.c:28:#include "orte/types.h"
+./mca/pml/ob1/pml_ob1_recvreq.c:32:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/ob1/pml_ob1_recvreq.c:331:        ORTE_ERROR_LOG(status);                                                         <<<<< Why ORTE_ERROR_log?
+./mca/pml/ob1/pml_ob1_recvreq.c:332:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_recvreq.c:398:            ORTE_ERROR_LOG(rc);
+./mca/pml/ob1/pml_ob1_recvreq.c:399:            orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_recvreq.c:499:         ORTE_ERROR_LOG(rc);
+./mca/pml/ob1/pml_ob1_recvreq.c:500:         orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_recvreq.c:522:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:26:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/ob1/pml_ob1_sendreq.c:212:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:256:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:333:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:1130:        ORTE_ERROR_LOG(status);
+./mca/pml/ob1/pml_ob1_sendreq.c:1131:        orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:1214:            ORTE_ERROR_LOG(rc);
+./mca/pml/ob1/pml_ob1_sendreq.c:1215:            orte_errmgr.abort(-1, NULL);
+./mca/pml/ob1/pml_ob1_sendreq.c:1245:        ORTE_ERROR_LOG(rc);
+./mca/pml/ob1/pml_ob1_sendreq.c:1246:        orte_errmgr.abort(-1, NULL);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:14:#include "orte/mca/rml/rml.h"
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:15:#include "orte/mca/rml/base/rml_contact.h"
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:16:#include "orte/mca/errmgr/errmgr.h"
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:25:    orte_process_name_t el_proc;
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:27:    orte_rml_tag_t el_tag;
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:33:    if (ORTE_SUCCESS != (rc = ompi_dpm.parse_port(port, &hnp_uri, &rml_uri, &el_tag))) {
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:34:        ORTE_ERROR_LOG(rc);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:38:    if (ORTE_SUCCESS != (rc = orte_rml_base_parse_uris(rml_uri, &el_proc, NULL))) {
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:39:        ORTE_ERROR_LOG(rc);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:44:    if (ORTE_SUCCESS != (rc = ompi_dpm.route_to_port(hnp_uri, &el_proc))) {
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:45:        ORTE_ERROR_LOG(rc);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:54:    rc = orte_rml.send_buffer(&el_proc, &buffer, el_tag+1, 0);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:56:        ORTE_ERROR_LOG(rc);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_eventlog.c:64:        ORTE_ERROR_LOG(rc);
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_sender_based.c:25:#include "orte/util/proc_info.h"
+./mca/pml/v/mca/vprotocol/pessimist/vprotocol_pessimist_sender_based.c:144:    asprintf(&path, "%s"OPAL_PATH_SEP"%s", orte_process_info.proc_session_dir, 
+./mca/pml/v/pml_v_output.c:13:#include "orte/util/show_help.h"
+./mca/pml/v/pml_v_output.h:14:#include "orte/util/show_help.h"
+./mca/pubsub/base/pubsub_base_close.c:22:#include "orte/util/show_help.h"
+./mca/pubsub/base/pubsub_base_open.c:22:#include "orte/util/show_help.h"
+./mca/pubsub/base/pubsub_base_open.c:25:#include "orte/util/show_help.h"                                                     <<<< TWICE EVEN!!!
+./mca/pubsub/base/pubsub_base_select.c:22:#include "orte/util/show_help.h"
+./mca/pubsub/orte/pubsub_orte.c:27:#include "orte/util/show_help.h"
+./mca/pubsub/orte/pubsub_orte.c:32:#include "orte/mca/errmgr/errmgr.h"
+./mca/pubsub/orte/pubsub_orte.c:33:#include "orte/mca/grpcomm/grpcomm.h"
+./mca/pubsub/orte/pubsub_orte.c:34:#include "orte/mca/plm/plm.h"
+./mca/pubsub/orte/pubsub_orte.c:35:#include "orte/mca/rml/rml.h"
+./mca/pubsub/orte/pubsub_orte.c:36:#include "orte/mca/rml/base/rml_contact.h"
+./mca/pubsub/orte/pubsub_orte.c:37:#include "orte/mca/routed/routed.h"
+./mca/pubsub/orte/pubsub_orte.c:38:#include "orte/util/name_fns.h"
+./mca/pubsub/orte/pubsub_orte.c:39:#include "orte/runtime/orte_globals.h"
+./mca/pubsub/orte/pubsub_orte.c:40:#include "orte/runtime/orte_data_server.h"
+./mca/pubsub/orte/pubsub_orte.c:49:#include "pubsub_orte.h"
+./mca/pubsub/orte/pubsub_orte.c:68:    orte_rml_cmd_flag_t cmd=ORTE_RML_UPDATE_CMD; /* irrelevant - will be ignored */
+
+./mca/pubsub/orte/pubsub_orte.c:73:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/pubsub/orte/pubsub_orte.c:74:                         (NULL == mca_pubsub_orte_component.server_uri) ? "NULL" : mca_pubsub_orte_component.server_uri));
+./mca/pubsub/orte/pubsub_orte.c:79:    if (NULL == mca_pubsub_orte_component.server_uri) {
+./mca/pubsub/orte/pubsub_orte.c:83:        mca_pubsub_orte_component.server_found = false;
+./mca/pubsub/orte/pubsub_orte.c:92:    opal_dss.pack(&buf, &cmd, 1, ORTE_RML_CMD);
+./mca/pubsub/orte/pubsub_orte.c:93:    opal_dss.pack(&buf, &mca_pubsub_orte_component.server_uri, 1, OPAL_STRING);
+./mca/pubsub/orte/pubsub_orte.c:95:    if (ORTE_SUCCESS != (rc = orte_rml_base_parse_uris(mca_pubsub_orte_component.server_uri,
+./mca/pubsub/orte/pubsub_orte.c:96:                                                       &mca_pubsub_orte_component.server, NULL))) {
+./mca/pubsub/orte/pubsub_orte.c:97:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:99:        mca_pubsub_orte_component.server_found = false;
+./mca/pubsub/orte/pubsub_orte.c:103:    if (ORTE_SUCCESS != (rc = orte_routed.init_routes(mca_pubsub_orte_component.server.jobid, &buf))) {
+./mca/pubsub/orte/pubsub_orte.c:104:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:105:        mca_pubsub_orte_component.server_found = false;
+./mca/pubsub/orte/pubsub_orte.c:112:    mca_pubsub_orte_component.server_found = true;
+./mca/pubsub/orte/pubsub_orte.c:115:                         "%s pubsub:orte: server %s setup",
+./mca/pubsub/orte/pubsub_orte.c:116:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/pubsub/orte/pubsub_orte.c:117:                         ORTE_NAME_PRINT(&mca_pubsub_orte_component.server)));
+./mca/pubsub/orte/pubsub_orte.c:137:    orte_process_name_t *info_host;
+./mca/pubsub/orte/pubsub_orte.c:139:    orte_data_server_cmd_t cmd=ORTE_DATA_SERVER_PUBLISH;
+./mca/pubsub/orte/pubsub_orte.c:140:    orte_std_cntr_t cnt;
+./mca/pubsub/orte/pubsub_orte.c:149:        if (mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:151:            info_host = &mca_pubsub_orte_component.server;
+./mca/pubsub/orte/pubsub_orte.c:155:            info_host = ORTE_PROC_MY_HNP;
+./mca/pubsub/orte/pubsub_orte.c:159:        info_host = ORTE_PROC_MY_HNP;
+./mca/pubsub/orte/pubsub_orte.c:168:        if (!mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:169:            orte_show_help("help-ompi-pubsub-orte.txt", "pubsub-orte:no-server",
+./mca/pubsub/orte/pubsub_orte.c:170:                           true, (long)ORTE_PROC_MY_NAME->vpid, "publish to");
+./mca/pubsub/orte/pubsub_orte.c:173:        info_host = &mca_pubsub_orte_component.server;
+./mca/pubsub/orte/pubsub_orte.c:177:                         "%s pubsub:orte: publishing service %s scope %s",
+./mca/pubsub/orte/pubsub_orte.c:178:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/pubsub/orte/pubsub_orte.c:185:    if (ORTE_SUCCESS != (rc = opal_dss.pack(&buf, &cmd, 1, ORTE_DATA_SERVER_CMD))) {
+./mca/pubsub/orte/pubsub_orte.c:186:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:191:    if (ORTE_SUCCESS != (rc = opal_dss.pack(&buf, &service_name, 1, OPAL_STRING))) {
+./mca/pubsub/orte/pubsub_orte.c:192:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:197:    if (ORTE_SUCCESS != (rc = opal_dss.pack(&buf, &port_name, 1, OPAL_STRING))) {
+./mca/pubsub/orte/pubsub_orte.c:198:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:203:    if (0 > (rc = orte_rml.send_buffer(info_host, &buf, ORTE_RML_TAG_DATA_SERVER, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:204:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:211:    if (0 > (rc = orte_rml.recv_buffer(ORTE_NAME_WILDCARD, &buf, ORTE_RML_TAG_DATA_CLIENT, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:212:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:218:    if (ORTE_SUCCESS != (rc = opal_dss.unpack(&buf, &ret, &cnt, OPAL_INT))) {
+./mca/pubsub/orte/pubsub_orte.c:219:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:235:    orte_process_name_t *info_host;
+./mca/pubsub/orte/pubsub_orte.c:237:    orte_data_server_cmd_t cmd=ORTE_DATA_SERVER_LOOKUP;
+./mca/pubsub/orte/pubsub_orte.c:238:    orte_std_cntr_t cnt=0;
+./mca/pubsub/orte/pubsub_orte.c:273:                    orte_show_help("help-ompi-pubsub-orte.txt",
+./mca/pubsub/orte/pubsub_orte.c:274:                                   "pubsub-orte:too-many-orders",
+./mca/pubsub/orte/pubsub_orte.c:275:                                   true, (long)ORTE_PROC_MY_NAME->vpid,
+./mca/pubsub/orte/pubsub_orte.c:287:                            orte_show_help("help-ompi-pubsub-orte.txt",
+./mca/pubsub/orte/pubsub_orte.c:288:                                           "pubsub-orte:unknown-order",
+./mca/pubsub/orte/pubsub_orte.c:289:                                           true, (long)ORTE_PROC_MY_NAME->vpid);
+./mca/pubsub/orte/pubsub_orte.c:304:            orte_show_help("help-ompi-pubsub-orte.txt",
+./mca/pubsub/orte/pubsub_orte.c:305:                           "pubsub-orte:unknown-order",
+./mca/pubsub/orte/pubsub_orte.c:306:                           true, (long)ORTE_PROC_MY_NAME->vpid);
+./mca/pubsub/orte/pubsub_orte.c:317:        if (!mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:325:                         "%s pubsub:orte: lookup service %s scope %d",
+./mca/pubsub/orte/pubsub_orte.c:326:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/pubsub/orte/pubsub_orte.c:333:            info_host = ORTE_PROC_MY_HNP;
+./mca/pubsub/orte/pubsub_orte.c:342:            if (!mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:343:                orte_show_help("help-ompi-pubsub-orte.txt",
+./mca/pubsub/orte/pubsub_orte.c:344:                               "pubsub-orte:no-server",
+./mca/pubsub/orte/pubsub_orte.c:345:                               true, (long)ORTE_PROC_MY_NAME->vpid,
+./mca/pubsub/orte/pubsub_orte.c:349:            info_host = &mca_pubsub_orte_component.server;
+./mca/pubsub/orte/pubsub_orte.c:354:            orte_show_help("help-ompi-pubsub-orte.txt",
+./mca/pubsub/orte/pubsub_orte.c:355:                           "pubsub-orte:unknown-order",
+./mca/pubsub/orte/pubsub_orte.c:356:                           true, (long)ORTE_PROC_MY_NAME->vpid);
+./mca/pubsub/orte/pubsub_orte.c:365:        if (ORTE_SUCCESS != (ret = opal_dss.pack(&buf, &cmd, 1, ORTE_DATA_SERVER_CMD))) {
+./mca/pubsub/orte/pubsub_orte.c:366:            ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:371:        if (ORTE_SUCCESS != (ret = opal_dss.pack(&buf, &service_name, 1, OPAL_STRING))) {
+./mca/pubsub/orte/pubsub_orte.c:372:            ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:377:        if (0 > (ret = orte_rml.send_buffer(info_host, &buf, ORTE_RML_TAG_DATA_SERVER, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:378:            ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:385:        if (0 > (ret = orte_rml.recv_buffer(ORTE_NAME_WILDCARD, &buf, ORTE_RML_TAG_DATA_CLIENT, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:386:            ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:392:        if (ORTE_SUCCESS != (ret = opal_dss.unpack(&buf, &rc, &cnt, OPAL_INT))) {
+./mca/pubsub/orte/pubsub_orte.c:393:            ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:397:        if (ORTE_SUCCESS == rc) {
+./mca/pubsub/orte/pubsub_orte.c:400:            if (ORTE_SUCCESS != (ret = opal_dss.unpack(&buf, &port_name, &cnt, OPAL_STRING))) {
+./mca/pubsub/orte/pubsub_orte.c:401:                ORTE_ERROR_LOG(ret);
+./mca/pubsub/orte/pubsub_orte.c:437:    orte_process_name_t *info_host;
+./mca/pubsub/orte/pubsub_orte.c:439:    orte_data_server_cmd_t cmd=ORTE_DATA_SERVER_UNPUBLISH;
+./mca/pubsub/orte/pubsub_orte.c:440:    orte_std_cntr_t cnt;
+./mca/pubsub/orte/pubsub_orte.c:449:        if (mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:451:            info_host = &mca_pubsub_orte_component.server;
+./mca/pubsub/orte/pubsub_orte.c:455:            info_host = ORTE_PROC_MY_HNP;
+./mca/pubsub/orte/pubsub_orte.c:459:        info_host = ORTE_PROC_MY_HNP;
+./mca/pubsub/orte/pubsub_orte.c:468:        if (!mca_pubsub_orte_component.server_found) {
+./mca/pubsub/orte/pubsub_orte.c:469:            orte_show_help("help-ompi-pubsub-orte.txt", "pubsub-orte:no-server",
+./mca/pubsub/orte/pubsub_orte.c:470:                           true, (long)ORTE_PROC_MY_NAME->vpid, "unpublish from");
+./mca/pubsub/orte/pubsub_orte.c:473:        info_host = &mca_pubsub_orte_component.server;
+./mca/pubsub/orte/pubsub_orte.c:477:                         "%s pubsub:orte: unpublish service %s scope %s",
+./mca/pubsub/orte/pubsub_orte.c:478:                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+./mca/pubsub/orte/pubsub_orte.c:485:    if (ORTE_SUCCESS != (rc = opal_dss.pack(&buf, &cmd, 1, ORTE_DATA_SERVER_CMD))) {
+./mca/pubsub/orte/pubsub_orte.c:486:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:491:    if (ORTE_SUCCESS != (rc = opal_dss.pack(&buf, &service_name, 1, OPAL_STRING))) {
+./mca/pubsub/orte/pubsub_orte.c:492:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:497:    if (0 > (rc = orte_rml.send_buffer(info_host, &buf, ORTE_RML_TAG_DATA_SERVER, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:498:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:505:    if (0 > (rc = orte_rml.recv_buffer(ORTE_NAME_WILDCARD, &buf, ORTE_RML_TAG_DATA_CLIENT, 0))) {
+./mca/pubsub/orte/pubsub_orte.c:506:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:512:    if (ORTE_SUCCESS != (rc = opal_dss.unpack(&buf, &ret, &cnt, OPAL_INT))) {
+./mca/pubsub/orte/pubsub_orte.c:513:        ORTE_ERROR_LOG(rc);
+./mca/pubsub/orte/pubsub_orte.c:536:ompi_pubsub_base_module_t ompi_pubsub_orte_module = {
+./mca/pubsub/orte/pubsub_orte_component.c:22:#include "pubsub_orte.h"
+./mca/pubsub/orte/pubsub_orte_component.c:24:static int pubsub_orte_component_open(void);
+./mca/pubsub/orte/pubsub_orte_component.c:25:static int pubsub_orte_component_close(void);
+./mca/pubsub/orte/pubsub_orte_component.c:26:static int pubsub_orte_component_query(mca_base_module_t **module, int *priority);
+./mca/pubsub/orte/pubsub_orte_component.c:28:ompi_pubsub_orte_component_t mca_pubsub_orte_component = {
+./mca/pubsub/orte/pubsub_orte_component.c:36:          "orte", /* MCA component name */
+./mca/pubsub/orte/pubsub_orte_component.c:40:          pubsub_orte_component_open,  /* component open */
+./mca/pubsub/orte/pubsub_orte_component.c:41:          pubsub_orte_component_close, /* component close */
+./mca/pubsub/orte/pubsub_orte_component.c:42:          pubsub_orte_component_query  /* component query */
+./mca/pubsub/orte/pubsub_orte_component.c:52:static int pubsub_orte_component_open(void)
+./mca/pubsub/orte/pubsub_orte_component.c:57:static int pubsub_orte_component_close(void)
+./mca/pubsub/orte/pubsub_orte_component.c:59:    if (NULL != mca_pubsub_orte_component.server_uri) {
+./mca/pubsub/orte/pubsub_orte_component.c:60:        free(mca_pubsub_orte_component.server_uri);
+./mca/pubsub/orte/pubsub_orte_component.c:61:        mca_pubsub_orte_component.server_uri = NULL;
+./mca/pubsub/orte/pubsub_orte_component.c:66:static int pubsub_orte_component_query(mca_base_module_t **module, int *priority)
+./mca/pubsub/orte/pubsub_orte_component.c:68:    mca_base_component_t *comp = &mca_pubsub_orte_component.super.base_version;
+./mca/pubsub/orte/pubsub_orte_component.c:73:                              &mca_pubsub_orte_component.server_uri);
+./mca/pubsub/orte/pubsub_orte_component.c:75:    mca_pubsub_orte_component.server_found = false;
+./mca/pubsub/orte/pubsub_orte_component.c:78:    *module = (mca_base_module_t *) &ompi_pubsub_orte_module;
+./mca/pubsub/orte/pubsub_orte_component.c:79:    return ORTE_SUCCESS;
+./mca/pubsub/orte/pubsub_orte.h:19:#ifndef OMPI_PUBSUB_ORTE_H
+./mca/pubsub/orte/pubsub_orte.h:20:#define OMPI_PUBSUB_ORTE_H
+./mca/pubsub/orte/pubsub_orte.h:24:#include "orte/types.h"
+./mca/pubsub/orte/pubsub_orte.h:36:    orte_process_name_t server;
+./mca/pubsub/orte/pubsub_orte.h:39:} ompi_pubsub_orte_component_t;
+./mca/pubsub/orte/pubsub_orte.h:42:extern ompi_pubsub_base_module_t ompi_pubsub_orte_module;
+./mca/pubsub/orte/pubsub_orte.h:47:OMPI_MODULE_DECLSPEC extern ompi_pubsub_orte_component_t mca_pubsub_orte_component;
+
+./mca/topo/base/topo_base_close.c:22:#include "orte/util/show_help.h"
+./mca/topo/base/topo_base_comm_select.c:30:#include "orte/util/show_help.h"
+./mca/topo/base/topo_base_find_available.c:26:#include "orte/util/show_help.h"
+./mca/topo/base/topo_base_open.c:24:#include "orte/util/show_help.h"
+./mca/topo/base/topo_base_open.c:29:#include "orte/util/show_help.h"
+./mpi/c/abort.c:21:#include "orte/util/show_help.h"
+./mpi/c/abort.c:53:    orte_show_help("help-mpi-api.txt", "mpi-abort", true,
+./mpi/c/comm_join.c:39:#include "orte/util/name_fns.h"
+./mpi/c/comm_spawn.c:22:#include "orte/util/show_help.h"
+./mpi/c/comm_spawn_multiple.c:22:#include "orte/util/show_help.h"
+./mpi/c/init.c:25:#include "orte/util/show_help.h"
+./mpi/c/init.c:51:            orte_show_help("help-mpi-api.txt",
+./mpi/c/init.c:59:            orte_show_help("help-mpi-api.txt", "mpi-initialize-twice",
+./mpi/c/init_thread.c:21:#include "orte/util/show_help.h"
+./mpi/c/init_thread.c:62:            orte_show_help("help-mpi-api.txt", "mpi-function-after-finalize",
+./mpi/c/init_thread.c:69:            orte_show_help("help-mpi-api.txt", "mpi-initialize-twice",
+./proc/proc.c:25:#include "orte/util/show_help.h"
+./proc/proc.c:29:#include "orte/mca/errmgr/errmgr.h"
+./proc/proc.c:30:#include "orte/mca/ess/ess.h"
+./proc/proc.c:31:#include "orte/util/proc_info.h"
+./proc/proc.c:32:#include "orte/util/name_fns.h"
+./proc/proc.c:33:#include "orte/runtime/orte_globals.h"
+./proc/proc.c:67:    proc->proc_arch = orte_process_info.arch;
+./proc/proc.c:97:    orte_vpid_t i;
+./proc/proc.c:103:    for( i = 0; i < orte_process_info.num_procs; i++ ) {
+./proc/proc.c:107:        proc->proc_name.jobid = ORTE_PROC_MY_NAME->jobid;
+./proc/proc.c:109:        if (i == ORTE_PROC_MY_NAME->vpid) {
+./proc/proc.c:112:            proc->proc_hostname = orte_process_info.nodename;
+./proc/proc.c:113:            proc->proc_arch = orte_process_info.arch;
+./proc/proc.c:115:            if (orte_ess.proc_is_local(&proc->proc_name)) {
+./proc/proc.c:119:            proc->proc_hostname = orte_ess.proc_get_hostname(&proc->proc_name);
+./proc/proc.c:148:        if (proc->proc_name.vpid != ORTE_PROC_MY_NAME->vpid) {
+./proc/proc.c:149:            proc->proc_arch = orte_ess.proc_get_arch(&proc->proc_name);
+./proc/proc.c:151:            if (proc->proc_arch != orte_process_info.arch) {
+./proc/proc.c:156:                orte_show_help("help-mpi-runtime",
+./proc/proc.c:158:                               true, orte_process_info.nodename, 
+./proc/proc.c:162:                return OMPI_ERR_NOT_SUPPORTED;
+./proc/proc.c:210:    orte_ns_cmp_bitmask_t mask;
+./proc/proc.c:211:    orte_process_name_t my_name;
+./proc/proc.c:217:    mask = ORTE_NS_CMP_JOBID;
+./proc/proc.c:225:        if (OPAL_EQUAL == orte_util_compare_name_fields(mask, &proc->proc_name, &my_name)) {
+./proc/proc.c:242:        if (OPAL_EQUAL == orte_util_compare_name_fields(mask, &proc->proc_name, &my_name)) {
+./proc/proc.c:315:ompi_proc_t * ompi_proc_find ( const orte_process_name_t * name )
+./proc/proc.c:318:    orte_ns_cmp_bitmask_t mask;
+./proc/proc.c:321:    mask = ORTE_NS_CMP_JOBID | ORTE_NS_CMP_VPID;
+./proc/proc.c:326:        if (OPAL_EQUAL == orte_util_compare_name_fields(mask, &proc->proc_name, name)) {
+./proc/proc.c:340:    orte_vpid_t i = 0;
+./proc/proc.c:350:        proc->proc_name.jobid = ORTE_PROC_MY_NAME->jobid;
+./proc/proc.c:355:        if (i == ORTE_PROC_MY_NAME->vpid) {
+./proc/proc.c:358:            proc->proc_hostname = orte_process_info.nodename;
+./proc/proc.c:359:            proc->proc_arch = orte_process_info.arch;
+./proc/proc.c:361:            if (orte_ess.proc_is_local(&proc->proc_name)) {
+./proc/proc.c:364:            proc->proc_hostname = orte_ess.proc_get_hostname(&proc->proc_name);
+./proc/proc.c:365:            proc->proc_arch = orte_ess.proc_get_arch(&proc->proc_name);
+./proc/proc.c:367:            if (proc->proc_arch != orte_process_info.arch) {
+./proc/proc.c:372:                orte_show_help("help-mpi-runtime",
+./proc/proc.c:374:                               true, orte_process_info.nodename, 
+./proc/proc.c:378:                return OMPI_ERR_NOT_SUPPORTED;
+./proc/proc.c:409:        rc = opal_dss.pack(buf, &(proclist[i]->proc_name), 1, ORTE_NAME);
+./proc/proc.c:410:        if(rc != ORTE_SUCCESS) {
+./proc/proc.c:411:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:416:        if(rc != ORTE_SUCCESS) {
+./proc/proc.c:417:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:422:        if(rc != ORTE_SUCCESS) {
+./proc/proc.c:423:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:433:ompi_proc_find_and_add(const orte_process_name_t * name, bool* isnew)
+./proc/proc.c:436:    orte_ns_cmp_bitmask_t mask;
+./proc/proc.c:439:    mask = ORTE_NS_CMP_JOBID | ORTE_NS_CMP_VPID;
+./proc/proc.c:444:        if (OPAL_EQUAL == orte_util_compare_name_fields(mask, &proc->proc_name, name)) {
+./proc/proc.c:497:        orte_std_cntr_t count=1;
+./proc/proc.c:498:        orte_process_name_t new_name;
+./proc/proc.c:504:        rc = opal_dss.unpack(buf, &new_name, &count, ORTE_NAME);
+./proc/proc.c:505:        if (rc != ORTE_SUCCESS) {
+./proc/proc.c:506:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:512:        if (rc != ORTE_SUCCESS) {
+./proc/proc.c:513:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:519:        if (rc != ORTE_SUCCESS) {
+./proc/proc.c:520:            ORTE_ERROR_LOG(rc);
+./proc/proc.c:544:                orte_show_help("help-mpi-runtime",
+./proc/proc.c:546:                               true, orte_process_info.nodename, 
+./proc/proc.c:551:                return OMPI_ERR_NOT_SUPPORTED;
+./proc/proc.c:561:            /* eventually, we will update the orte/mca/ess framework's data
+./proc/proc.h:39:#include "orte/runtime/orte_globals.h"
+./proc/proc.h:56:    orte_process_name_t             proc_name;
+./proc/proc.h:234:OMPI_DECLSPEC ompi_proc_t * ompi_proc_find ( const orte_process_name_t* name );
+
+
+# The Following is just from the Runtime side:
+./runtime/ompi_cr.c:42:#include "orte/util/show_help.h"
+./runtime/ompi_cr.c:48:#include "orte/util/proc_info.h"
+./runtime/ompi_cr.c:49:#include "orte/mca/snapc/snapc.h"
+./runtime/ompi_cr.c:50:#include "orte/mca/snapc/base/base.h"
+./runtime/ompi_cr.c:51:#include "orte/runtime/runtime.h"
+./runtime/ompi_cr.c:52:#include "orte/util/show_help.h"
+./runtime/ompi_cr.c:53:#include "orte/mca/grpcomm/grpcomm.h"
+./runtime/ompi_cr.c:296:    if( ORTE_SUCCESS != (ret = mca_pml.pml_ft_event(OPAL_CRS_CHECKPOINT))) {
+./runtime/ompi_cr.c:319:    if( ORTE_SUCCESS != (ret = mca_pml.pml_ft_event(OPAL_CRS_RESTART_PRE))) {
+./runtime/ompi_cr.c:340:        if( ORTE_SUCCESS != (ret = mca_pml.pml_ft_event(OPAL_CRS_CONTINUE))) {
+./runtime/ompi_cr.c:384:    if( ORTE_SUCCESS != (ret = mca_pml.pml_ft_event(OPAL_CRS_RESTART))) {
+./runtime/ompi_cr.c:413:    if( ORTE_SUCCESS != (ret = mca_pml.pml_ft_event(OPAL_CRS_CONTINUE))) {
+./runtime/ompi_module_exchange.c:27:#include "orte/mca/grpcomm/grpcomm.h"
+./runtime/ompi_module_exchange.c:44:    rc = orte_grpcomm.set_proc_attr(name, data, size);
+./runtime/ompi_module_exchange.c:63:    rc = orte_grpcomm.get_proc_attr(proc->proc_name, name, buffer, size);
+./runtime/ompi_module_exchange.c:72:    return orte_grpcomm.set_proc_attr(key, buffer, size);
+./runtime/ompi_module_exchange.c:81:    return orte_grpcomm.get_proc_attr(source_proc->proc_name, key, buffer, size);
+./runtime/ompi_module_exchange.h:59:#include "orte/types.h"
+./runtime/ompi_mpi_abort.c:36:#include "orte/util/proc_info.h"
+./runtime/ompi_mpi_abort.c:37:#include "orte/runtime/runtime.h"
+./runtime/ompi_mpi_abort.c:38:#include "orte/runtime/orte_globals.h"
+./runtime/ompi_mpi_abort.c:39:#include "orte/util/name_fns.h"
+./runtime/ompi_mpi_abort.c:40:#include "orte/mca/errmgr/errmgr.h"
+./runtime/ompi_mpi_abort.c:58:    orte_process_name_t *abort_procs;
+./runtime/ompi_mpi_abort.c:59:    orte_std_cntr_t nabort_procs;
+./runtime/ompi_mpi_abort.c:70:    if (orte_initialized) {
+./runtime/ompi_mpi_abort.c:71:        host = orte_process_info.nodename;
+./runtime/ompi_mpi_abort.c:137:    if (!orte_initialized || !ompi_mpi_initialized || ompi_mpi_finalized) {
+./runtime/ompi_mpi_abort.c:155:    abort_procs = (orte_process_name_t*)malloc(sizeof(orte_process_name_t) * nabort_procs);
+./runtime/ompi_mpi_abort.c:158:        orte_errmgr.abort(errcode, "Abort unable to malloc memory to kill procs");
+./runtime/ompi_mpi_abort.c:163:        if (OPAL_EQUAL != orte_util_compare_name_fields(ORTE_NS_CMP_ALL, 
+./runtime/ompi_mpi_abort.c:165:                                 ORTE_PROC_MY_NAME)) {
+./runtime/ompi_mpi_abort.c:177:            if (OPAL_EQUAL != orte_util_compare_name_fields(ORTE_NS_CMP_ALL, 
+./runtime/ompi_mpi_abort.c:179:                                     ORTE_PROC_MY_NAME)) {
+./runtime/ompi_mpi_abort.c:192:        int ret = orte_errmgr.abort_procs_request(abort_procs, nabort_procs);
+./runtime/ompi_mpi_abort.c:194:            orte_errmgr.abort(ret, "Open MPI failed to abort procs as requested (%d). Exiting.", ret);
+./runtime/ompi_mpi_abort.c:200:    orte_errmgr.abort(errcode, NULL);
+./runtime/ompi_mpi_finalize.c:43:#include "orte/util/show_help.h"
+./runtime/ompi_mpi_finalize.c:46:#include "orte/util/proc_info.h"
+./runtime/ompi_mpi_finalize.c:47:#include "orte/mca/oob/base/base.h"
+./runtime/ompi_mpi_finalize.c:48:#include "orte/mca/rml/rml.h"
+./runtime/ompi_mpi_finalize.c:49:#include "orte/mca/errmgr/errmgr.h"
+./runtime/ompi_mpi_finalize.c:50:#include "orte/mca/grpcomm/grpcomm.h"
+./runtime/ompi_mpi_finalize.c:51:#include "orte/runtime/runtime.h"
+./runtime/ompi_mpi_finalize.c:108:        orte_show_help("help-mpi-runtime.txt",
+./runtime/ompi_mpi_finalize.c:146:    if (value != 0 && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_finalize.c:156:    if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {
+./runtime/ompi_mpi_finalize.c:157:        ORTE_ERROR_LOG(ret);
+./runtime/ompi_mpi_finalize.c:163:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_finalize.c:166:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_finalize.c:175:        ORTE_ERROR_LOG(ret);
+./runtime/ompi_mpi_finalize.c:249:        ORTE_ERROR_LOG(ret);
+./runtime/ompi_mpi_finalize.c:342:    if (OMPI_SUCCESS != (ret = orte_finalize())) {
+./runtime/ompi_mpi_init.c:51:#include "orte/util/proc_info.h"
+./runtime/ompi_mpi_init.c:52:#include "orte/runtime/runtime.h"
+./runtime/ompi_mpi_init.c:53:#include "orte/mca/grpcomm/grpcomm.h"
+./runtime/ompi_mpi_init.c:54:#include "orte/runtime/orte_globals.h"
+./runtime/ompi_mpi_init.c:55:#include "orte/util/show_help.h"
+./runtime/ompi_mpi_init.c:56:#include "orte/mca/ess/ess.h"
+./runtime/ompi_mpi_init.c:98:#include "orte/runtime/orte_globals.h"
+./runtime/ompi_mpi_init.c:136:        orte_show_help("help-mpi-runtime.txt", "mpi_init:warn-fork", true,
+./runtime/ompi_mpi_init.c:137:                       orte_process_info.nodename, getpid(),
+./runtime/ompi_mpi_init.c:290:    bool orte_setup = false;
+./runtime/ompi_mpi_init.c:295:    if (ORTE_SUCCESS != (ret = opal_init_util())) {
+./runtime/ompi_mpi_init.c:300:    /* _After_ opal_init_util() but _before_ orte_init(), we need to
+./runtime/ompi_mpi_init.c:308:                                         "Internal orted MCA param: tell opal_init() to use a specific mechanism in libevent",
+./runtime/ompi_mpi_init.c:322:           side-effects with launching ORTE tools... */
+./runtime/ompi_mpi_init.c:342:    /* Setup ORTE - note that we are not a tool  */
+./runtime/ompi_mpi_init.c:343:    orte_process_info.mpi_proc = true;
+./runtime/ompi_mpi_init.c:344:    if (ORTE_SUCCESS != (ret = orte_init(ORTE_NON_TOOL))) {
+./runtime/ompi_mpi_init.c:345:        error = "ompi_mpi_init: orte_init failed";
+./runtime/ompi_mpi_init.c:348:    orte_setup = true;
+./runtime/ompi_mpi_init.c:351:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:354:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_init.c:397:    ret = opal_paffinity_base_slot_list_set((long)ORTE_PROC_MY_NAME->vpid);
+./runtime/ompi_mpi_init.c:417:        orte_node_rank_t nrank;
+./runtime/ompi_mpi_init.c:418:        if (ORTE_NODE_RANK_INVALID == (nrank = orte_ess.get_node_rank(ORTE_PROC_MY_NAME))) {
+./runtime/ompi_mpi_init.c:630:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:633:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_init.c:642:    if (OMPI_SUCCESS != (ret = orte_grpcomm.modex(NULL))) {
+./runtime/ompi_mpi_init.c:647:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:650:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_init.c:700:                                orte_process_info.nodename);
+./runtime/ompi_mpi_init.c:710:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:713:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_init.c:720:    if (OMPI_SUCCESS != (ret = orte_grpcomm.barrier())) {
+./runtime/ompi_mpi_init.c:727:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:730:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_init.c:845:        if (orte_setup) {
+./runtime/ompi_mpi_init.c:846:            orte_show_help("help-mpi-runtime",
+./runtime/ompi_mpi_init.c:877:    if (timing && 0 == ORTE_PROC_MY_NAME->vpid) {
+./runtime/ompi_mpi_init.c:880:                    (long)ORTE_PROC_MY_NAME->vpid,
+./runtime/ompi_mpi_params.c:32:#include "orte/util/show_help.h"
+./runtime/ompi_mpi_params.c:83:            orte_show_help("help-mpi-runtime.txt", 
+./runtime/ompi_mpi_params.c:253:        orte_show_help("help-mpi-runtime.txt", 
+./runtime/ompi_mpi_params.c:285:            orte_show_help("help-mpi-runtime.txt", 
+./tools/ompi_info/components.cc:29:#include "orte/runtime/runtime.h"
+./tools/ompi_info/components.cc:88:#include "orte/mca/errmgr/errmgr.h"
+./tools/ompi_info/components.cc:89:#include "orte/mca/errmgr/base/base.h"
+./tools/ompi_info/components.cc:90:#include "orte/mca/grpcomm/grpcomm.h"
+./tools/ompi_info/components.cc:91:#include "orte/mca/grpcomm/base/base.h"
+./tools/ompi_info/components.cc:92:#include "orte/mca/ess/ess.h"
+./tools/ompi_info/components.cc:93:#include "orte/mca/ess/base/base.h"
+./tools/ompi_info/components.cc:94:#include "orte/util/show_help.h"
+./tools/ompi_info/components.cc:95:#if !ORTE_DISABLE_FULL_SUPPORT
+./tools/ompi_info/components.cc:96:#include "orte/mca/iof/iof.h"
+./tools/ompi_info/components.cc:97:#include "orte/mca/iof/base/base.h"
+./tools/ompi_info/components.cc:98:#include "orte/mca/oob/oob.h"
+./tools/ompi_info/components.cc:99:#include "orte/mca/oob/base/base.h"
+./tools/ompi_info/components.cc:100:#include "orte/mca/odls/odls.h"
+./tools/ompi_info/components.cc:101:#include "orte/mca/odls/base/base.h"
+./tools/ompi_info/components.cc:102:#include "orte/mca/ras/ras.h"
+./tools/ompi_info/components.cc:103:#include "orte/mca/ras/base/ras_private.h"
+./tools/ompi_info/components.cc:104:#include "orte/mca/rmaps/rmaps.h"
+./tools/ompi_info/components.cc:105:#include "orte/mca/rmaps/base/base.h"
+./tools/ompi_info/components.cc:106:#include "orte/mca/rml/rml.h"
+./tools/ompi_info/components.cc:107:#include "orte/mca/rml/base/base.h"
+./tools/ompi_info/components.cc:108:#include "orte/mca/routed/routed.h"
+./tools/ompi_info/components.cc:109:#include "orte/mca/routed/base/base.h"
+./tools/ompi_info/components.cc:110:#include "orte/mca/plm/plm.h"
+./tools/ompi_info/components.cc:111:#include "orte/mca/plm/base/base.h"
+./tools/ompi_info/components.cc:113:#include "orte/mca/snapc/snapc.h"
+./tools/ompi_info/components.cc:114:#include "orte/mca/snapc/base/base.h"
+./tools/ompi_info/components.cc:116:#include "orte/mca/filem/filem.h"
+./tools/ompi_info/components.cc:117:#include "orte/mca/filem/base/base.h"
+./tools/ompi_info/components.cc:181:  if (ORTE_SUCCESS != opal_dss_open()) {
+./tools/ompi_info/components.cc:202:  if (ORTE_SUCCESS != orte_register_params()) {
+./tools/ompi_info/components.cc:277:  orte_process_info.hnp = true;
+./tools/ompi_info/components.cc:279:  if (ORTE_SUCCESS != orte_errmgr_base_open()) {
+./tools/ompi_info/components.cc:282:  component_map["errmgr"] = &orte_errmgr_base_components_available;
+./tools/ompi_info/components.cc:284:  if (ORTE_SUCCESS != orte_grpcomm_base_open()) {
+./tools/ompi_info/components.cc:289:  if (ORTE_SUCCESS != orte_ess_base_open()) {
+./tools/ompi_info/components.cc:292:  component_map["ess"] = &orte_ess_base_components_available;
+./tools/ompi_info/components.cc:294:#if !ORTE_DISABLE_FULL_SUPPORT
+./tools/ompi_info/components.cc:295:  if (ORTE_SUCCESS != mca_oob_base_open()) {
+./tools/ompi_info/components.cc:300:  if (ORTE_SUCCESS != orte_odls_base_open()) {
+./tools/ompi_info/components.cc:303:  component_map["odls"] = &orte_odls_base.available_components;
+./tools/ompi_info/components.cc:305:  if (ORTE_SUCCESS != orte_iof_base_open()) {
+./tools/ompi_info/components.cc:308:  component_map["iof"] = &orte_iof_base.iof_components_opened;
+./tools/ompi_info/components.cc:310:  if (ORTE_SUCCESS != orte_ras_base_open()) {
+./tools/ompi_info/components.cc:313:  component_map["ras"] = &orte_ras_base.ras_opened;
+./tools/ompi_info/components.cc:315:  if (ORTE_SUCCESS != orte_rmaps_base_open()) {
+./tools/ompi_info/components.cc:318:  component_map["rmaps"] = &orte_rmaps_base.available_components;
+./tools/ompi_info/components.cc:320:  if (ORTE_SUCCESS != orte_rml_base_open()) {
+./tools/ompi_info/components.cc:323:  component_map["rml"] = &orte_rml_base_components;
+./tools/ompi_info/components.cc:325:  if (ORTE_SUCCESS != orte_routed_base_open()) {
+./tools/ompi_info/components.cc:328:  component_map["routed"] = &orte_routed_base_components;
+./tools/ompi_info/components.cc:330:  if (ORTE_SUCCESS != orte_plm_base_open()) {
+./tools/ompi_info/components.cc:333:  component_map["plm"] = &orte_plm_base.available_components;
+./tools/ompi_info/components.cc:336:  if (ORTE_SUCCESS != orte_snapc_base_open()) {
+./tools/ompi_info/components.cc:339:  component_map["snapc"] = &orte_snapc_base_components_available;
+./tools/ompi_info/components.cc:342:  if (ORTE_SUCCESS != orte_filem_base_open()) {
+./tools/ompi_info/components.cc:345:  component_map["filem"] = &orte_filem_base_components_available;
+./tools/ompi_info/components.cc:480:        (void) orte_grpcomm_base_close();
+./tools/ompi_info/components.cc:481:        (void) orte_ess_base_close();
+./tools/ompi_info/components.cc:482:        (void) orte_show_help_finalize();
+./tools/ompi_info/components.cc:483:#if !ORTE_DISABLE_FULL_SUPPORT
+./tools/ompi_info/components.cc:485:        (void) orte_snapc_base_close();
+./tools/ompi_info/components.cc:487:        (void) orte_filem_base_close();
+./tools/ompi_info/components.cc:488:        (void) orte_iof_base_close();
+./tools/ompi_info/components.cc:489:        (void) orte_plm_base_close();
+./tools/ompi_info/components.cc:490:        (void) orte_odls_base_close();
+./tools/ompi_info/components.cc:491:        (void) orte_rmaps_base_close();
+./tools/ompi_info/components.cc:492:        (void) orte_ras_base_close();
+./tools/ompi_info/components.cc:493:        (void) orte_rml_base_close();
+./tools/ompi_info/components.cc:494:        (void) orte_routed_base_close();
+./tools/ompi_info/components.cc:497:        (void) orte_errmgr_base_close();
+./tools/ompi_info/ompi_info.cc:43:#include "orte/runtime/runtime.h"
+./tools/ompi_info/ompi_info.cc:44:#include "orte/util/show_help.h"
+./tools/ompi_info/ompi_info.cc:65:const string ompi_info::type_orte = "orte";
+./tools/ompi_info/ompi_info.cc:83:    orte_show_help("help-ompi_info.txt", "lib-call-fail", true, 
+./tools/ompi_info/ompi_info.cc:91:    orte_show_help("help-ompi_info.txt", "lib-call-fail", true, 
+./tools/ompi_info/ompi_info.cc:140:      orte_show_help("help-ompi_info.txt", "lib-call-fail", true, "mca_base_open", __FILE__, __LINE__ );
+./tools/ompi_info/ompi_info.cc:159:      orte_show_help("help-ompi_info.txt", "usage", true, usage);
+./tools/ompi_info/ompi_info.cc:185:  ompi_info::mca_types.push_back("orte");
+./tools/ompi_info/ompi_info.cc:219:#if !ORTE_DISABLE_FULL_SUPPORT
+./tools/ompi_info/ompi_info.h:45:  extern const std::string type_orte;
+./tools/ompi_info/param.cc:40:#include "orte/util/show_help.h"
+./tools/ompi_info/param.cc:129:          orte_show_help("help-ompi_info.txt", "usage", true, usage);
+./tools/ompi_info/param.cc:440:          orte_show_help("help-ompi_info.txt", "usage", true, usage);
+./tools/ompi_info/param.cc:527:  const string mpirun_prefix_by_default(ORTE_WANT_ORTERUN_PREFIX_BY_DEFAULT ?
+./tools/ompi_info/version.cc:29:#include "orte/version.h"
+./tools/ompi_info/version.cc:142:  out("Open RTE", type_orte + ":version:full",
+./tools/ompi_info/version.cc:144:                       ORTE_MAJOR_VERSION, ORTE_MINOR_VERSION, 
+./tools/ompi_info/version.cc:145:                       ORTE_RELEASE_VERSION, 
+./tools/ompi_info/version.cc:146:                       ORTE_GREEK_VERSION,
+./tools/ompi_info/version.cc:147:                       ORTE_WANT_SVN, ORTE_SVN_R));
+./tools/ompi_info/version.cc:149:      ORTE_SVN_R);
+./tools/ompi_info/version.cc:151:      ORTE_RELEASE_DATE);
+./tools/ompi-probe/ompi-probe.c:46:#include "orte/mca/errmgr/errmgr.h"
+./tools/ompi-probe/ompi-probe.c:47:#include "orte/mca/rml/rml.h"
+./tools/ompi-probe/ompi-probe.c:48:#include "orte/util/proc_info.h"
+./tools/ompi-probe/ompi-probe.c:49:#include "orte/runtime/orte_globals.h"
+./tools/ompi-profiler/ompi-profiler.c:58:} orte_profile_node_t;
+./tools/ompi-profiler/ompi-profiler.c:59:static void node_constructor(orte_profile_node_t *ptr)
+./tools/ompi-profiler/ompi-profiler.c:64:static void node_destructor(orte_profile_node_t *ptr)
+./tools/ompi-profiler/ompi-profiler.c:71:OBJ_CLASS_INSTANCE(orte_profile_node_t,
+./tools/ompi-profiler/ompi-profiler.c:82:} orte_profile_t;
+./tools/ompi-profiler/ompi-profiler.c:83:static void profile_constructor(orte_profile_t *ptr)
+./tools/ompi-profiler/ompi-profiler.c:90:static void profile_destructor(orte_profile_t *ptr)
+./tools/ompi-profiler/ompi-profiler.c:102:OBJ_CLASS_INSTANCE(orte_profile_t,
+./tools/ompi-profiler/ompi-profiler.c:152:    orte_profile_node_t *node;
+./tools/ompi-profiler/ompi-profiler.c:153:    orte_profile_t *profile, *frame;
+./tools/ompi-profiler/ompi-profiler.c:322:            node = (orte_profile_node_t*)item;
+./tools/ompi-profiler/ompi-profiler.c:326:                profile = (orte_profile_t*)item2;
+./tools/ompi-profiler/ompi-profiler.c:331:                    frame = (orte_profile_t*)itemold;
+./tools/ompi-profiler/ompi-profiler.c:340:                frame = OBJ_NEW(orte_profile_t);
+./tools/ompi-profiler/ompi-profiler.c:353:            frame = (orte_profile_t*)itemold;
+./tools/ompi-profiler/ompi-profiler.c:381:    orte_profile_node_t *node;
+./tools/ompi-profiler/ompi-profiler.c:382:    orte_profile_t *profile;
+./tools/ompi-profiler/ompi-profiler.c:413:            node = (orte_profile_node_t*)item;
+./tools/ompi-profiler/ompi-profiler.c:420:        node = OBJ_NEW(orte_profile_node_t);
+./tools/ompi-profiler/ompi-profiler.c:438:            profile = (orte_profile_t*)item;
+./tools/ompi-profiler/ompi-profiler.c:446:        profile = OBJ_NEW(orte_profile_t);
+./tools/ompi-server/ompi-server.c:22:#include "orte_config.h"
+./tools/ompi-server/ompi-server.c:23:#include "orte/constants.h"
+./tools/ompi-server/ompi-server.c:44:#include "orte/util/show_help.h"
+./tools/ompi-server/ompi-server.c:52:#include "orte/util/name_fns.h"
+./tools/ompi-server/ompi-server.c:53:#include "orte/mca/errmgr/errmgr.h"
+./tools/ompi-server/ompi-server.c:54:#include "orte/mca/rml/rml.h"
+./tools/ompi-server/ompi-server.c:56:#include "orte/runtime/runtime.h"
+./tools/ompi-server/ompi-server.c:57:#include "orte/runtime/orte_globals.h"
+./tools/ompi-server/ompi-server.c:58:#include "orte/runtime/orte_data_server.h"
+./tools/ompi-server/ompi-server.c:87:    { "orte", "no_daemonize", NULL, '\0', NULL, "no-daemonize", 0,
+./tools/ompi-server/ompi-server.c:109:        fprintf(stderr, "OPAL failed to initialize -- orted aborting\n");
+./tools/ompi-server/ompi-server.c:117:    if (ORTE_SUCCESS != (ret = opal_cmd_line_parse(cmd_line, false,
+./tools/ompi-server/ompi-server.c:121:        orte_show_help("help-ompi-server.txt", "ompiserver:usage", false,
+./tools/ompi-server/ompi-server.c:131:        orte_show_help("help-ompi-server.txt", "ompiserver:usage", false,
+./tools/ompi-server/ompi-server.c:143:    /* if debug is set, then set orte_debug_flag so that the data server
+./tools/ompi-server/ompi-server.c:147:        putenv("OMPI_MCA_orte_debug=1");
+./tools/ompi-server/ompi-server.c:186:    if (ORTE_SUCCESS != (ret = orte_init(ORTE_TOOL))) {
+./tools/ompi-server/ompi-server.c:195:        rml_uri = orte_rml.get_contact_info();
+./tools/ompi-server/ompi-server.c:208:                orte_finalize();
+./tools/ompi-server/ompi-server.c:218:    if (ORTE_SUCCESS != (ret = orte_data_server_init())) {
+./tools/ompi-server/ompi-server.c:220:        orte_finalize();
+./tools/ompi-server/ompi-server.c:264:        opal_output(0, "%s ompi-server: up and running!", ORTE_NAME_PRINT(ORTE_PROC_MY_NAME));
+./tools/ompi-server/ompi-server.c:273:    if (ORTE_SUCCESS != (ret = orte_finalize())) {
+./tools/ompi-server/ompi-server.c:274:        ORTE_ERROR_LOG(ret);
+./tools/ompi-server/ompi-server.c:284:        opal_output(0, "%s ompi-server: finalizing", ORTE_NAME_PRINT(ORTE_PROC_MY_NAME));
+./tools/ompi-server/ompi-server.c:288:    if (ORTE_SUCCESS != (ret = orte_finalize())) {
+./tools/ompi-server/ompi-server.c:289:        ORTE_ERROR_LOG(ret);
+}}}

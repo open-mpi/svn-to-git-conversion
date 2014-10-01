@@ -1,0 +1,352 @@
+= INTRODUCTION =
+As Ralph has pointed out, there is some confusion surrounding the use
+of ''--host'' and ''--hostfile'' within resource managed environments.  This
+problem arises because of overloading what these parameters mean when
+combined with each other and with a resource managed environment.
+
+In some cases ''--host'' and ''--hostfile'' define the resource list that
+the job should run on.  In other cases, ''--host'' and ''--hostfile''
+define a filter to the resource list.  Note we are using the term
+filter because in certain scenarios, ''--host'' and ''--hostfile'' can be
+used to specify (i.e. filter) a subset of nodes to use in the resource list.
+
+While the usage of ''--host'' is well defined in the 
+[http://www.open-mpi.org/faq/?category=running#mpirun-host faq], the use of ''--hostfile''
+is not.  We therefore extend the meaning of how ''--hostfile''
+should work in a resource managed environment.  We also go further
+to cover some of the issues called out in ticket #1018.
+
+
+= DEFINITION OF INTERACTION =
+In this section, we define how a resource manager (RM), ''--host'', and ''--hostfile'' work 
+together.  
+
+This table shows how things work in the absence of a RM.
+
+|| How host and hostfile behave without RM                                                   ||
+|| '''--host'''  || '''--hostfile'''  || '''Result'''                                        ||
+|| unset         ||   unset           || job is run on mpirun node with np=1                 ||
+|| set           ||   unset           || host defines resource list                          ||
+|| unset         ||   set             || hostfile defines resource list                      ||
+|| set           ||   set             || hostfile defines resource list, host defines filter ||
+
+This table shows how things should work when running within a RM
+
+|| How host and hostfile behave with RM                                                      ||
+|| '''--host'''  || '''--hostfile'''  || '''Result'''                                        ||
+|| unset         ||   unset           || job is run on all resources defined by RM           ||
+|| set           ||   unset           || host defines filter to RM resource list             ||
+|| unset         ||   set             || hostfile defines filter to RM resource list         ||
+|| set           ||   set             || host and hostfile define filter to RM resource list ||
+
+To reiterate the points called out by the above tables, we walk through eight cases.
+
+=== WITHOUT RM ===
+Case 1: mpirun foo[[BR]]
+With nothing specified, one copy of foo is run on the same node as mpirun.
+
+Case 2: mpirun --host foo[[BR]]
+In this case, --host defines the host list.  This host list is all
+the nodes that the job foo will run on.  Note that the job may not
+run on all the nodes if -np is something smaller than the number
+of nodes listed.
+
+Case 3: mpirun --hostfile bar[[BR]]
+In this case, --hostfile defines the host list.
+
+Case 4: mpirun --host foo --hostfile bar[[BR]]
+In this case, --hostfile defines the host list.  The --host now
+becomes a filter and specifies the subset of nodes that this job
+will run on.  
+
+=== WITH RM ===
+Imagine a shell was started as shown in the SGE example below.  
+  qrsh -pe cre
+
+Then, we can walk through the same four cases again but this time within the
+context of a RM.
+
+Case 1: mpirun foo[[BR]]
+With nothing specified, foo is run on all the resources defined by the RM.
+
+Case 2: mpirun --host foo[[BR]]
+In this case, --host defines a filter to the resource list defined by the
+RM. The job will only run on those hosts.
+
+Case 3: mpirun --hostfile bar[[BR]]
+In this case, --hostfile defines a filter to the resource list defined by the
+RM. The job will only run on those hosts.
+
+Case 4: mpirun --host foo --hostfile bar[[BR]]
+In this case, both --host and --hostfile define a filter and 
+specifies the subset of nodes that this job will run on.  
+
+In all the cases above, the filters must represent a subset of the
+resource list.  Otherwise, one will get an error.  
+
+
+= EXTENSION OF INITIAL ALLOCATION =
+There have been requests to extend the initial available resource list
+in multi-app context and MPI_Comm_spawn cases.  This is supposed to
+allow the user to specify a set of nodes outside an RM's control and thus
+not initially given as a resource list.  One example is an mpirun specifying
+multiple app contexts in which one context is suppose to launch on a specific
+set of nodes not in the resource list.  Another example, a call to MPI_Comm_spawn may
+want to spawn on a node that was not listed in the initial allocation.
+Currently (trunk as of r15584), this feature is not supported.  However, as outlined in ticket
+#1018, we propose adding two new mpirun parameters, --add-host and
+--add-hostfile.  The definition of these parameters are defined in the ticket and suggested
+to be acceptable MPI_Info Keys to MPI_Comm_spawn{_multiple} below.
+
+= INTERACTION WITH MPI_Comm_spawn{_multiple} =
+In all cases, the initial resource list will define where subsequent
+MPI_Comm_spawn jobs can run.  The filters given to mpirun will only apply to the
+processes being launched.  This also implies that in the unmanaged
+case, the initial call to mpirun *must* list all nodes that the job
+may run on.  Because the resource list is inherited from the mpirun
+job both ''--host'' and ''--hostfile'' are always interpreted as filters
+when their MPI_Info Keys are passed in to MPI_Comm_spawn{multiple}.
+
+= INTERACTION WITH EXISTING UNIVERSE =
+Any mpirun that is executed under an existing universe behaves as if it was a 
+MPI_Comm_spawn.  This means that ''--host'' and ''--hostfile'' act as filters.
+One would have to use ''--add-host'' or ''--add-hostfile'' to expand the universe.
+
+More needs to be analyzed here in the case of a hostfile that contains
+specific rank mappings.
+
+= SHUTTING DOWN OF CONNECTED AND DISCONNECTED JOBS =
+In the following discussion, connected and disconnected refer to the
+definitions from the 
+[http://www.mpi-forum.org/docs/mpi-20-html/node114.htm#Node114 Release Connections]
+chapter of the MPI_2 specification.
+
+If two jobs are connected, and one calls MPI_Finalize and exit, then the 
+behavior of both jobs is undefined.  They may hang or abort.
+
+If two jobs are disconnected, then the either job should be able to call MPI_Finalize and 
+exit without affecting the other.
+
+= NEW MPI_Info KEYS =
+To support all of this in calls to MPI_Comm_spawn and MPI_Comm_spawn_multiple,
+five new MPI_Info keys are proposed.  The first four are analogous to what
+is available to mpirun.  The fifth key tells the child job to map itself
+in the same way the parent is mapped.[[BR]]
+host[[BR]]
+hostfile[[BR]]
+add-host[[BR]]
+add-hostfile[[BR]]
+parent-mapping[[BR]]
+
+The host and hostfile keys will always act as filters and the add-host and add-hostfile 
+behave as if they were handed to a call to mpirun.
+
+== SUPPORT FOR !^ ==
+When being used as a filter, the ''--host'' switch will support the ''!^'' modifier
+which says that the filter will include all the nodes except this one.  It will
+behave in much the same way as the MPI library supports it with btls.  This means
+the ''!^'' applies to all the nodes in the list.
+
+''mpirun --host !^foo,bar,baz a.out'' says the job should run on all nodes except boo, bar, and baz.[[BR]]
+''mpirun --host !^fee,fi --hostfile hf a.out'' says the job should run on all the nodes listed
+in the hostfile hf except for fee and fi.
+
+
+= EXAMPLES =
+
+Now, we are going to try and list all the different examples and what
+may happen.  For the following examples, we have 3 nodes, each with 4
+processors per node.
+
+ct-0 slots=4[[BR]]
+ct-1 slots=4[[BR]]
+ct-2 slots=4[[BR]]
+
+Also, imagine a hostfile with these entries
+{{{
+###################
+# Hostfile ct
+ct-0 slots=4
+ct-1 slots=4
+###################
+}}}
+
+== NO RESOURCE MANAGER EXAMPLES ==
+{{{
+ > mpirun -hostfile ct /bin/hostname
+ct-0
+ct-0
+ct-0
+ct-0
+ct-1
+ct-1
+ct-1
+ct-1
+}}}
+{{{
+ > mpirun -host ct-1,ct-2 /bin/hostname
+ct-1
+ct-2
+}}}
+{{{
+ > mpirun -hostfile ct -host ct-1
+ct-1
+}}}
+{{{
+ > mpirun -hostfile ct -host ct-2 /bin/hostname
+--------------------------------------------------------------------------
+Some of the requested hosts are not included in the current allocation for the
+application:
+  /bin/hostname
+The requested hosts were:
+  ct-2
+
+Verify that you have mapped the allocated resources properly using the 
+--host specification.
+--------------------------------------------------------------------------
+}}}
+{{{
+ > mpirun -hostfile ct -add-host ct2 /bin/hostname
+ct-0
+ct-0
+ct-0
+ct-0
+ct-1
+ct-1
+ct-1
+ct-1
+ct-2
+}}}
+Imagine, we have a program that calls MPI_Comm_spawn, and that it uses the
+info keys to direct the spawning.  For example, 
+{{{
+MPI_Info_set(info, "host", "ct-1");
+}}}
+{{{
+> mpirun -hostfile ct spawn-program
+}}}
+The spawn will use those keys in the same way a call to mpirun would have.
+So, in this case, the spawn would cause the MPI processes to run on ct-1.  If 
+the "host" info key was set to a host that was not in the initial allocation,
+then we would get an error.
+
+In the following case, we show a multiple application example.  As we can
+see, we are allowed to specify multiple hostfiles in this case.  The hostfiles
+are therefore used as defined in the table at the beginning of this wiki.
+{{{
+mpirun -hostfile hf1 a.out1 : -hostfile hf2 a.out2 : -hostfile hf3 a.out3
+}}}
+
+== RESOURCE MANAGER EXAMPLES ==
+{{{
+ > qstat -f
+queuename                      qtype used/tot. load_avg arch          states
+----------------------------------------------------------------------------
+all.q@ct-0           BIP   0/4       8.64     sol-sparc64
+----------------------------------------------------------------------------
+all.q@ct-1           BIP   0/4       1.09     sol-sparc64
+ > qsh -pe cre 8
+waiting for interactive job to be scheduled ...
+Your interactive job 279 has been successfully scheduled.
+}}}
+== NOW RUNNING FROM THE INTERACTIVE SHELL... ==
+{{{
+ > mpirun hostname
+ct-1
+ct-1
+ct-1
+ct-1
+ct-0
+ct-0
+ct-0
+ct-0
+}}}
+{{{
+  > mpirun -np 6 hostname
+ct-1
+ct-1
+ct-1
+ct-1
+ct-0
+ct-0
+}}}
+{{{
+ > mpirun -host ct-0 hostname
+ct-0
+ct-0
+ct-0
+ct-0
+}}}
+{{{
+ > mpirun -host ct-1 hostname
+ct-1
+ct-1
+ct-1
+ct-1
+}}}
+{{{
+ > more /home/rolfv/hf.0
+ct-0 slots=2
+ > mpirun -hostfile /home/rolfv/hf.0 hostname
+ct-0
+ct-0
+}}}
+{{{
+ burl-ct-v440-1 52 =>mpirun -host ct-2 hostname
+--------------------------------------------------------------------------
+Some of the requested hosts are not included in the current allocation for the
+application:
+  hostname
+The requested hosts were:
+  ct-2
+
+Verify that you have mapped the allocated resources properly using the 
+--host specification.
+--------------------------------------------------------------------------
+}}}
+In the following case, the behavior is resource manager dependent.  Some 
+resource managers may allow one to add a host to the list of available
+nodes whereas others may not.  Here is an example of this not working 
+under SGE.
+{{{
+ burl-ct-v440-1 51 =>mpirun -add-host ct-2 hostname
+error: executing task of job 279 failed: 
+[burl-ct-v440-1:24610] ERROR: A daemon on node ct-2 failed to start as expected.
+[burl-ct-v440-1:24610] ERROR: There may be more information available from
+[burl-ct-v440-1:24610] ERROR: the 'qstat -t' command on the Grid Engine tasks.
+[burl-ct-v440-1:24610] ERROR: If the problem persists, please restart the
+[burl-ct-v440-1:24610] ERROR: Grid Engine PE job
+[burl-ct-v440-1:24610] ERROR: The daemon exited unexpectedly with status 1.
+}}}
+
+== INTERACTION WITH RANK MAPPINGS ==
+We have thought about what happens if a user wants to start two separate jobs
+and map them to specific nodes with specific rank mappings.  Assuming the
+rank mappings are monotonically increasing from 0 to the maximum rank, how
+does that map when one has two jobs?  It would appear that the two jobs
+would then get mapped to the exact some locations.  One way around this
+is to set up two sets of ranking within the hostfile and then filter
+the ones you want for each run.  Let me illustrate with an example.
+
+Assume this is the hostfile with my made up rankings and ranking syntax.
+{{{
+# Hostfile names hf
+host_a  0,1,4,5
+host_b  2,3,6,7
+host_c  0,2,4,6
+host_d  1,3,5,7
+}}}
+
+Then, the user could do the following:
+{{{
+orted -universe foobar -persistent -seed
+mpirun -universe foobar -np 8 -hostfile hf -host host_a,host_b io_server_job
+mpirun -universe foobar -np 8 -host host_c,host_d compute_job
+}}}
+This all seems a little strange.  An alternative that was considered was to 
+add the concept of a partition.  A partition could be a separate section
+in a host file or perhaps a different file altogether.  It would define
+a subset of the hostfile.   Then, instead of doing all this filtering
+one could specify the partition name on the mpirun line.  !ClusterTools
+had something like this.  
+

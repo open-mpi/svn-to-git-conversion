@@ -1,0 +1,239 @@
+== Logistics ==
+  * Dates: Sept 8-10th, 2010 (Wednesday - Fri)
+  * Time: Wednesday 1pm-5pm, Thursday+Friday 9am-5pm GMT
+  * Location: HLRS, Stuttgart, Germany (see below)
+
+Videoconferencing is available via !WebEx: https://cisco.webex.com/cisco/j.php?ED=148264692&UID=484033237 [[BR]]
+Password: 1111
+
+== Details on location ==
+
+ * The meeting will be held at HLRS, which is on the out-skirts of the Campus of the University in Vaihingen:
+   {{{
+      Hoechstleistungsrechenzentrum Stuttgart
+      Nobelstrasse 19
+      70569 Stuttgart
+   }}}
+
+ * HLRS is conveniently reachable by S-Bahn (local train) and by foot from the S-Bahn station and the EuroMPI conference hotel (see below) or check    [http://maps.google.com/maps?f=q&source=s_q&hl=en&geocode=&q=Nobelstra%C3%9Fe+19,+Stuttgart,+Deutschland&sll=37.0625,-95.677068&sspn=52.020054,135.263672&ie=UTF8&hq=&hnear=Nobelstra%C3%9Fe+19,+Vaihingen+70569+Stuttgart,+Germany   Google map]. Further information on [http://www.hlrs.de/organization/address/maps-directions/ maps and directions]
+
+
+== Hotels ==
+
+ * Please check and book with hotel from the [http://www.eurompi2010.org/local-arrangements/accommodation/    EuroMPI 2010 accomodation website], or check one of the [http://www.hlrs.de/no_cache/organization/address/accommodation Accomodation close to HLRS].  
+
+== Topics ==
+
+ The meeting shall bring together developers from many organizations to discuss the following topics:
+ * Short presentation of current and future interest of each partner in Open MPI.
+ * Overarching Thread-architecture discussion (separate packages, testing, etc)
+ * Opal-Event freshup
+ * OPAL/ORTE/OMPI in other projects /  Diversification of Code base:
+   * STCI requirements
+   * ORCM requirements
+   * Current OMPI dependancies (BTLs outside of OMPI, etc)
+   * Third-Party Software (libevent, hwloc: moving hwloc to the top-level opal, having wrappers and/or having separate third-party software)
+ * MPI-3 implementation issues
+ * Point-to-point communication performance
+ * Large scale challenges
+
+== Participants ==
+
+ * Jeff Squyres, Cisco
+ * Richard Graham, ORNL
+ * Sylvain Jeaugey, Bull
+ * Nadia Derbey, Bull
+ * Matthias Jurenz, TU-Dresden
+ * Jens Doleschal, TU-Dresden
+ * Shiqing Fan, HLRS
+ * Rainer Keller, HLRS
+ * Christoph Niethammer, HLRS
+
+== Agenda ==
+
+To meet the agenda and requirements of Videoconferencing across time-zones, the agenda is split into a "Collection of ideas" phase and a (shorter) "Presentation and Discussion" phase as marked below.
+To allow room for discussion, the Videoconferences are scheduled to start later but precisely at 3pm.
+
+
+ * '''Wednesday 1pm - 5pm'''
+   * Collection of issues regarding large-scale issues
+{{{
+#!comment
+Bull
+}}}
+ * '''Thursday 9am - 12pm'''
+   * Collection of OPAL/ORTE/OMPI in other projects
+{{{
+#!comment
+Cisco, ORNL
+}}}
+   * Collection of OPAL-Event Freshup
+{{{
+#!comment
+Cisco
+}}}
+   * Collection Point-to-point communication performance
+{{{
+#!comment
+WHO????
+}}}
+ * '''Thursday 3pm - 5pm: Videoconference'''
+   * Presentation and discussion of Large-scale issues
+   * Presentation and Discussion of OPAL/ORTE/OMPI in other projects
+   * Presentation and Discussion of OPAL-Event Freshup
+   * Presentation and Discussion of Point-to-point communication performance
+
+ * '''Friday 9am - 12pm'''
+   * Collection of Overarching Thread-architecture discussion
+{{{
+#!comment
+All
+}}}
+   * Collection of MPI-3 implementation issues
+{{{
+#!comment
+All
+}}}
+
+ * '''Friday 3pm - 5pm: Videoconference'''
+   * Presentation and Discussion of Overarching Thread-architecture discussion
+   * Presentation and Discussion of MPI-3 implementation issues
+
+== Results of Discussions ==
+
+Wednesday:
+ * Sylvain: Open MPI @ Bull (see slides below)
+   * Would want their MPI to be based on a release of v1.5
+   * Large scale with many-core nodes -> need SM improvements
+   * Have 4 IB cards per node -> Don't want carto to be deprecated
+   * Need another component apart from hwloc to address Topology (tuple-based and functions showing distances), may be open-sourced... Sylvain will document the interface to it.
+   * IB connection setup is slow (with both OOB and XOOB) -- which CM works correctly and scalably with XRC?
+     [[BR]]
+     IBCM and RDMACM to be tested
+   * Memory pinning: UMMU notifier
+     Revision r23113 merges cleanly into v1.5 (would want it in v1.5.1).
+   [[BR]]
+   '''Many more updates, among them:'''
+   * ROMIO update, see #1888
+
+   
+ * Process Affinity
+   * Paffinity understands (socket+core), Brad is working on expanding it to Hyperthreads and probably also boards (or "modules" or some better word)
+   * Possibly add a "boards" layer to hwloc...?  Don't know.
+
+ * Autogen.sh -> Autogen.pl
+   * Should be as non-disruptive as possible... 
+   * Gets rid of requirement of configure.params
+   * Makes entry-bar to writing and adding a new component and is generally mo' betta.
+   * Jeff/Ralph/Brian will be putting out docs with the changes (i.e., updating the existing wiki pages)
+
+ * OMPI-v1.5
+   * We would release v1.5 asap (as usual), last merges are being done. MTT testing is checked and we hope to release next week.
+
+
+
+Thursday:
+ * OPAL-Event Freshup, Jeff gave an overview on the work:
+   * Our version of libevent within OMPI is quite old
+   * The interface of libevent-2.0 has changed
+   * The work of this topic has been revived, since the agenda for this meeting was written up
+   * Has started again, since Ralph is getting thread-issues in ORTE, which seems to be due to libevent
+   * Bitbucket created to add a new libevent: http://bitbucket.org/rhc/ompi-lib2
+   * Trying to translate into the new libevent API
+   * There should be now only few crossing-points into libevent {{{opal_event}}}
+   * The single-threaded ORTE would be supported as well.
+ * Any further questions should be directed to Ralph et al.
+
+ * Over-arching Thread Discussion:
+   * The above is heavily related to the over-arching thread discussion
+   * Bull does have some customer requests for {{{MPI_THREAD_MULTIPLE}}},
+     but many of these may be reduced to one thread doing MPI without MPI_THREAD_MULTIPLE
+   * Cisco does not have a requirement for {{{MPI_THREAD_MULTIPLE}}} at this time, but does for progress threads within ORTE.
+   * HLRS has had some customer requests for MULTIPLE, but no real application using it
+   * The labs may have some applications (e.g. mpqc), ORNL has some applications requiring MULTIPLE
+   * IBM will be on the call, to ask what their requirements are (because they have been submitting threading patches for a while)
+   * Even though some of the code-paths for Send-/Recv are thread-safe and checked,
+     none of the other uninteresting functions are checked (MPI attributes, MPI info, etc.).
+   * There's currently no documentation of the thread-design.
+   * If nobody volunteers to do more thread work, let's drop the issue for now.
+
+ * OPAL/ORTE/OMPI in other projects and third-party software:
+   * There's other software projects requiring OPAL, and plugging into OMPI
+   * At Cisco, there's ORCM on top of ORTE using OPAL, plus some other internal MCAs.
+   * The interfaces were kept separate, one change that impacted others were the refactoring
+     of some of the {{{m4}}} changes.
+   * The latest change in the line being the autogen Shell->Perl shift, which is almost done,
+     and may be shared. Bitbucket: http://bitbucket.org/rhc/ompi-agen
+
+   * Third-Party software:
+     * VampirTrace and other software being pulled in
+     * libevent2: will push up-stream some changes to make it easier for us to re-integrate.
+       (renaming, question about their configure-stuff, ...)
+     * ROMIO: See above
+     * HWLOC: Made as easy 
+     SVN mirroring of Software as svn-external:
+     * For HWLOC possibly (however, HTML pages and other huge amount of documentation... svn-ignore?)
+     * For Vampirtrace: currently a script that pulls in the tar-ball     
+     * Had a discussion of whether to use svn:externals to pull in the others; Jeff is not convinced that it's useful.  :-)  Revisioning not clear, no head version available.
+
+ * Point-to-point communication performance 
+   * SM BTL: we want to take into account topology
+   * Want to move as few cache-lines as possible (we may be moving too many right now)
+   * Additionally, our data-structures should be compacted, to help move as few cache lines as possible
+   [[BR]]
+   Bandwidth:
+   * Bull is looking into Knem (QA, functionality, etc.).
+   * VMsplice has been checked a long time ago; perhaps it's better now...?
+   * ORNL is looking into vmsplice and a few other direct-copy mechanisms.  May need to revisit the knem integration in the sm btl.
+
+
+ * Collectives:
+   * Moving back ORNL collective work into trunk planned around Nov.
+   * Code is a new MCA into {{{coll}}} called {{{ml}}} for multi-level
+   * Two new additional frameworks to support: for hierarchy detection ({{{sbgp}}} for subgroups),
+     and one to implement primitive collectives ({{{bcoll}}} for basic collectives, like fan-in, fan-out).
+   * For shared-memory collectives, detect, whether one is on the same socket, and on the same "node".
+   * Can use shared memory with dynamic processes.
+   * Collectives to be released with {{{Broadcast}}}, {{{Barrier}}}, {{{Allreduce}}}.
+   * Mode of maintaining:
+     Patches should be Acked / funneled through original authors.
+
+
+Friday:
+ * Overarching Thread-architecture discussion (recap):
+   * With regard to OpenIB BTL, may be close to getting thread-safe
+     [[BR]]
+     Bull: application failed within {{{MPI_Init_thread}}} with {{{MPI_THREAD_MULTIPLE}}} 1 in 10 times (with TCP) and 1 in 2 times (with OpenIB).
+     Attribute this to {{{ptmalloc}}}; will try with UMMUNOTIFY.
+     [[BR]]
+     HLRS: had hangs within startup, when doing RML when enabling progress threads and {{{MPI_THREAD_MULTIPLE}}}
+   * Ping IBM, what their status is on the thread-safety work.
+   * One user at HLRS made performance comparison of NetPipe and IMB with multiple MPIs
+     [[BR]]
+     IMB call {{{MPI_Init_thread}}} with {{{MPI_THREAD_MULTIPLE}}};
+     [[BR]]
+     openib BTL turns itselve off in that case without warning, so user reported benchmark numbers with IPoIB for ompi...
+     [[BR]]
+     Will submit a {{{orte_show_help}}} shortly.
+   * Longer discussion on {{{ompi/mpi/c/comm_set_errhandler.c}}}
+     Nicely shows the best requirements to atomically set a value.
+     This may either be done as a standard macro {{{OPAL_ATOMIC_SET}}}.
+     Ask George/Brian, what the result was with regard to other libraries, such as open-pa or libcpu?
+     Why don't we have a OPAL_ATOMIC_SET?
+
+ * MPI-2.2 and MPI-3.0 issues:
+   * MPI-2.2 issues within Open MPI are known and documented in milestones and tickets
+   * MPI-3.0:
+      * Fortran changes: will have a meeting next week with Craig
+      * {{{MPI_Count}}} is still under discussion
+      * NBC Collectives is guarantueed.
+      * RMA is not ready for a proposal yet
+      * Hybrid is not ready for a proposal yet
+      * FT is not ready for a proposal yet
+      * Persistence is not ready for a proposal yet
+      * Tools will have input, where OMPI is close: API to get the MCA parameter, and a similar API to get the performance data out
+      * {{{MPI_Mprobe}}} is going into MPI-3.0: may be a little bit of work
+   * The ones that make progress have a chance of being implemented in OMPI.
+   * The first draft is in December
+     Later amendments are planned for later.
+

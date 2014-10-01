@@ -1,0 +1,139 @@
+The Open MPI FAQ is a PHP-based set of scripts that uses a Trac-like mini-wiki markup for creating its HTML.  It was written long before we ever used Trac and does not support anywhere close to the full Trac wiki markup.  It only supports a few common markup entities for common actions within a FAQ entry.  Other, more precise markup can be written directly in HTML (i.e., you can mix HTML and the markup in a single FAQ entry).
+
+There are two ways of contributing FAQ content:
+
+ 1. Post content to the devel list at open-mpi.org and request that someone put it on the web site.  Ideally, the content will be in the appropriate PHP format, described below, with new values for $q, $anchor, and $a.
+ 1. Check out SVN files, edit them, get permission to write to the FAQ area of the web site, and check your SVN changes back in yourself.
+
+=== Web site implementation ===
+
+The Open MPI web site is maintained in the "ompi-www" Subversion repository.  (Normal SVN conventions apply.  The "live" site is maintained in the /trunk directory.)  For example, to check out the entire web site, use:
+{{{
+svn co https://svn.open-mpi.org/svn/ompi-www/trunk
+}}}
+
+Note that this repository is very large.  It may be more convenient to check out only the {{{faq/}}} subdirectory.  Its files, however, reference other subdirectories -- e.g., try {{{grep include_once faq/*}}}.  Therefore, to check your changes before committing them back to the SVN repository, you may need a few other subdirectories.  E.g., try
+
+{{{
+# check out faq subdirectory
+svn co https://svn.open-mpi.org/svn/ompi-www/trunk/faq
+svn co https://svn.open-mpi.org/svn/ompi-www/trunk/includes
+
+# adjust permissions so that you can review your changes via a browser
+find faq -type d | xargs chmod a+rx
+find faq -type f | xargs chmod a+r
+find includes -type d | xargs chmod a+rx
+find includes -type f | xargs chmod a+r
+}}}
+
+The top-level file is {{{faq/index.php}}}.  There are multiple {{{faq/*.inc}}} files, each one corresponding to a single category.  The {{{*.inc}}} files are read in by {{{index.php}}} when a category is displayed.  Each {{{*.inc}}} file contains all the questions, anchors, and answers for that category.  The {{{index.php}}} file contains a small engine to print out all the questions in a category and to the markup -> HTML conversion when displaying them.
+
+'''WARNING:'''  Test your PHP / FAQ changes often while editting and certainly before committing back to Subversion.  The main Open MPI web site and all of its mirrors run "svn up" at unpredictable times.  If you commit something broken, it may become live on a mirror web site for 24 hours before they run "svn up" again to get your fixes.  To test, direct your browser to the top index.php file.  E.g., if you checked the faq subdirectory out in your {{{$HOME/www}}} subdirectory on milliways, use {{{http://www.open-mpi.org/~yourname/faq/index.php}}}
+
+To commit changes, make sure you have write access to the FAQ area of the web site.  Then use {{{svn ci}}} in your {{{faq/}}} subdirectory.
+
+Finally, post a message to the devel list to get someone with appropriate permissions to run {{{svn up}}} on the live Open MPI web site.  (This last step may not be totally necessary since a cron job may run {{{svn up}}} nightly.)
+
+=== Guidelines for text ===
+
+These important guidelines should be remembered when writing a FAQ entry:
+
+ 1. Use proper English grammar and spelling in the FAQ entry.  
+ 1. Use proper punctuation; FAQ entries are not instant messages!
+ 1. Avoid slang and colloquialisms.  We live in a global software environment; not everyone is a native-English speaker.
+ 1. Remember that your audience is seeking information.  The answer to the question may be obvious to ''you'', but it isn't to ''them''.  So be clear.  Be explicit.  Assume as little as possible.
+ 1. Remember that your text will shortly become Google-able, and likely be cached in many places around the globe.  When writing your FAQ question, think about what a common user would want to search/google for in order to find the answer.
+ 1. If Open MPI displays specific error or warning messages, include that text in the FAQ entry somewhere (e.g., in a faqcode section in the answer).  Many users will cut-n-paste OMPI output into a google text box when looking for solutions to their problems.  Putting the exact text on the FAQ page makes the answer Google-able/findable.
+
+=== Adding a new category ===
+
+Essentially, edit the faq/categories.inc file, mimicking the syntax you see there.
+
+=== Adding a new FAQ entry === 
+
+Go to the faq/*.inc file for the appropriate category.  Again, mimic the structure and syntax you see there.  Specifically, add three new entries:
+
+ 1. $q[] with the text of the question
+ 1. $anchor[] with an HTML anchor for use within this category (*.inc file or web page)
+ 1. $a[] with the text of the answer
+
+=== Markup ===
+
+Again, there is limited markup, but you can embed HTML for richer presentation.  In any case, the rest of this page discusses various aspects of this markup.
+
+= Quotes =
+
+If you include quotes (") in your question or answer, you ''must'' escape them!  Remember that these are PHP strings, so an un-escaped quote will terminate the string.  For example:
+
+{{{
+# This is bad and will cause a run-time PHP error
+$q[] = "When did Socrates ask, "I drank what?"";
+
+$anchor[] = "mpirun-out-of-memory";
+
+# This is good; the quotes will display properly in the output page
+$a[] = "Socrates never said \"I drank what?\".  It is a line from the cult movie _Real Genius_.";
+}}}
+
+= Bold / asterisk =
+
+Asterisk (*): Putting asterisks around one or more words results in boldfacing those words in the output (<strong> and </strong>).  For example:
+{{{
+The *quick brown fox* jumped over the lazy dog.
+}}}
+will result in output like this: The '''quick brown fox''' jumped over the lazy dog.
+
+Note that the markup is fairly simplistic: the tokens generally need to be delimited by whitespace.  For example:
+{{{
+The qu*ick brown f*ox jumped over the lazy dog.
+}}}
+
+Will result in "qu*ick brown f*ox" being output without any HTML markup.  If you need sophisticated HTML in the middle of words, use HTML directly.  For example:
+{{{
+The qu<strong>ick brown f</strong>ox jumped over the lazy dog.
+}}}
+
+This limitation applies to other markup such as underscores and square brackets as well.
+
+= Emphasis / underscore =
+
+Underscore (_): Putting underscores around one or more words results in emphasizing those words in the output (<em> and </em>).  For example:
+{{{
+The _quick brown fox_ jumped over the lazy dog.
+}}}
+will result in output like this: The ''quick brown fox'' jumped over the lazy dog.
+
+= Fixed font / square brackets =
+
+Putting square brackets ([]) around one or more words results in using a fixed font (<code> and </code>).  For example:
+{{{
+The [quick brown fox] jumped over the lazy dog.
+}}}
+will result in output like this: The {{{quick brown fox}}} jumped over the lazy dog.
+
+= Long sections of fixed-width text =
+
+To display some code or perhaps an example text file, use the {{{<faqcode>}}} and {{{</faqcode>}}} delimiters.  The FAQ engine will convert this to a <code>-based environment, but also set the background and an enclosing text box (similar to what Trac does for multi-line !{{{ }}} sections).  So don't use {{{<code>}}} and {{{</code>}}} directly -- use {{{<faqcode>}}} and {{{</faqcode>}}}.
+
+= Linking to on-site URLs =
+
+Remember that the Open MPI web site is mirrored.  So, when linking to other pages in the Open MPI web site, you should almost always use relative links.  I.e., link to {{{$topdir/about/members/}}} instead of {{{http://www.open-mpi.org/about/members/}}}, where {{{$topdir}}} is a pre-defined PHP variable that will either be ".", or "..", or "../..", or whatever is relevant to reach the top-level directory relative to where the current page is located.
+
+= Linking to off-site URLs =
+
+We track Open MPI web site usage using Google Analytics.  As such, we also want to track when and how people navigate off the Open MPI web site to a remote site (i.e., the "exit point" from the Open MPI web site).  We have a PHP helper routine for assisting with creating the relevant HTML and javascript to tell Google Analytics when this happens.  If your answer contains a link to a URL that is outside of the Open MPI web site, use the {{{aurchin_click()}}} PHP routine to generate the HREF HTML for you.  For example, instead of:
+{{{
+$a[] = "Here is an off-site link to <a href="http://www.google.com/>Google</a>.";
+}}}
+use:
+{{{
+$a[] = "Here is an off-site link to " . aurchin_click("http://www.google.com/") . "Google</a>.";
+}}}
+
+Note that you provide the </a> tag yourself; it's only the opening HREF HTML that will be generated by {{{aurchin_click()}}}.  {{{aurchin_click()}}} takes a 2nd optional argument (if the 2nd argument is not supplied, it is assumed to be the same as the 1st argument without the protocol prefix, such as "http:/"):
+{{{
+$num = 12345;
+$a[] = "Link to " . aurchin_click("http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=$num", "/outgoing/bugs.sun.com/bug-number-$num") . "Sun bug $num</a>.";
+}}}
+
+The 2nd argument is how the URL will show up in the Google Analytics report.  In this case, we don't care about the specific details of the URL because they are complicated; what we care about is that the user navigated off the Open MPI web site to Sun's bug number $num.  So we crafted a "fake" URL that can be reported by Google Analytics and convey human-readable information.  As a rule, when using these fake URLs, they must still be valid URL paths, and we always prefix them with "/outgoing/<destination server name>/" to indicate that the link is leaving the Open MPI web site and going to the specified destination server name.  The URL string after that is arbitrary; we tend to try to make them human-readable.

@@ -1,0 +1,31 @@
+= Implementing a Progress Thread approach in Open MPI =
+
+At the spring 2011 developers meeting, it was decided that Open MPI needed to support progress threads, for a number of reasons:
+
+  * progression of long messages is poor with the existing implementation
+  * non-blocking collectives really need async progress to make sense in many HPC apps
+  * the MPI-3 one-sided makes significantly stronger statements about progress than MPI-2, and we can't currently meet MPI-2's requirements
+
+This page documents the plan and status of implementing the progress threads in Open MPI.
+
+== People ==
+
+  * Brian Barrett
+  * Ralph Castain
+
+Please add yourself to the list if you're willing to participate.
+
+== Project Plan ==
+
+  * Create branch for progress threads work (DONE)
+  * Create nightly regression test runs of progress threads and get people to run them
+  * Migrate away from central progress engine to per-project progress
+    * Each project (opal/orte/ompi) will be responsible for progress, but opal will still provide the event library for building those progress engines.  It is possible we will reintegrate if that proves useful (or have a threaded progress engine for all to use with events or...).
+  * Shame component authors to work on the thread support in their components
+  * Merge into trunk after 1.7 branch (or before if we're done already.  Ha.)
+
+== Implementation Notes ==
+
+== Current Status ==
+
+There is a branch which tracks the trunk (when Brian remembers to update it) at https://svn.open-mpi.org/svn/ompi/tmp-public/progress-threads/.

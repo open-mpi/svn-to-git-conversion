@@ -1,0 +1,54 @@
+= Requirements for a Runtime environment used with Open MPI =
+This is in draft form. Updates/comments welcome. When changing the document, please add a comment about the change.
+
+== DEFINITION == 
+A system that provides support for inter-process communication, resource discovery, allocation, process launch, process monitoring and response to failures across a variety of platforms for MPI applications.
+
+== REQUIREMENTS ==
+
+=== GENERAL ===
+ 1. Must be designed with the goal of supporting MPI applications. However, this should not preclude other uses as long as MPI is not harmed.
+ 1. Must efficiently scale from one to 100,000 processors.
+ 1. Must reliably cleanup and terminate itself and application processes after unclean exits or in case of a node hang. 
+ 1. Must provide [or at least try to provide] a consistent set of functionality on all platforms.
+
+=== INTERACTION WITH RESOURCE MANAGERS ===
+ 1. Must work both with and without external resource managements systems.
+ 1. When running outside a resource management system, provides no load balancing.  The user specifies the nodes to run on via a --host or --hostfile argument.
+ 1. When running within a resource management system, must be tightly integrated such that the resource management software can properly monitor the job.
+ 1. Must allow user to specify placement of processes on its allocated resources.
+
+=== MPI-2 DYNAMICS === 
+ 1. Any two jobs (possibly under some certain context) must be able to connect to one another.  It may be that extra work is needed to make this happen, for example, a persistent daemon.  Ultimately, connecting two jobs should be seemless to the user.
+ 1. Host and hostfile filtering must be supported as described in https://svn.open-mpi.org/trac/ompi/wiki/HostFilePlan.
+ 1. Spawning a job is similar to starting a new job.  However, some MPI_Info keys will be supported as described https://svn.open-mpi.org/trac/ompi/wiki/HostFilePlan.
+ 1. Must adhere to the concepts of connected and disconnected as described in the MPI-2 standard.  This means that jobs can connect to one another, and then disconnect and exit without affecting one another.
+ 1. If two jobs are connected, and one exits, the other may or may not exit as well.  Makes no guarantees that the other job will keep running. However, the behavior should follow the guideline of the MPI-2 dynamics.
+ 1. Name publishing must be supported within and between jobs.
+
+=== FAULT TOLERANCE ===
+ 1. Process level
+   * Support for process failure should be isolated as much as possbile, rather than spread out through out large portions of the code base.
+ 1. A modular approach to the process fault tolerance should be taken. Our 3 main ways of managing the faults (coordinated, uncoordinated and FT) require completely different support from the RTE. Here is the main list of requirements:
+   * Coordinated: any fault should be propagated inside the whole RTE world (or at least to all processes connected to the faulty one). They should take a common decision, release all resources and restart from the last checkpoint. RTE actions: broadcast the fault information, turn off the remaining processes, [reallocate resources], restart all from the last checkpoint.
+   * Uncoordinated: any fault should be propagated to all connected processes. However, due to communication patterns in the parallel applications, the fault broadcast can be limited to only the processes that were directly connected with the faulty one. Then the remaining processes should wait for a new process to be spawned and to load the last checkpoint, and then they should integrate it in the parallel application. RTE actions: "broadcast" the fault information, [reallocate the missing processes], restart one process from the last checkpoint, distribute the information about the new process to all "old" processes.
+   * FT-MPI: support several approaches. However, a common set of requirements can be highlighted. The information about the fault might get propagated to all remaining processes, they these processes will decide what will be the next step and the parallel world will be rebuilt. RTE requirements: "broadcast" the fault information, [reallocate the missing processes], restart one process from the beginning, distribute the information about the new process to all "old" processes.
+ 1. what else is required for ft?
+
+=== OTHER ===
+ 1. May provide utilities for monitoring jobs outside of a resource manager, but is not required.
+ 1. I/O forwarding must be supported as it is today.  That is, stdin goes to rank 0, stdout and stderr come from all ranks.
+ 1. Must allow the starting of a singleton job without mpirun.
+ 1. Must support the multiple application syntax. If possible an XML description of the parallel application should be supported, in order to allow a fine grain parameter definition for each process in the parallel application.
+ 1. Must support heterogeneity.
+ 1. Must forward signals from mpirun to application processes.
+ 1. Must not require functions that are not needed on a system (i.e. should not need to define no-op functions for things a system does not support).
+ 1. Must kill off the entire job if one process exits.  This is the expected behavior from users, when running in default mode (i.e. no support for fault tolerance).
+ 1. Must be thread safe.  Should strive for re-entrant functions.
+ 1. Must support a modular approach for the communication dissemination. We should leverage the knowledge we gather in the MPI world about the MPI collectives into the RTE. As most of the RTE communications have their MPI counterpart (spawning a job and sending signals = broadcast, exchanging the startup information = all-gather), optimizing these steps can have a huge impact on the performance as well as on the scalability of the RTE.
+
+=== NON-REQUIREMENTS ===
+ 1. No plans to support the disconnecting of mpirun from the running job.
+
+=== QUESTIONS ===
+ 1. Do we support some type of lamboot equivalent functionality?

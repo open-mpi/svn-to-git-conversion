@@ -1,0 +1,75 @@
+= Topics for a Next Meeting =
+
+== Logistics ==
+
+ * Dates: '''June 29 - 30, July 2, 2008''' (Sunday - Monday, Wednesday)
+ * Time: '''All day Sunday, morning Monday, afternoon Wednesday''' (i.e., surrounding the MPI Forum meeting)
+ * Location: '''Sun facility, MPK11, Menlo Park, CA, USA''', http://www.sun.com/aboutsun/investor/stockholder_services/map_directions.html
+
+== Schedule (loose) ==
+
+ * All times PDT
+
+ * Sunday, June 29, 2008
+
+ || 09:00-12:00 || Point-to-point
+ || 12:00-13:00 || Lunch
+ || 13:00-15:00 || Collectives
+ || 15:00-16:00 || MTT performance tracking
+ || 16:00-16:30 || Thread safety
+ || 16:30-17:00 || Windows update
+
+ * Monday, June 30, 2008
+
+ || 08:00-10:00 || Open MPI 1.3 TRAC ticket review (concall)
+ || 10:00-11:00 || Open MPI 1.4 discussion
+ || 11:00-11:30 || MPI 2.1 certification issues
+ || 11:30-12:00 || Sun Studio Analyzer demo (MPI States)
+ || 12:00-13:00 || Pizza lunch with Analyzer team
+
+ * Wednesday, July 2, 2008
+
+ || 13:00-14:00 || Supercomputing 08 planning
+ || 14:00-16:00 || MPI 3.0 experimental feature integration
+ || 16:00-17:00 || Kickoff code stability discussion
+
+== General issues ==
+
+=== Open MPI === 
+ - Performance discussion (possibly in sub-groups SM, p2p, etc.) ''(Galen, Rich, Jeff, Josh, Rainer)'': Review of where we are, where we want to be, ensure that all pending "performance badness" issues are either fixed or on the road to being fixed, perhaps have another MTT bakeoff, etc.
+   - Comparison to other MPI's performance
+   - Collective Performance ''(Rich)''
+   - Point-to-point Performance Discussion ''(Rich, Galen)''
+   - Performance tracking: Is there a way that MTT can help with performance tracking and reporting that it does not currently provide?  Maybe email warnings when we drift X degrees from the last commit or something?
+ - MPI-2.1 (see issues below) certification ''(Rich, Rainer)''
+
+=== Open PAL ===
+ - Eliminating NULL as a possible default value for MCA parameters ''(Jeff)''. See thread starting [http://www.open-mpi.org/community/lists/devel/2008/05/3859.php here].
+     
+== Recurring items ==
+ - Thread-safety (possibly sub-groups per framework?) ''(George, Rainer)''
+   - current status (btls, non-communication code-paths like MPI_attr_*)
+   - design review (i.e., guidance for other developers who want/need to make thread safety stuff)
+   - performance impact of thread-safety
+   - thread safety vs. thread concurrency vs. asynchronous progress
+ - Windows support status (libevent future, integration into batch and VS env)
+
+
+== Code Stability ==
+ - Maintainability ''(Josh)'': We should look at the codebase and consider where we can consolidate code that is currently duplicated in multiple places (e.g., file handling, error handling, MCA param logic).  We should also take a look to see if there is a better way to handle MCA parameter registration in frameworks and components to make this a bit more uniform.
+
+ - Testing ''(Josh, Jeff)'': If testing is the way we judge the health of Open MPI then we should probably explicitly work it into our continual assessment of  the development of the project. To do this we need to find a way that uses both MTT and reduces the load on all of the members. I'd like to think though a few things with the group, like: 
+   * How do we want to use MTT in the release process? 
+   * Are there ways to improve it to make it more useful? 
+   * If MTT is useful, we should probably get some feedback on  how to continue supporting this product.
+
+ - Documentation ''(Josh)'': We have been saying for a number of years that we need documentation, but nothing has come of this. Is this something that we really want to commit to doing and if so how or do we want to hope the user community contributes this?
+
+
+== Future planning ==
+ - Experimental MPI interfaces & MPI Forum ''(Josh, Rainer)'': The group needs to decide how to expose experimental MPI interfaces that are '''not''' currently in the standard. As we start to explore MPI-3 (and some MPI-2) functionality we need to figure out a way to be able to differentiate between what is in the standard and what is not. Additionally there may be some Open MPI specific interfaces we may want expose that are not in the standard and may never be. Should this be implemented   as a separate header file and prefaced with a recognizable name?
+
+ - Discussion of v1.4 issues: The items for future versions should be identified; missed 1.3 items re-evaluated, how/when they can be implemented, whether there are obstacles in the current code base.
+
+ - SC planning: Booth Talks / Presentations / demos TBD.
+

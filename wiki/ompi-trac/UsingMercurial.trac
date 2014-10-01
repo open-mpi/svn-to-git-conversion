@@ -1,0 +1,417 @@
+= Using Mercurial (or Git) with Open MPI =
+[[PageOutline]]
+
+Several developers have been using [http://www.selenic.com/mercurial/wiki/ Mercurial] (a.k.a. "hg", the periodic symbol for Mercury) for branches and side-development within the Open MPI project (as opposed to using /tmp or /tmp-public branches in SVN).  This wiki page is a short synopsis of how we've used it, what works (and doesn't work) for us, and how you can use Mercurial if you want.
+
+== Mercurial Tutorial ==
+
+A fabulous Mercurial tutorial [http://hginit.com/ can be found here].  It even includes a section for SVN converts.
+
+== Advantages ==
+
+One thing to understand before discussing the advantages of using Mercurial: ''branching and merging in Mercurial are '''significantly easier''' and '''orders of magnitude faster''' than they are in Subversion (particularly for long-lived branches with very large changesets compared to the main development trunk).''  If you're coming from a SVN background, it may be difficult to accept this fact.  So take it on faith for the moment that branching+merging are so much easier in Mercurial that you do it all the time.  Indeed, branching+merging are actually the cornerstone of many of Mercurial's advantages.
+
+There are several advantages of using Mercurial; here's a partial list:
+
+ * It's fully distributed, meaning that you can publish your own Mercurial trees if you have some work that you want others to try but have not pushed to the main Open MPI SVN repository.  '''This includes 3rd parties that do not have write access to the Open MPI repository.'''
+ * You can "push" and "pull" changes between multiple different repositories; you don't have to use the centralized SVN repository as the single sync point.
+ * If you are a core Open MPI developer and have SVN commit access, you can [very] easily keep in sync with the Open MPI trunk (or any OMPI SVN tree, such as a /branch/foo).
+ * When you are done with your development, you can directly commit back to the Open MPI SVN repository (no need to separately make a patchfile and patch an SVN checkout).
+ * [http://bitbucket.org bitbucket.org] is a free, public Mercurial hosting service.  It's trivial to publish a Mercurial tree to bitbucket, invite others to collaborate with you (i.e., they can be given commit access), etc.
+ * Mercurial's merging capabilities are ''way'' better than that of SVN v1.7.
+
+== Sample Scenarios ==
+
+Here are some sample scenarios that we have used Mercurial with the Open MPI project:
+
+ * A single developer branches from the SVN trunk, does a variety of work on it, and commits back to SVN when relevant.
+ * A single developer branches from the SVN trunk and uses it as a synchronization point between multiple computing sites (e.g., clusters in several different organizations), pushing and pulling changes between all copies of the repository.
+ * A developer branches from the SVN trunk, shares the branch with several other developers, they collaborate on the branch together (everyone committing), and eventually the finished work is committed back to SVN.
+ * A single developer branches from the SVN trunk, keeps the branch alive for a long time, but keeps it tightly synchronized with the SVN trunk.
+ * An organization's group of developers have a Mercurial mirror repository local to their site that mirrors the SVN trunk.  It is used for three things:
+   1. local source for all the organization's developers to get the Open MPI source code
+   1. pull down changes to the SVN trunk
+   1. as a gateway push changes back up to the SVN trunk
+
+== What about Git? ==
+
+Pretty much exactly the same techniques described on this page apply to Git as well.  I happen to prefer Mercurial (e.g., it's CLI is much closer to SVN than Git's CLI, so I find it easier to use), so this wiki page is about Mercurial.  :-)
+
+If Git is your DVCS of choice, pretty much all the same concepts described on this page also apply.  
+
+But all the same concepts can be used with Git, if that is your DVCS of choice.  You'll find a few notes throughout this page where there are notable differences between Mercurial and Git.
+
+== Official Open MPI Mercurial / Git Mirrors ==
+
+The official Open MPI Mercurial Mirror can be found on Bitbucket:
+
+    https://bitbucket.org/ompiteam/ompi-svn-mirror
+
+The official Open MPI Git Mirror can be found on !GitHub:
+
+    https://github.com/open-mpi/ompi-svn-mirror
+
+Both mirror each SVN commit and are updated roughly every hour.  These repositories can be cloned and used to keep in sync with the SVN trunk by pulling down changes whenever desired.  
+
+These repositories are mainly intended for 3rd parties who want to clone the Open MPI repository and keep in sync with our development trunk or release branches.  Pushes back to SVN are ''not'' possible with these mirrors; if you clone one of these repositories and want to commit a patch back to the main Open MPI SVN repository, you must make a patchfile, apply it to a SVN checkout, and then commit that.
+
+== Mercurial Direct Support of SVN ==
+
+Over time, there have been multiple mechanisms for Mercurial to directly interact with Subversion (e.g., [http://mercurial.selenic.com/wiki/HgSubversion HgSubversion], and [http://mercurial.selenic.com/wiki/WorkingWithSubversion another wiki discussion of how to use Mercurial with Subversion]).  
+
+Mercurial (and Git) has plugins to communicate directly with Subversion.  Meaning: you can "clone" a Subversion repository into a Mercurial repository.  We don't usually use this technique, however, because as of June 2012, the Open MPI SVN repo has well over 26,000 commits.  Specifically: slurping 26K+ commits of history every time takes ''hours'' (because Mercurial must query the the remote SVN server via HTTPS for all the details of every single commit).  We don't usually want or need the SVN history, anyway -- we usually make Mercurial clones for new features or bug fixes.  Hence, starting a Mercurial clone with the current SVN HEAD is usually sufficient.
+
+Many of us have tended to use the method outlined below (see "Developer SVN+Mercurial Interactions"), and have grown quite accustomed to it.  It may be functionality similar to the above-described approaches; we don't really take a religious approach as to which is best.  This is the one that works for us.  But feel free to use whatever works for you.  :-)
+
+== Developer SVN+Mercurial Interactions ==
+
+Be sure to see the [http://www.open-mpi.org/video/?category=mercurial screencast showing much of the same information that is contained in this wiki].[[BR]]
+'''NOTE: The screencast is a ''little'' dated -- we have now have robust scripts to automate some of the manual actions shown in the screencast.'''
+
+Instead of using the official Open MPI Mercurial mirror, most Open MPI developers will prefer to use a slightly different technique that allows keeping directly in sync with the SVN trunk as well as committing directly to SVN from Mercurial.  
+
+The main idea is to have an "combo" directory that is ''both'' a Subversion checkout ''and'' a Mercurial repository.  This combo directory is used as an exchange point; it can both update from and commit to the Open MPI Subversion repository, but it can also both push to and pull from multiple Mercurial repositories:
+
+[[Image(svn-to-hg-clone-tree.jpg)]]
+
+The general idea is as follows:
+
+ 1. Get an SVN checkout of the branch you want (e.g., the trunk).  Ensure to checkout via https so that you can SVN commit.
+   1. In that SVN checkout directory, ''also'' make it a Mercurial repository.  This directory therefore represents a location where SVN and Mercurial meet, mix, and exchange commits.
+   1. ''Only'' use that directory tree for transferring data from SVN to Mercurial and Mercurial to SVN.  '''Do not use it for development.'''
+ 1. Make a Mercurial clone of the new SVN+Mercurial directory (since that directory is a Mercurial repository) and do all your work there.
+   1. When desirable, run "svn up" in the SVN+Mercurial directory and commit those changes to the Mercurial repository.  "hg pull" those changes down to your working Mercurial clone(s).
+   1. When desirable, commit your Mercurial changes in your clone and "hg push" them to the SVN+Mercurial directory.
+   1. When desirable, "svn commit" the Mercurial changes in the SVN+Mercurial directory back to the SVN repository.
+
+Confused?  Let's take it step by step.  
+
+=== Creation of the SVN+Mercurial "Exchange" Directory ===
+
+First, get an SVN checkout:
+
+[[Image(svn-repo-to-checkout.jpg)]]
+
+{{{
+shell$ svn co https://svn.open-mpi.org/svn/ompi/trunk trunk-for-mercurial
+# ...lots of output...
+}}}
+
+Then make this SVN checkout ''also'' be a Mercurial repository:
+
+[[Image(svn-repo-to-combo.jpg)]]
+
+{{{
+shell$ cd trunk-for-mercurial
+shell$ hg init
+}}}
+
+This works because SVN stores its meta data in ".svn" directories and Mercurial stores its meta data in ".hg" directories (the .hg directory is the actual location of the Mercurial repository -- yes, Virginia, the repository is ''in'' your checkout!  This is a key difference between centralized repositories like SVN and distributed repositories like Mercurial).  So ''both'' systems can share a single checkout, and you can therefore use it to exchange information between the two repository systems.
+
+Now you want to populate this Mercurial repository by adding all the files from the SVN checkout, but skipping all the .svn directories.  Do this with a trivial .hgignore file that we have stashed in a non-default location in the SVN repository:
+
+{{{
+shell$ cp contrib/hg/.hgignore .
+shell$ hg addremove
+# ...lots of output...
+}}}
+
+'''NOTE:''' use the contrib/git/.gitignore file if you're doing this with Git.
+
+Just like SVN, everything is now scheduled for committing, but the files haven't been committed yet.  
+
+Before we commit, you need to make a decent/complete .hgignore file that ignores lots more than just the .svn directories.  You '''must''' do this '''after''' the addremove, or Mercurial may skip importing some files that you really wanted to import!  We have a scripty-foo in contrib/hg that will examine all the svn:ignore directory properties and create a fully-populated .hgignore file for you:
+
+{{{
+shell$ ./contrib/hg/build-hgignore.pl
+Thinking...
+   [...some time passes...]
+All done!
+shell$ 
+}}}
+
+'''NOTE:''' use the contrib/git/build-gitignore.pl script if you're doing this with Git.
+
+Now you have a fully-loaded .hgignore file, and it's time to commit everything into the Mercurial repository:
+
+{{{
+shell$ hg ci -m "Initial import of SVN r12345"
+shell$
+}}}
+
+=== Using Mercurial for Development ===
+
+Remember: the exchange directory is ''not'' where you work!  It's ''only'' used to exchange information between SVN and Mercurial.  For your work, you clone the new Mercurial repository:
+
+{{{
+shell$ cd ..
+shell$ hg clone trunk-for-mercurial my-hg-clone
+# ...lots of output...
+shell$ cd my-hg-clone
+shell$ ./autogen.sh
+# ...lots of output...
+# ...continue Open MPI development here
+}}}
+
+Voila!  You now have a checkout of Open MPI that you can autogen, configure, build, develop, etc.
+
+Indeed, you can also make a whole tree of clones, pushing and pulling between them as relevant.  You can even make clones of clones if helpful (think: source code synchronization between multiple different development systems):
+
+[[Image(svn-to-hg-clone-tree.jpg)]]
+
+=== Development cycle ===
+
+Now, there are multiple repositories of the source code, possibly on multiple servers.  Further, each repository may be seen from multiple points of view.  For example, in the combination SVN/HG workspace, SVN may see different contents of a file than HG does.  And, OS commands like "more" and "cat" may see yet other contents.  So, it is important to keep all these images sync'ed up.  Here, we illustrate one way of doing so.  Other variations, as you become more familiar with SVN and HG, are possible.
+
+Here is what the development cycle might look like in an HG clone workspace:
+
+{{{
+  hg pull                                # pull updates from the combo SVN/HG workspace
+  hg update                              # update the HG clone
+  ...                                    # edit files with "vi", "emacs", "more", "cp", "rm", etc.
+  hg add    patha/filea ... pathz/filez
+  hg remove path1/file1 ... pathn/filen
+  hg commit
+  hg push                                # push changes back to the combo SVN/HG workspace
+}}}
+
+Here is how one might sync up the combination SVN/HG workspace:
+
+ 1.  First, bring HG changes from clones into the combined workspace:
+{{{
+  hg update                              # incorporate changes from HG clone workspaces
+  svn status                             # see file status, particularly if hg has added/removed files
+  svn add    patha/filea ... pathz/filez # in case any files have been added/removed by hg update
+  svn remove path1/file1 ... pathn/filen
+}}}
+ 1.  Next, bring SVN changes from the central repository into the combined workspace:
+{{{
+  svn update                             # bring in recent putbacks to the central SVN repository
+  ./contrib/hg/build-hgignore.pl
+  hg addremove                           # in case any files have been added or removed by SVN update
+  hg ci -m "Up to SVN rXXXXX"            # say what SVN release you've sync'ed up to
+}}}
+
+'''I have attached a scripty-foo which automates the above steps;''' see the attachment:update-svn-hg.csh attachment.  It also allows you to have a .hgignore-local file which will append to the automatically-generated .hgignore file in case you're adding some ignorable files that aren't yet covered by svn:ignore properties.
+
+To push changes back from the combo SVN/HG workspace, sync it up as just described and then use:
+{{{
+  svn ci
+}}}
+
+== Recovering SVN+HG "combo" directory ==
+
+More than once, I have accidentally deleted my master "svn+hg combo" directory.  Oops!  Luckily, I still had other HG clones that contained all my work, but I've effectively broken the link between my HG clones and the upstream Open MPI SVN.  Luckily, there's a relatively straightforward way to re-establish this link:
+
+ 1. Get an SVN checkout of the last r number that you updated in your HG clones.  If you're actively working at the SVN trunk HEAD, you can probably just get a new checkout of the HEAD.  But it's best if you can get a checkout of the exact same r number that you last synchronized your HG tree to.  For example, this checks out !r12345 of the trunk and puts it in the directory "svn-hg-my-stuff":
+{{{
+$ svn co https://svn.open-mpi.org/svn/ompi/trunk -r 12345 svn-my-project
+...lots of output...
+$ cd svn-my-project
+}}}
+ 1. Now copy the entire {{{.hg}}} tree from one of your clones (which contains the entire Mercurial repository) to this SVN checkout '''(note the use of the "-rp" switch to cp!):'''
+{{{
+$ pwd
+/home/jsquyres/hg/svn-my-project
+$ cp -rp ../my-project-clone/.hg .
+}}}
+ 1. You now effectively have an SVN+HG combo tree.  Woo hoo!  '''BUT''' this checkout doesn't reflect all the changes you've made in your Mercurial repo.  So tell Mercurial to re-apply all the changes from the tip to the working tree:
+{{{
+$ hg revert --all
+}}}
+ 1. Now you should have a SVN+HG combo tree reflecting all your changes from your HG clone.  Note that "hg revert" may put a bunch of {{{.orig}}} files in your tree; you should probably remove them:
+{{{
+$ find . -name \*orig -exec rm -f {} \;
+}}}
+ 1. You may also need to restore any special entries that you had in your {{{.hg/hgrc}}} file (e.g., additional push/pull targets -- see below for an explanation).
+
+Done!  This is now a fully-functional SVN+HG combo tree.
+
+== Jeff's favorite Mercurial configuration ==
+
+Mercurial comes with a variety of "extensions" that add new functionality to the core hg engine.  You enable Mercurial extensions either by adding a {{{$HOME/.hgrc}}} file or on a per-repository in a {{{<top-dir>/.hg/hgrc}}} file.  
+
+Here are some of my favorite extensions that I like using with Mercurial.  I have this setup in my {{{$HOME/.hgrc}}} file:
+
+{{{
+# The "ui" section is global configuration about Mercurial.
+[ui]
+# You need to set a "username" with your name and public e-mail 
+# address.  If you do not list this, Mercurial will use your local 
+# username and hostname.
+username = Jeff Squyres <jsquyres@example.com>
+
+# I like overriding the "ssh" to use compression (because text
+# compresses very well).
+ssh = ssh -C
+
+##################################################################
+
+# The "extensions" section is where you enable the various extra
+# functionalities.  Setting a "foo =" (with no value) is how you
+# enable the "foo" extension.
+[extensions]
+
+# The "color" and "highlight" extensions do nice things when printing
+# diff's, etc.  In general, these extensiosn enable syntax hilighting
+# in a bunch of places.
+color =
+highlight =
+
+# The "graphlog" extension adds the "--graph" command line parameter
+# to the "hg log" command, which shows a graphical depiction of all
+# branches and merges in the history of a repository.  Very handy for
+# understanding all that has happened in a repository's history.
+graphlog = 
+
+# The "fetch" extension allows "hg fetch", which is simply a shortcut
+# for "hg pull; hg up".
+fetch =
+
+# The "rebase" extension is quite important for keeping your changes
+# relevant to the tip of the "trunk" and/or squashing a series of
+# commits down into one commit for easier pushing up to the OMPI
+# community trunk.
+rebase = 
+}}}
+
+== Synchronizing to multiple Mercurial repositories ==
+
+Note that unlike SVN, you can have Mercurial repositories push/pull between multiple other Mercurial repositories.  Think of it more of a mesh than a tree -- as long as Mercurial repositories are "related" (i.e., have common history in the same repository), you can push and pull between them.
+
+This is more useful than it may initially sound; you may have multiple different development clusters and not have a common filesystem between them.  You can therefore do some development work on cluster A, test it and get it working, then push it to the repositories on cluster B.  You can then test/debug on cluster B, and once it's working, push it to cluster C.  Rinse, repeat until you have the code working on all three clusters.  ''Then'' you can push it back up through the SVN+HG "combo" repository up to the Subversion trunk.
+
+Another example is having an SVN+HG "combo" repository, a local "work" clone, and a remote/hosted clone (e.g., at bitbucket.org -- see below for details at bitbucket.org) for sharing the clone with remote developers.  The following shows this pictorially:
+
+[[Image(mercurial-multiple-repos.jpg)]]
+
+The can push/pull to multiple repositories by specifying a specific URL on the command line.  For example:
+
+{{{
+shell$ hg push ssh://hg.example.com/user/my_remote_clone
+...
+shell$ hg pull https://www.example.com/user/hgwebdir.cgi/some_other_clone
+}}}
+
+You can also setup aliases for common URL targets in your .hg/hgrc file in the "[paths]" section.  For example:
+
+{{{
+shell$ cat .hg/hgrc
+[paths]
+# "default" is what is used if no URL is passed on the command line
+default = ssh://hg.example.com/user/my_remote_clone
+# Note that you can list the same URL multiple times
+ssh-example = ssh://hg.example.com/user/my_remote_clone
+www-example = https://www.example.com/user/hgwebdir.cgi/some_other_clone
+}}}
+
+And then use the aliases just like you would have used the URLs on the command line:
+
+{{{
+# With no argument, the "default" alias is used
+shell$ hg push
+...
+
+# Or use one of the aliases from the [path] section
+shell$ hg push ssh-example
+...
+shell$ hg pull www-example
+...
+}}}
+
+== Sharing a Local Mercurial Repository ==
+
+If you want to share a Mercurial repository between multiple different developers who all have access to the local system where the repository resides, it's mainly a question of Unix file permissions.  Make sure that the all the files and directories in the hg tree are readable and writable by all the developers.  It is a common convention to have the shared repository be conflict-free and only used as a synchronization point -- no one does active development in that tree.
+
+For example, let's say that Bob sets up a local Mercurial repository named "ompi-btl-sync" (perhaps using the SVN+Mercurial technique described above, or perhaps just by cloning some other upstream Mercurial repository) and wants to share it with Alice.  An easy way to ensure that all files are writable and readable is to put them in a common Unix group; let's say that Bob and Alice share the group "openmpi":
+
+{{{
+shell$ hostname
+devel.example.com
+# cd into the previously-created ompi-btl-sync Mercurial repository
+shell$ cd ompi-btl-sync
+shell$ pwd
+/home/bob/hg/ompi-btl-sync
+shell$ chgrp -R openmpi .
+shell$ find . -type f -exec chmod g+rw {} \;
+shell$ find . -type d -exec chmod g=srwx {} \;
+shell$
+}}}
+
+This should setup the permissions appropriately for Alice and Bob to share the repository (assumedly where they will be working on Open MPI BTL improvements).  Both of them would typically clone this repository and do their work in the clones:
+
+{{{
+shell$ cd $HOME/hg
+shell$ hg clone /home/bob/hg/ompi-btl-sync bobs-ompi-btl-work
+}}}
+
+Bob and Alice can then push to and pull from ompi-btl-sync as relevant.  
+
+They can also push to and pull from ompi-btl-sync's upstream as relevant.  Remember: you usually don't do much (or any) work in ompi-btl-sync; just use it for synchronization between Bob, Alice, and upstream.  (Of course, you ''can'' do active work in ompi-btl-sync -- there's a lot of possible variations on the theme presented here; I'm just not going to go into those details)
+
+'''NOTE:''' Using group permissions as described above, it is important that Bob's and Alice's umasks are set to create new files with group writable permission.  This typically means having a umask of 2.
+
+'''NOTE:''' We have noticed that if Bob makes the repository and Alice accesses it, Alice may see messages similar to the following:
+
+{{{
+remote: Not trusting file /home/bob/hg/ompi-btl-sync/.hg/hgrc from untrusted user bob, group staff
+}}}
+
+This message appears to be harmless and can be safely ignored (if someone figures out how to get rid of this message, please let us know!  As far as we can tell, we've set all the permissions properly, etc.).
+
+== Sharing a Remote Mercurial Repository ==
+
+Sharing a remote Mercurial repository is pretty much the same as sharing a local repository.  You simply specify a remote protocol prefix on the repository location when cloning it.  For example, say Bob wants to clone the ompi-btl-sync on a different system:
+
+{{{
+shell$ hostname
+test-system.example.com
+shell$ hg clone ssh://devel.example.com/hg/ompi-btl-sync
+}}}
+
+Believe it or not, that's all Bob needs to do.  He'll have a local "ompi-btl-sync" clone that he can push and pull to just as if the clone were on the same local filesystem.  There are a few notable assumptions in the above example:
+
+ 1. Bob has ssh login privileges on devel.example.com
+ 1. For simplicity of the example, Bob has his ssh setup to login without entering passwords/passphrases
+ 1. The "/hg/ompi-btl-sync" part of the URL is relative to Bob's home directory.  Since "hg" was under his $HOME, there was no need to be more specific.  
+
+Alice could do the following:
+
+{{{
+shell$ hostname
+test-system.example.com
+shell$ hg clone ssh://devel.example.com/~bob/hg/ompi-btl-sync
+}}}
+
+The additional "/~bob" in the URL gives the absolute location of the repository (since it isn't relative to her $HOME).
+
+'''NOTE:''' As mentioned above, if using unix group permissions for file sharing, it is critical that each user's umask is set to 2 ''for non-interactive ssh logins! ''  You will need to check your shell startup files to ensure that your umask is set to 2 upon login.  For example, the following can be used to test whether your umask is setup properly:
+
+{{{
+shell$ hostname
+test-system.example.com
+shell$ ssh devel.example.com umask
+2
+shell$
+}}}
+
+== Using bitbucket.org ==
+
+http://bitbucket.org/ is an excellent free Mercurial hosting site.  You can sign up for a free account and start hosting your own Mercurial repositories on the site within minutes.  You can also gain read and/or write access to other people's Mercurial repositories that are hosted at bitbucket.
+
+Bitbucket offers pushing and pulling via SSH, HTTP, and HTTPS.  Using one of these 3 protocols should be suitable, even for those with stringent network protection policies.
+
+''We love bitbucket!! ''
+
+You can use bitbucket.org for Open MPI SVN+HG development as described above; here's how to set it up:
+
+ 1. Create a new/empty bitbucket Mercurial repository
+ 1. Setup a SVN+HG repository somewhere (even on your local desktop/laptop) as described above
+ 1. Edit the .hg/hgrc file (create it if it doesn't exist) and add the following:
+{{{
+[paths]
+default = ...URL of your bitbucket repository...
+}}}
+ 1. Then "hg push", and it'll push your repository up to the empty bitbucket repository.
+
+Note that the first time you push, the bitbucket repository must be empty.  After you push, the two repositories will be "related" and you'll be able to push and pull at will.

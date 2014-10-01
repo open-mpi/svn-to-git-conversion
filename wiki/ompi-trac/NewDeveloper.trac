@@ -1,0 +1,26 @@
+Are you a new developer to the Open MPI project?  Are you poking around in the code base and trying to build / debug the Open MPI code base?
+
+Here's a bunch of random tips for you, in no particular order:
+
+ * There's two sections of wiki documents that you need to read before reading this sections:
+    * All the "How to use Trac and Subversion" pages on the [wiki:WikiStart front page of the wiki]
+    * All the "Developer documets" pages on the [wiki:WikiStart front page of the wiki]
+ * Should I be working in a Subversion checkout or a tarball build?
+    * It depends on your requirements.  ''Usually'' we advise developers to work from a Subversion checkout.  It's a lot easier to keep in sync with ongoing development.
+    * If you're going to build from SVN, be aware that the default build includes a '''lot''' of debugging information and considerably slows down the run-time (i.e., '''do not''' try to run actual performance numbers with a default subversion / debugging build; you will see quite a bit of artificial performance overhead).  See the [source:trunk/HACKING the HACKING file] and [wiki:developer/ConfigureOptions Configure Options] for more information.  Additionally, SVN builds default to compiling with -g, while tarball builds default to -O2.
+    * If you're building from SVN, you '''must''' have recent versions of GNU Autoconf, Automake, and Libtool installed.  See the [source:trunk/HACKING the HACKING file] for more information.
+ * Why do I keep getting prompted about a certificate for Trac / wiki pages?
+    * The Open MPI web server is hosted at Indiana University in the United States.  The IU Computer Science department has a top-level Certifying Authority certificate with which they sign all their SSL certificates.  You can import this certificate to your system to avoid these warnings: http://www.cs.indiana.edu/Facilities/FAQ/Mail/csci.crt
+ * Need to get a gdb on each MPI process?  No problem.  But first:
+    * Make sure you have a ''very'' recent GDB.  Older versions don't seem to handle the function pointer redirection well.  We recommend GDB v6.6 or above.
+    * Setup your ssh so that X forwarding is enabled and works properly.  Then run with:
+{{{
+mpirun --mca pls_rsh_agent "ssh -X" --debug-daemons ... xterm -e gdb <your_mpi_application>
+}}}
+    * If your ssh automatically does "-X" (enables X forwarding by default), then you probably don't need the pls_rsh_agent MCA parameter.
+    * The --debug-daemons option makes the ssh connections stick around so that they can do the X forwarding properly
+ * If you're working in a single component somewhere (e.g., the udapl BTL component), note that you can save a ''lot'' of compiling time by a) building components dynamically (the default), and then just running "make install" in the component directory.  I.e., you do ''not'' have to "make install" the entire tree when you make a change to a single component; you only need to recompile/relink/reinstall ''just that one component''.  You also do not need to recompile/relink your MPI test application (because the plugin with the change will automatically be picked up when you run).
+    * Obviously, if you make changes outside of components, you may need to do a top-level "make all" and/or "make install" to pick up your changes.  This shortcut is mainly designed for those who are doing work within a single component (or small number of components).
+    * If you make changes within a library, you may not need to do a full top-level build -- if all your changes are confined to one of the three sub-systems (opal, orte, ompi), you can cd into that top-level directory and "make all" and/or "make install" from there.  This can save a bit of build time, too.
+ * How do I get SVN commit access?
+    * See the Open MPI web page about how to contribute: http://www.open-mpi.org/community/contribute/

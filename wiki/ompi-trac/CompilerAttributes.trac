@@ -1,0 +1,194 @@
+= Summary =
+The compiler attributes allow the developer to specify more context regarding a variable, structure definition or function.
+With these hints, the compiler then is able to do better error checking and give warnings or to better optimize the variable access, function call, or get rid of function calls altogether.
+
+= Current Status =
+The compiler's support for the following attributes is being checked for in during configure:
+ * optimization (always_inline, const, pure, malloc, may_alias, noreturn)
+ * data layout (align, packed)
+ * interface definition, API (deprecated, visibility, weak alias)
+ * hint for code analysis and debugging (format, nonnull, sentinel, unused, warn_unused_result)
+
+Depending on the availability, the attribute's macros are defined
+in {{{opal/include/opal_config_bottom.h}}}.
+
+= Developers Howto =
+The developper may detect occasions, where it is worthwhile to specify hints to the compiler, such as aliasing information or where heavily used functions shouldbe inlined.
+Functions and Variables should be chosen carefully, as some of these hints may not be correctly checked for by the compiler itself; some hints may also reduce performance, e.g. if always_inline is specified on a large function, which may blow the instruction cache, when referenced in many call-sites.
+
+The following short description is just a summary of the available attributes; please see the [http://gcc.gnu.org/onlinedocs/gcc/ online gcc-manual], specifically the [http://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html#Function-Attributes attributes on functions], [http://gcc.gnu.org/onlinedocs/gcc/Variable-Attributes.html#Variable-Attributes attributes on variables] and [http://gcc.gnu.org/onlinedocs/gcc/Type-Attributes.html#Type-Attributes attributes on types] for a thorough description.
+
+=== Optimization Attributes ===
+ * always_inline
+
+   This attribute forces the corresponding function to always be inlined, no matter what
+   the compiler's internal heuristics say. Example:
+   {{{
+#!c
+int square (int arg) __opal_attribute_always_inline__;
+}}}
+
+ * cold
+ 
+   See attribute hot below.
+   One example may be:
+   {{{
+__opal_attribute_cold__ int MPI_Finalize(void)
+   }}}
+
+
+ * const
+
+   The corresponding function does not use any other value, other than their arguments and have
+   no side effects, except their return value. Functions may particularly not call any global
+   memory. Same example as above.
+
+ * hot
+
+   Mark the function to be placed into the hot section upon linking (requires gcc > 4.2).
+   This requires the compile options {{{-freorder-functions}}}.
+   One example may be:
+   {{{
+__opal_attribute_hot__ int MPI_Wait(MPI_Request * request, MPI_Status *status)
+   }}}
+
+
+ * pure
+
+   The function only depends on its arguments and (non-volatile!) global memory.
+   Writing into global memory nevertheless is not allowed. Same example as above.
+
+ * malloc
+
+   To do better alias analysis, one may hint to the compiler, that this function is
+   allocating new memory, therefore this memory cannot alias any other pointer.
+   Good examples are:
+   {{{
+#!c
+char * strdup (const char * string) __opal_attribute_malloc__; 
+}}}
+   or
+   {{{
+#!c
+void *mca_mpool_base_alloc(size_t size, ompi_info_t *info) __opal_attribute_malloc__;
+}}}
+
+ * may_alias
+  
+   In contrast to the previously mention attribute, this attribute may be specified on 
+   types, to disallow alias-analysis; using a pointer with such a type will assume aliasing.
+   Good example may be found in  [http://gcc.gnu.org/onlinedocs/gcc-4.3.0/gcc/Type-Attributes.html#Type-Attributes gcc online manual on type attributes].
+
+ * noreturn
+
+   Specify that this function will never return, enabling optimizations and dead-code removal 
+   at the call-site.
+
+=== Data Layout Attributes ===
+ * align
+
+   Specify the alignment of the data; as this attribute has two forms, either with argument, 
+   or without an argument (for maximum available alignment for the type in question),
+   there exist two attributes:
+   {{{
+#!c
+struct {
+    char * name;
+    int initialized __opal_attribute_aligned__(8);
+}
+   }}}
+   and
+   {{{
+#!c
+struct {
+     char * name;
+     int initialized __opal_attribute_aligned_max__;
+}
+   }}}
+
+ * packed
+
+   To overcome alignment and padding, one may specify the packed attribute:
+   {{{
+#!c
+struct __opal_attribute_packed__ my_struct {
+     char * name;
+     int initialized;
+}
+   }}}
+
+Note that not all compilers support these features, so they should not be used to overcome alignment and padding rules in heterogeneous situations.
+
+=== Interface Definition and API Attributes ===
+ * deprecated
+
+   In case an interface changes, one may warn users of the soon-to-be-deleted 
+   functions or global variables.
+
+ * visibility
+
+   To reduce the amount of exported symbols, one may reduce the visibility of internal
+   functions, as described in the [wiki:"Visibility" Visbility]-section.
+
+ * weak alias
+
+   Just as {{{#pragma weak}}}, this enables weak aliasing of function names to other functions,
+   as used in Open MPI's profiling interface definition.
+
+=== Code Analysis and Debugging Attributes ===
+ * format
+
+   This attribute specifies the type and parameter to be used for argument checking as is done on printf and alike.  It takes two numeric arguments: the first indicates which argument is the "format" argument (i.e., the string that basically indicates which vararg types should follow) and the second is the number of the first variadic argument.   Example:
+   {{{
+#!c
+void opal_output(int id, const char *format, ...) __opal_attribute_format__(__printf__, 2, 3);
+}}}
+
+ * nonnull
+
+   This attribute specifies, that a certain argument in the function call must not be {{{NULL}}}. This allows easy checking at compile-time and hopefully less checking in the
+   function internally.
+   Example:
+   {{{
+#!c
+int MPI_Comm_group(MPI_Comm comm, MPI_Group *group) __opal_attribute_nonnull_all__;
+}}}
+
+   Additionally, you can check for specific arguments that should be non-null.  Example:
+{{{
+#!c
+void some_function(int a, char *b)__opal_attribute_nonnull__(2);
+}}}
+
+ * sentinel
+
+   Specify, that the last argument to a variadic function must be {{{NULL}}}; errors in doing
+   so will result in warnings, when using {{{-Wformat}}}.
+   As an example (which may also take {{{__opal_attribute_malloc__}}}):
+   {{{
+#!c
+char *opal_os_path(bool relative, ...) __opal_attribute_sentinel__;
+}}}
+
+ * unused
+
+   When compiling with {{{-Wunused}}} (or {{{-Wunused-function}}} for that matter),
+   one often gets a myriad of unnecessary warnings on unused arguments. This is due to the
+   system of MCAs, where a particular implementation does not require the argument.
+   To discard such warnings, one may specify this attribute.
+   Example:
+   {{{
+#!c
+static inline int32_t ompi_ddt_is_acceptable_for_one_sided(
+         const ompi_datatype_t* type __opal_attribute_unused__ )
+      { return true; }
+   }}}
+
+ * warn_unused_result
+
+   Similar to {{{unused}}}, you can have the compiler warn you if the return of a function is ignored.  Although we should technically ''never'' ignore the return of a function, it's even more important when the function returns something that should be freed (for example).  Example:
+{{{
+#!c
+char *opal_argv_join(char **argv, int delimiter) 
+        __opal_attribute_malloc__ __opal_attribute_nonnull__(1) __opal_attribute_warn_unused_result__;
+}}}

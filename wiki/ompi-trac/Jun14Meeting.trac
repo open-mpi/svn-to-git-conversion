@@ -1,0 +1,127 @@
+= June 2014 OMPI Developer's Meeting =
+
+This is a standalone meeting; it is not being held in conjunction with an MPI Forum meeting.
+
+== Logistics ==
+
+Doodle-chosen week for the meeting: http://doodle.com/yremrx62e2dvddkf
+
+ * Date: 9am, Tuesday June 24 through 2pm Thursday 26 June, 2014
+ * Location: '''[https://www.google.com/maps/preview#!q=Cisco+Systems%2C+Technology+Boulevard%2C+Rosemont%2C+IL&data=!4m15!2m14!1m13!1s0x880fb5fcac973f39%3A0xb33bd2cc29422ac4!3m8!1m3!1d791!2d-87.864704!3d41.974582!3m2!1i1477!2i819!4f13.1!4m2!3d41.974582!4d-87.864704 Cisco office (in Rosemont), Chicago, IL USA]''', in the Field Museum conference room
+   * '''Getting to the Cisco office from ORD:''' [https://goo.gl/maps/qjFsX You can take the Blue Line train to the Rosemont stop and walk from there], but be aware it's about .75 mile from the train station to the Cisco office.  You could also take a cab from ORD.
+   * Free wifi will be provided.
+   * Enter the Cisco office and turn right.  The "Field Museum" conference room is at the end of the hall on the left.
+   * If you have any trouble locating or accessing the building, you can reach Dave at +1-217-840-4002 (cell) or Jeff at +1-408-525-0971 (office forwarded to cell) or jsquyres@cisco.com (iMessage).
+
+== Attendees ==
+
+ * Jeff Squyres
+ * Dave Goodell
+ * Ralph Castain
+ * Nathan Hjelm
+ * George Bosilca  (starting from 6/25 in the morning)
+ * Ryan Grant
+ * Adrian Reber
+ * Howard Pritchard (LANL)
+ * Rolf vandeVaart (NVIDIA)
+ * Joshua Ladd (Mellanox Technologies)
+ * ...please add your name if you plan to attend...
+
+== Topics ==
+
+[https://cisco.webex.com/ciscosales/j.php?MTID=md875857cec1e0631aac69c3ad15d6965 Scheduled webex (pw=ompi)]: Tuesday, 2pm US Central / 3pm US Eastern, for Git / hosting discussion [[BR]]
+[https://cisco.webex.com/ciscosales/j.php?MTID=m0c8dafe9d7b9803da8630238b4d5759c Scheduled webex (pw=ompi)]: Wednesday, 9am US Central / 10am US Eastern, for PMI / PMIx discussion [[BR]]
+[https://cisco.webex.com/ciscosales/j.php?MTID=m4c8cf3abc08e10cbc54d1a743afbbe4f Scheduled webex (pw=ompi)]: Wednesday, 11am US Central / 12 noon US Eastern, for 1.9 branch discussion[[BR]]
+[https://cisco.webex.com/ciscosales/e.php?MTID=m6b0071e6f8d234280df1e218c1c01e4a Unscheduled webex (pw=1111)]: Wednesday for Nathan's BTL presentation[[BR]]
+[https://cisco.webex.com/ciscosales/j.php?MTID=m8164bfce7e80e941d18dbbc750a433ff Scheduled webex (pw=ompi)]: Thursday, 9am US Central / 10am US Eastern, for FT kinds of things (so that Josh can join us).  
+
+ * Primary topics will be MPI_THREAD_MULTIPLE and asynchronous progress.
+   * ...
+ * State of checkpoint/restart support in Open MPI (''webex needed'')
+ 
+== RESOLVED ==
+
+ * Asynchronous progress.  3 options (see attached image from whiteboard):
+   1. SEND_SIGNALED approach
+      * ...but if the BTL can ignore this flag, what's the point?
+   1. Each BTL does whatever it needs to do internally for progress -- i.e., there's no more calls to opal_progress()
+      * there are latency and noise/jitter issues with this approach
+   1. PML (or something) runs progress asynchronously -- i.e., BTLs don't have to do it themselves, they can rely on an external/asynchronous agent polling them for progress
+      * MPICH hack
+      * BG/Q handoff
+ * Going to try a mix of 1 and 2: we absolutely don't want to give up latency performance.  So have a "Fastpath" (i.e., synchronous/run in main app thread) where things like eager RDMA can be used (eager RDMA-like approaches obviously can't be used in progress threads that share cores with apps), and also have an async progress thread in BTLs (possibly shared between multiple BTLs? There are tradeoffs... it's not clear which is better).  As long as the fastpath and the progress thread can play nice together, we might be ok.  LANL and UTK are going to go try implementing this and see how it works for both SM, ugni, and openib (especially see if we can preserve the eager RDMA optimization).  Meet again on July 23: http://www.open-mpi.org/community/lists/devel/2014/06/15064.php
+
+ * Setup an OMPI-level thread that progresses its own libevent?  Concrete case for it: usnic BTL does this.  Nathan said he should probably convert the SCIF BTL progress thread to use its own libevent (since there's a public API to get the SCIF fd).  And the openib BTL could use a libevent, too (would simplify a bunch of the old code there).  All of these could share a common thread and a common libevent, rather than each of them spinning up their own thread+libevent.
+    * Jeff volunteered to code this up.
+    * '''...after the meeting:''' we decided not to do this.  Reasons:
+       * it's not terrible to have multiple blocking threads
+       * it's not terrible for each entity to have its own libevent base
+       * let's gain some more experience with multiple blocking threads; we can always consolidate libevents later, if we want to
+       * compromise: Ralph added some helper APIs in OPAL to spin up progress threads to at least make that a little easier (see opal_start_progress_thread() and opal_stop_progress_thread() and opal_restart_progress_thread() in [[source:trunk/opal/runtime/opal_progress_threads.h]]
+ * Brian didn't have a chance to rip out OMPI_PROGRESS_THREADS stuff before he left.
+    * Ralph removed this stuff during the meeting (r32070).
+    * ...but it seems to have broken something.  Need to review r32070 closer...
+ * List of BTLs reviewed: which ones are thread safe?
+    * Claimed/assumed thread safe: tcp, sm,self, vader, scif
+    * ''Probably'' thread safe: sm, smcuda
+    * Not thread safe (all now emit warning in btl_base_verbose output if they disqualify themselves due to THREAD_MULTIPLE): usnic (Cisco), openib (LANL), ugni (LANL)
+
+ * Move Open MPI to git?
+   * Ralph's feedback from the github git training (and git usage models)
+   * See attached PPTX that was presented and discussed in the room.
+   * Lots of discussion in the room about this one.  Short version: git+github seems to be what the community wants.
+   * We should definitely expect pain during the transition, and probably for 6+ months afterwards -- while the community is becoming acclimated to git.
+   * No timeframes or specifics have been decided; some more research is necessary:
+      * Proposal to abandon Trac, too.  Use both pull requests to replace CMRs, and also use Github issue tracking.
+      * We need to investigate Github issue tracking, see how it works, can we use commit message tokens to close tickets (which we have come to love in Trac), etc.
+      * We need to investigate Github pull request approval process -- how exactly will that work?  CMRs currently require a code review -- Github has the concept of code reviews; we just need to define the procedure that we'll use on Github.
+
+ * Reduce cpu usage during MPI_Finalize so that other threads can use the cpu? Maybe remove barrier in Finalize?
+   * If one/more processes are late to call MPI_FINALIZE, ompi_mpi_finalize() spins heavily in the OMPI_WAIT_FOR_COMPLETION() while waiting for the RTE barrier to complete (it's just a tight loop around opal_progress()).
+   * RESOLVED: Ralph will make a new OMPI_WAIT_FOR_COMPLETION_LAZY() that adds a usleep(100) in the tight loop around opal_progress().
+   * DONE AND COMMITTED TO TRUNK
+ 
+ * MTT hangs
+    * PROBLEM: Periodic MTT development introduces bugs.  Sometimes it's hard to tell the MTT bugs from the OMPI bugs (especially for those not involved in MTT development).
+    * RESOLVED: Let's use git tags and tell the OMPI community when to move up to the next tag. MTT development can occur on master as usual, but then the OMPI/testing community only uses master at defined points (i.e., specified tags) which should be known to be good.
+ 
+* Locality: definition, expected value for Brock's sparse cpuset case
+    * RESOLVED: leave locality as-is, there is no reason for changing it beyond the coll/ml issue. Fix the coll/ml selection logic to more properly account for the mismatched binding case (i.e., one proc bound and other not bound).
+
+ * Targeted MCA params: specific by node, type of proc (section default param file?), app_context
+    * RESOLVED: Nathan will add support for defining sections in the default mca param file - currently supported include "daemon", "app", "hostname <foo>", and "global". A file with no section tags in it will be treated as all global, as will all params specified before the first section tag. We will add a new function call "opal_var_set_context" that will take:
+        * a list defining the precedence order for the sections - i.e., if the same param name appears in multiple sections, the precedence order for resolving it
+        * a substitute prefix for MCA param names - i.e., replace "OMPI_MCA_..." with "FOO_MCA_..."
+        * a substitute filename prefix for the default filenames - i.e., replace "openmpi-xxx" with "foo-xxx" when looking for the default mca param file and other such files.
+    * RESOLVED: We will set specified environmental variables as per the prior discussion on the devel mailing list. We will add:
+        * a new MCA param (name to be defined, but something like "envar") that will take a delimited list of envars. Each entry can either just be an envar name (in which case mpirun, if used, will pick it up and forward it to the procs) or a name=value pair.
+        * if the -x option is given to mpirun and the new MCA param is ''not'' specified, then we will issue a "deprecated" warning and execute the request.
+        * if the -x option is given to mpirun and the new MCA param ''is'' given, then we will issue a "deprecated and conflict" error and exit
+
+* Minimize/remove modex
+        * Ralph described the effort to restore the ability to skip the modex operation for transports that do not require it. Intel is working to provide support for static endpoint assignment in ORCM, thus allowing transports to receive endpoint info for all other procs at startup instead of needing to exchange it (i.e., the equivalent of using static ports for TCP). Ralph will contact various BTL owners to discuss their needs as progress is made. Goal is to achieve exascale job launch thru MPI_Init in less than 30 seconds.
+
+* PMI framework
+        * Artem took an initial step towards refactoring the PMI support, but we need to take the next step to complete the process. The plan is to create a new PMI framework down in OPAL, with components for Cray PMI, Slurm PMI-1, Slurm PMI-2, PMIx, and any other PMI client. Mellanox, AMD, LANL, Intel, and Artem have all volunteered to help implement - Ralph will coordinate via a new email thread. Goal is to have the new framework working in the next few weeks. Ralph explained that ORTE will then migrate to having the orteds host a PMIx server as a replacement to the current daemon collective system so we have one common method for apps to use (i.e., everything flows thru the PMI framework).
+        * Ralph has created the new PMI framework and components for Cray, Slurm1, and Slurm2 support along with their required configure logic. He will complete the initial plumbing for it this weekend and then turn it over to the LANL, Mellanox, and Artem folks for completion.
+
+* v1.9 discussions
+    * RM / GK?
+        * Mellanox, Invidia, LANL, Houston - all considering the possibility of volunteering
+    * Timeline / feature set?  (can't do anything more than super-rough discussion, but it's worth starting)
+        * Agreed that thread-multiple is a must, some degree of async progress is desirable.
+        * BTL move to OPAL plus interface extensions
+        * PMI framework modifications
+        * Revised MCA param changes
+        * Need to make a more complete list of required and desired elements.
+    * Should OMPIO be the default? (instead of ROMIO)
+        * Edgar will set OMPIO as the default on the trunk for now, we will work to add some useful stress tests to the ompi-tests repository so MTT can run against it, LANL will do some tests on their system as well. We'll make final decision on default for 1.9 as we near the branch point.
+
+* Discuss recent del_procs change (individually del_procs'ing each proc before BTL module finalize) and implications for the usnic BTL: in-band vs. out-of-band barriers in COMM_DISCONNECT and FINALIZE?  See #4669 for more details.
+    * RESOLVE: we will use out-of-band barriers in both locations and focus some effort on improving its performance at scale.
+
+*  RFC: Extending the BTL interface to include network atomic operations.
+    * RESOLVE: replace current put/get calls with put_loc/get_loc where we explicitly provide the offset and segment instead of within the descriptor. Change callback to get the callback data separate from the descriptor. Will investigate in having multiple transactions tied to a single descriptor.
+
+
+Since this will be a full meeting in itself, we'll have a good amount of time for discussion, design, and for ''hacking!''

@@ -1,0 +1,28 @@
+= Using the proper escape codes for printf()-like functions =
+
+With the recent addition of attribute support for printf()-like functions, there are siginificantly more warnings from Open MPI regarding improper types being passed to opal_output() when using compilers supporting the printf format attribute.  To help with the warnings, here is a list of the format types you should use for various types common in Open MPI.  
+
+'''You should look through [source:/trunk/opal/include/opal_stdint.h] to see all the macros that are available''' -- the ones listed below are only a small sample.
+
+If the format is in quotes (for example, {{{"%d"}}}) it can be included directly in the format string, but if it is not ({{{PRId32}}}, it should be concatenated by the preprocessor, with a leading {{{"%"}}}.  For example:
+
+{{{
+#!c
+#include "opal_stdint.h"
+
+uint32_t foo = 1;
+long bar = 1;
+printf("foo: %" PRIu32 ", bar: %ld\n", foo, bar);
+}}}
+
+|| type || format || notes ||
+|| {{{int32_t}}} || {{{PRId32}}} || note ^1^ ||
+|| {{{uint32_t}}} || {{{PRIu32}}} || note ^1^ ||
+|| {{{int64_t}}} || {{{PRId64}}} || note ^1^  ||
+|| {{{uint64_t}}} || {{{PRIu64}}} / {{{PRIx64}}} || note ^1^, use {{{u}}} if an unsigned variable, {{{x}}} if a remote address ||
+|| {{{void*}}} || {{{PRIxPTR}}} / {{{PRIuPTR}}} || Cast to {{{(uintptr_t)}}} ||
+|| {{{size_t}}} || {{{PRIsize_t}}} || Might need to cast to {{{unsigned long}}} ||
+
+== Notes: ==
+
+^1^ Not yet fully portable, but should work on Linux, Mac OS X, recent BSDs, and Solaris without problem (ticket #869).

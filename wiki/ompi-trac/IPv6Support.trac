@@ -1,0 +1,9 @@
+Detail coming soon...  In the mean time, some rough notes:
+
+== {{{sockaddr}}} Structures ==
+
+When declaring space to hold either an IPv4 or IPv6 address, use a {{{struct sockaddr_storage}}}.
+
+When an interface function can take either an IPv4 or IPv6 sockaddr, use just {{{struct sockaddr*}}}
+
+

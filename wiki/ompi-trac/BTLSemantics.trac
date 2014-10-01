@@ -1,0 +1,41 @@
+
+
+Prior to the patch r14768, PML OB1 used the BTL with an implied ordering and completion semantic. 
+You can view this semantic in one of three ways for those BTLs marked with BTL_FLAGS_FAKE_RDMA: 
+
+ 1. local completion of an btl_put/get operation indicates remote completion of an btl_put/get operation 
+ 1. Ordering is guaranteed between btl_put and btl_send operations on the same BTL
+ 1. local completion of an btl_put/get operation followed by a btl_send gives us ordering between the btl_put/get and the btl_send on the same BTL
+
+For BTLs marked with BTL_FLAGS_RDMA the semantics could be viewed in the following ways: 
+
+ 1. local completion of an btl_put/get operation indicates remote completion of an btl_put/get operation 
+ 1. Ordering is guaranteed between btl_put and btl_send operations among ALL BTLs
+ 1. local completion of an btl_put/get operation followed by a btl_send gives us ordering between the btl_put/get and the btl_send among ALL BTLs
+
+So we actually had a special case for some BTLs because they required that a FIN message for an RDMA be sent over the same BTL, I believe MX needed this because of implementation details. 
+OpenIB didn't need this because local completion implied remote completion (on current hardware with minimal buffering), this is actually not the semantics of OpenIB verbs however. 
+
+
+My "solution" was designed to give us a well defined ordering semantic for the BTL. The overall idea is that OB1 can get by just fine if ordering between two fragments can be guaranteed. We don't need ordering among all fragments, really just the RDMA and the FIN message. Here is a sketch of this semantic: 
+
+ * btl_alloc(BTL_NO_ORDER) -> returns a descriptor A that has no ordering guarantees
+ * btl_send(A) -> send the descriptor A, on return of this function an order tag on the descriptor will be filled in
+ * btl_alloc(A->order) -> returns a descriptor B that will be ordered w.r.t. descriptor A
+ * completion callback for btl_send(A)
+ * btl_send(B) -> descriptor B is guaranteed to arrive on the remote peer (and make its active message callback) after remote completion of descriptor A
+
+So for the RDMA operations that OB1 uses we have the following: 
+
+ * btl_prepare(BTL_NO_ORDER) -> returns a descriptor A that has no ordering guarantees 
+ * btl_put(A) -> put the descriptor A, on return of this function an order tag on the descriptor may be filled in 
+ * btl_alloc(A->order) -> returns a descriptor B that will be ordered w.r.t. descriptor A
+ * completion callback for btl_put(A)
+ * btl_send(B) -> descriptor B is guaranteed to arrive on the remote peer (and make its active message callback) after remote completion of descriptor A
+
+
+Some modifications to the current implementation: 
+ 
+ * The order tag is valid after a call to btl_send/put/get and remains valid until the descriptor is reused or freed
+ * Use a (void*) as opposed to a uint8_t for the order tag, this allows the BTL to hang whatever it wants off the descriptor. 
+ * Change BTL_NO_ORDER to NULL. 

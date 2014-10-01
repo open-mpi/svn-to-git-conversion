@@ -1,0 +1,51 @@
+= Submitting Changeset Move Requests (CMRs) =
+
+Since only gatekeepers have write permissions to release branches in the Open MPI repository, developers must submit "changeset move requests" (CMR) to get commits on release branches.  CMRs are just like normal tickets except that they have the special '''"changeset move request"''' type (as opposed to "defect" or "enhancement").  Be sure to select this type when creating your ticket, or the gatekeepers may not notice it (and your code may not get moved to the release branches). 
+
+== Typical process ==
+
+ 1. Submit a Trac ticket for the CMR
+   * Set the type to be "Changeset move request"
+   * Have it contain a list of SVN r numbers to move from the trunk or a patch (see "Best Practices", below, for more explanation)
+ 1. Get the code to be moved reviewed by at least one other developer.  If it's a "big" change, get more than one developer to review it (this is a subjective measure -- one developer is a minimum).
+   * If the code has already been reviewed by the time you create the CMR, just indicate who already reviewed it in the body of the ticket and assign the ticket to the RM for the series.
+   * If the code has not already been reviewed, indicate that you're still waiting for a review (indicate who is reviewing, if you know).  If you know who is doing the review, assign the ticket to them.
+ 1. The CMR reviewer will either:
+   * Approve the CMR: adding a comment that they approved and then assign the ticket to the RM.  '''The RM does not know to process CMRs unless the ticket is assigned to them.'''
+     * '''For v1.4 CMRs:''' assign the ticket to the "ompi-rm1.4" Trac user
+     * '''For v1.5 CMRs:''' assign the ticket to the "ompi-rm1.5" Trac user
+     * ...and so on
+   * Reject the CMR: adding a comment why the CMR was rejected, and assign it back to the CMR submitter.  The reviewer and submitter may want to have out-of-band discussions to get the CMR in shape to be approved.
+ 1. Once the CMR has been assigned to the RM, the RM will approve or reject the CMR.
+ 1. If the RM approves the CMR, the RM will assign the ticket to the GK (or the person who will actually commit it to the release branch).
+ 1. Once the CMR code is actually committed to the release branch, the person who committed the CMR code to the release branch will close the CMR ticket as "fixed".  It's good form (but not strictly necessary) to [wiki:TracSVNCommitMessages use SVN commit messages to close CMRs].  The [source:trunk/contrib/dist/gkcommit.pl] script is very helpful for exactly this purpose.
+ 1. If the patches / r numbers associated with a CMR fail to apply to the target release branch (e.g., due to conflicts), the CMR will be assigned back to the submitter, who is responsible for fixing the problem.
+   * If the CMR contains SVN r numbers to apply, this usually means that the submitter needs to get a checkout of the target release branch and manually create a patch.  The submitter should then attach a patch to the CMR ticket that applies cleanly to the target release branch.
+   * If the CMR contains a patch, the submitter will need to revise and attach a new ticket to the CMR ticket that applies cleanly to the target release branch.
+   * The submitter should use their own discretion as to whether the change was small enough to assign the ticket back to the GK -- who will simply apply the new patch -- or whether the change was large enough to require re-reviewing and re-RM-approving before the GK will commit it.
+ 1. Unless specifically instructed by the RM, ''individual developers should not commit to target release branches directly.''
+
+Note: '''IT IS THE CMR SUBMITTER'S RESPONSIBILITY TO SHEPHERD CMR'S THROUGH THE ENTIRE PROCESS'''
+
+
+== Best practices ==
+ * Always submit CMRs as new tickets to assure they are noticed - do not file as an appendices to a (closed) bug ticket
+ * Enter a good "short summary" title for the bug.  Be at least somewhat descriptive of what the code to move does.  For example, don't say "Move !r12345 to v1.2", say "Move OpenIB BTL fix to v1.2".
+ * In the full description, include one of the following:
+   * '''Preferred method''': A full list of trunk commits (r numbers: e.g. r1234, r3456) that need to be moved, '''OR'''
+   * A description of the patch that you have attached (or will attach once the ticket is created -- ''always'' attach patches to the ticket; do ''not'' cut-n-paste patches into the ticket text area), '''OR'''
+   * In extreme cases, attach a tarball with changed files, etc.  Talk with the gatekeeper before doing this, though.
+ * Even if you choose to supply a patchfile or tarball, please list the corresponding r#s from the trunk since it dramatically helps with bookkeeping and saves the gatekeeper time.
+ * All ''code'' moved to release branches must be reviewed by at least one other developer.  List in the full text who that developer is, or clearly indicate that the code has not yet been reviewed.  Once you get someone to review the code, amend the ticket to say who reviewed it.  Gatekeepers will not move code unless the ticket mentions who the reviewer(s) is(are).  Note that documentation fixes and platform file changes do not require reviews, but reviews are still welcome.
+ * If your changeset is all prior subversion commits, the gatekeeper will likely use those commit messages for the commit on the release branch.  But if your changeset request is solely a patch, include a commit message for the gatekeeper to use, along with any corresponding r#s that the patch was based on.
+ * File a different changeset move request for each branch that you want the code moved to.  Do ''not'' file one changeset request for multiple moves.  This not only prevents confusion between gatekeepers, it also improves the parallelization of the application of your changes to release branches.
+ * If appropriate, please include a short (preferably under 80 characters, but multi-line is okay) description that could be put into the NEWS file that would be meaningful to a sysadmin or enduser deciding if they should upgrade to fix a problem they have been experiencing.  Also, please include a "Thanks to Jane Doe for the bug report/fix" line if you can.
+
+Note that if your CMR does not apply cleanly to the target release branch(es), the gatekeeper may reject it and have you submit again with something that does apply cleanly.  So you may want to try applying to your target release branches before submitting the changeset move request.  See the attached script named [attachment:merge "merge"] to trivially bring over r numbers from the OMPI SVN trunk to a local SVN checkout (typically an OMPI release branch).  You can use this script as follows:
+
+{{{
+shell$ cd /path/to/ompi-1.1/checkout
+shell$ ./merge 12345 12346 12390
+}}}
+
+which will apply the three r numbers ''in order'' to your workspace.

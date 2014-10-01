@@ -1,0 +1,75 @@
+= The RecoS Framework =
+[[PageOutline]]
+
+'''Note:''' This documentation is out of date. The Recos Framework was not adopted into the Open MPI trunk. Further documentation regarding support for application-level fault tolerance and support from ORTE will be posted at a later date. This page is preserved for those using the experimental branch.
+
+The Recovery Supervisor/Service framework was created to provide a flexible means of defining and supporting multiple recovery strategies within OMPI's RTE (ORTE). The primary function of the framework is to define the steps to be taken when one or more processes abnormally terminate within a job. The default procedure used by OMPI is to immediately terminate the job - however, this is too limiting, especially for long-running applications where the probability of a failure occurring during the lifetime of the job can be non-negligible.
+
+RecoS works in concert with other ORTE frameworks (errmgr and plm) to execute the defined failure response. It should be noted that the current implementation of RecoS, along with its API definitions, is a work-in-progress. As experience is generated, it is expected that these APIs will change along with their underlying implementations.
+
+
+== Building RecoS Support ==
+
+RecoS support is disabled by default. Using RecoS, therefore, requires both that the code be configured with RecoS support, and that an MCA parameter be set to activate it:
+
+ * configure the code --with-ft=recos
+ * set OMPI_MCA_recos_base_enable=1
+
+Note, however, that these steps will ''not'' result in behavior different from OMPI's default response to abnormal process termination. This is because the default RecoS module, called ''ignore'', does not implement a recovery strategy - it ''ignores'' the error, and thus falls through to the default OMPI response.
+
+An optional module, called ''orcm'', implements a recovery procedure intended ''solely for non-MPI jobs''. This module is only selected when specifically requested by adding ''-mca recos orcm'' to your command line. Using this module with MPI jobs will result in unpredictable behavior.
+
+Other modules that ''do'' support MPI jobs have been developed and will be included at a later (more appropriate) time.
+
+== Operational Overview ==
+
+The ORTE launch procedure begins with a pair of setup functions that determine the available allocation of nodes and map the job against those resources (see orte/mca/plm/base/plm_base_launch_support.c). Once that has been completed, and prior to actually launching the job, a call is made to the RecoS attach_job API. This function calls the errmgr's register_callback API and provides it with a callback function which is to be invoked whenever a process is reported to the errmgr as abnormally terminated.
+
+[[Image(Recos.jpg, align=right)]]
+
+When a process abnormally terminates, the local ORTE daemon (orted) on that node receives a waitpid callback and sends a message to the Head Node Process (HNP, typically ''mpirun'') notifying it of the failure (see the flow chart at right). This is received in the ORTE PLM base receive function (see orte/mca/plm/base/plm_base_receive.c), which unpacks the message to identify the name of the process and its termination state, and updates the global data object for that process. The PLM receive function itself does not check the updated state to determine whether or not the process abnormally terminated - instead, it calls the PLM job_complete function (see orte/mca/plm/base/plm_base_launch_support.c).
+
+The job_complete function checks to see if any processes in the specified job have an abnormally terminated state. If so, then the job is flagged as also having an abnormally terminated state, and the errmgr's proc_aborted API is invoked.
+
+It is at this point that the RecoS callback function is called. The callback function cycles through the available RecoS modules until either all have been called, or a module sets the ''stop'' flag indicating that no further action should be taken. If the cycle is completed without the ''stop'' being invoked, the default base action (to abort the job) will be executed.
+
+Each module can execute any logic it chooses - the key is to understand that whatever response it implements ''must'' be fully executed within it. The errmgr simply returns once control is passed back from the callback function. 
+
+== Composite Framework ==
+
+The RecoS framework is a composite framework in which multiple components 
+are often active at the same time and may work on a single external call
+to the interface functions.
+
+This framework allows the user to compose a job recovery policy from multiple
+individual components. Each component will operate on the function call if it
+has a registered function. If no component registers a function then the base
+functionality/policy is used.
+
+For example, consider the 3 components on the left (C1, C2, C3), and the
+API function calls across the top:
+
+
+
+{{{
+      | Priority | Fn1  | Fn2  | Fn3  | Fn4  |
+-----+----------+------+------+------+------+
+ base |   ---    | act0 | ---  | ---  | act6 |
+ C1   |    10    | act1 | ---  | act2 | ---  |
+ C2   |    20    | ---  | act3 | ---  | ---  |
+ C3   |    30    | act4 | act5 | ---  | ---  |
+ -----+----------+------+------+------+------+
+}}}
+
+A call to Fn1 will result in:
+  act4, act1
+A call to Fn2 will result in:
+  act5, act3
+A call to Fn3 will result in:
+  act2
+A call to Fn4 will result in:
+  act6
+
+Notice that when the base function is overridden it is not called. The base
+function is only called when the function has not been overridden by a
+component.
