@@ -5,9 +5,11 @@ set -x
 # Customize to suit
 base=$HOME/git/ompi-svn-to-git-conversion-aug-2014
 scripts_dir=$base/scripts
-rname=ompi-svn-to-git
+repo=ompi
+rname=$repo-svn-to-git
 rdir=$base/$rname
-svn_url=https://svn.open-mpi.org/svn/ompi
+#svn_url=https://svn.open-mpi.org/svn/$repo
+svn_url=file:///home/jsquyres/git/ompi-svn-to-git-conversion-aug-2014/svn/ompi
 
 do_svn_init=0
 
@@ -94,7 +96,7 @@ while test $done -eq 0; do
             echo "===== GIT SVN FETCH FAILED"
             echo "===== START: $start"
             echo "===== STOP:  $stop"
-            pushover SVN git clone failed
+            $DOTFILES/pushover git svn clone FAILED
             exit 1
         fi
         sleep 2
