@@ -106,7 +106,7 @@ if (%$xref_hash) {
     $new_msg .= "The following SVN revision numbers were found above:\n";
     foreach my $sr (sort {$a <=> $b} keys %$xref_hash) {
         my $gr = $xref_hash->{$sr};
-        $new_msg .= "  r$sr --> $gr\n"
+        $new_msg .= "  r$sr --> open-mpi/ompi\@$gr\n"
     }
 
     if (%$ranges) {
@@ -114,7 +114,7 @@ if (%$xref_hash) {
         $new_msg .= qq{Revision number ranges (suitable for "git log"):\n};
         foreach my $sr (sort {$a cmp $b} keys %$ranges) {
             my $gr = $ranges->{$sr};
-            $new_msg .= "  r$sr --> $gr\n"
+            $new_msg .= "  r$sr --> open-mpi/ompi\@$gr\n"
         }
     }
 }
