@@ -12,3 +12,16 @@ There's at least 4 parts:
 3. Trac tickets -> Git issues translation
 
 4. Convert OMPI tarball scripts to use git instead of svn
+
+--------------------------
+
+#1 was done within this base directory.
+
+#2 and #3 were done in the wiki and tickets directories,
+respectively.  See their README.txt files for more detail.
+
+For the SVN->Git conversion, it was a complicated process.  There are
+several scripts involved; see the scripts/svn-to-git/README.txt file
+for more info.
+
+
