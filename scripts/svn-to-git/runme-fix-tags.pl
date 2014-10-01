@@ -47,7 +47,7 @@ my $svn_url = "https://svn.open-mpi.org/svn/ompi";
 # The git filter-branch we use below doesn't work properly with git
 # 1.8.5.x -- but I know it works with git 1.8.2.1.  So use that one.
 # JMS HACK: Put in specific location of Modulecmd.pm
-require("/home/jsquyres/svn/mtt/lib/Env/Modulecmd.pm");
+require("/home/jsquyres/git/mtt/lib/Env/Modulecmd.pm");
 Env::Modulecmd::unload("cisco/git");
 Env::Modulecmd::load("cisco/git/1.8.2.1");
 
@@ -134,6 +134,7 @@ $tag_origins->{"v1.7.5"} = "r31178";
 $tag_origins->{"v1.8.0"} = "r31295";
 $tag_origins->{"v1.8.1"} = "r31483";
 $tag_origins->{"v1.8.2"} = "r32596";
+$tag_origins->{"v1.8.3"} = "r32794";
 
 # Look up r numbers for tags with simple histories (dynamically
 # looking it up in SVN avoids human error).
