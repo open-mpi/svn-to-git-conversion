@@ -11,9 +11,22 @@ the bug report about this to confirm that it's an actual git bug, but
 I didn't save the URL reference, sorry.  Perhaps a future version of
 git will fix the bug, but we used 1.8.2.1 for this conversion.
 
-For ompi, the main script is "runme.sh".  In the final iteration, it
-used a svnsync local copy of the OMPI repo.  It saved a bit of time in
-the early commit conversion, but as the r numbers increased, the
+SIDENOTE: Re-reading this README over a year after I wrote it (in Dec
+     2015), I realize I left out a key assumption from the text: when
+     we switched to Git, the Open MPI SVN repository was up to r32823.
+     Meaning: it was a *giant* SVN repo.  That's why the conversion
+     process took 8+ hours, why we tried to factor in network delay
+     when accessing the remote SVN server, etc.  If your SVN repo has
+     far fewer commits, some of time-saving techniques that we tried
+     to use probably won't apply to you -- e.g., your conversion could
+     take just a few minutes.  If you're coming here from outside the
+     Open MPI project, you will likely mainly care about steps 4
+     (preprocess) and 6 (re-writing commit messages to include SVN r
+     numbers, cross references to new git commit hashes, etc.).
+
+For Open MPI, the main script is "runme.sh".  In the final iteration,
+it used a svnsync local copy of the OMPI repo.  It saved a bit of time
+in the early commit conversion, but as the r numbers increased, the
 conversion time became increasingly dominated by local computation.
 So the use of a local repo wasn't as much of a win as I had hoped.
 
